@@ -67,19 +67,23 @@ body {
 .node-header:active { cursor: grabbing; }
 
 .lang-badge {
-  font-size: 10px; font-weight: 700; font-family: monospace;
+  font-size: 10px; font-weight: 500; font-family: monospace;
   letter-spacing: 0.5px; text-transform: uppercase;
-  padding: 2px 7px; border-radius: 3px;
-  background: #1f6feb; color: #fff;
+  padding: 2px 6px; border-radius: 3px;
+  background: transparent; color: #484f58; border: 1px solid #30363d;
   white-space: nowrap; flex-shrink: 0;
 }
 
 .node-actions {
-  margin-left: auto; display: flex; gap: 4px;
+  display: flex; align-items: center; gap: 4px;
   opacity: 0; transition: opacity 0.15s;
+  flex-shrink: 0;
 }
 .node:hover .node-actions,
 .node.selected .node-actions { opacity: 1; }
+.node-actions .lang-badge { opacity: 0.5; transition: opacity 0.15s; }
+.node:hover .node-actions .lang-badge,
+.node.selected .node-actions .lang-badge { opacity: 1; }
 
 .node-btn {
   padding: 3px 8px; font-size: 11px;
@@ -90,6 +94,37 @@ body {
 .node-btn:hover { background: #30363d; }
 .node-btn.danger { border-color: #da3633; color: #f85149; }
 .node-btn.danger:hover { background: #3d1f1e; }
+
+.node-meta {
+  flex: 1; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.node-title {
+  font-size: 13px; font-weight: 700; color: #e6edf3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.node-filepath {
+  font-size: 11px; color: #8b949e; font-family: monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.meta-inputs {
+  display: flex; flex-direction: column; gap: 0;
+  border-bottom: 1px solid #30363d;
+}
+.meta-inputs input {
+  background: #0d1117; color: #e6edf3;
+  border: none; outline: none;
+  padding: 5px 16px;
+  font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.meta-inputs input:first-child {
+  font-weight: 600; border-bottom: 1px solid #21262d;
+}
+.meta-inputs input:last-child {
+  font-size: 11px; color: #8b949e; font-family: monospace;
+}
+.meta-inputs input::placeholder { color: #484f58; }
 
 .node-body {
   flex: 1; overflow: auto; position: relative;
@@ -161,6 +196,15 @@ body {
 #toolbar .logo { color: #388bfd; font-weight: 700; font-size: 14px; }
 #toolbar .sep { width: 1px; height: 18px; background: #30363d; flex-shrink: 0; }
 #toolbar .hint { font-size: 11px; color: #6e7681; }
+
+#canvas-title {
+  font-size: 14px; font-weight: 700; color: #e6edf3;
+  background: transparent; border: none; outline: none;
+  min-width: 80px; max-width: 420px; width: auto;
+  font-family: inherit;
+}
+#canvas-title::placeholder { color: #484f58; font-weight: 400; }
+#canvas-title:focus { color: #fff; }
 .tb-btn {
   padding: 5px 12px; font-size: 12px;
   border: 1px solid #30363d; border-radius: 6px;
@@ -207,7 +251,8 @@ body.link-mode .node:hover {
 <body>
 
 <div id="toolbar">
-  <span class="logo">∞ Code Canvas</span>
+  <span class="logo">∞</span>
+  <input id="canvas-title" placeholder="キャンバスのタイトル" spellcheck="false">
   <div class="sep"></div>
   <button class="tb-btn" id="btn-add">＋ ブロック追加</button>
   <div class="sep"></div>
@@ -340,6 +385,7 @@ function addNode(x, y, code) {
     id: S.nid++, x, y, w: 430, h: 270,
     code: code ?? defaultCode(),
     lang: 'javascript',
+    title: '', filePath: '',
   };
   S.nodes.push(n);
   const el = document.createElement('div');
@@ -369,13 +415,15 @@ function renderNode(n, el) {
   if (S.editing === n.id) {
     el.innerHTML = editHTML(n);
     const ta = el.querySelector('textarea');
-    ta.style.height = (n.h - 42) + 'px';
+    ta.style.height = (n.h - 42 - 56) + 'px';
     ta.addEventListener('input', () => {
       n.code = ta.value;
       const r = hljs.highlightAuto(n.code.slice(0, 500));
       n.lang = r.language || 'text';
       el.querySelector('.lang-badge').textContent = n.lang;
     });
+    el.querySelector('.inp-title').addEventListener('input', e => { n.title = e.target.value; });
+    el.querySelector('.inp-filepath').addEventListener('input', e => { n.filePath = e.target.value; });
     el.querySelector('.btn-done').addEventListener('click', e => {
       e.stopPropagation(); stopEdit();
     });
@@ -419,24 +467,34 @@ function renderNode(n, el) {
 function editHTML(n) {
   return `
   <div class="node-header">
-    <span class="lang-badge">${esc(n.lang)}</span>
-    <span style="color:#6e7681;font-size:11px;margin-left:4px;">編集中...</span>
+    <span style="color:#6e7681;font-size:11px;flex:1;">編集中...</span>
     <div class="node-actions" style="opacity:1">
+      <span class="lang-badge">${esc(n.lang)}</span>
       <button class="node-btn btn-done">✓ 完了</button>
       <button class="node-btn danger btn-del">削除</button>
     </div>
   </div>
   <div class="node-body">
+    <div class="meta-inputs">
+      <input class="inp-title" placeholder="タイトル" value="${esc(n.title ?? '')}" spellcheck="false">
+      <input class="inp-filepath" placeholder="ファイルパス (例: src/utils/helper.ts)" value="${esc(n.filePath ?? '')}" spellcheck="false">
+    </div>
     <textarea spellcheck="false">${esc(n.code)}</textarea>
   </div>
   <div class="resize-handle"></div>`;
 }
 
 function viewHTML(n, codeHtml) {
+  const metaHtml = (n.title || n.filePath) ? `
+    <div class="node-meta">
+      ${n.title    ? `<span class="node-title">${esc(n.title)}</span>` : ''}
+      ${n.filePath ? `<span class="node-filepath">${esc(n.filePath)}</span>` : ''}
+    </div>` : '<div class="node-meta"></div>';
   return `
   <div class="node-header">
-    <span class="lang-badge">${esc(n.lang)}</span>
+    ${metaHtml}
     <div class="node-actions">
+      <span class="lang-badge">${esc(n.lang)}</span>
       <button class="node-btn btn-edit">編集</button>
       <button class="node-btn danger btn-del">✕</button>
     </div>
@@ -794,9 +852,20 @@ function setStatus(msg) { statusEl.textContent = msg; }
 // ═══════════════════════════════════════════════════════
 const STORAGE_KEY = 'code-canvas-v1';
 
+const canvasTitleEl = document.getElementById('canvas-title');
+function resizeCanvasTitleInput() {
+  canvasTitleEl.style.width = Math.max(80, Math.min(420, canvasTitleEl.value.length * 9 + 16)) + 'px';
+}
+canvasTitleEl.addEventListener('input', () => {
+  document.title = canvasTitleEl.value || '∞ Code Canvas';
+  resizeCanvasTitleInput();
+  scheduleSave();
+});
+
 function saveState() {
   const data = {
-    nodes: S.nodes.map(({ id, x, y, w, h, code, lang }) => ({ id, x, y, w, h, code, lang })),
+    canvasTitle: canvasTitleEl.value,
+    nodes: S.nodes.map(({ id, x, y, w, h, code, lang, title, filePath }) => ({ id, x, y, w, h, code, lang, title, filePath })),
     links: S.links.map(({ id, fromId, text, toId }) => ({ id, fromId, text, toId })),
     nid: S.nid,
     lid: S.lid,
@@ -827,9 +896,14 @@ function loadState(data) {
   S.nid = data.nid ?? 1;
   S.lid = data.lid ?? 1;
   if (data.vp) Object.assign(S.vp, data.vp);
+  canvasTitleEl.value = data.canvasTitle ?? '';
+  document.title = data.canvasTitle || '∞ Code Canvas';
+  resizeCanvasTitleInput();
+
+  S.links = data.links ?? [];
 
   for (const nd of (data.nodes ?? [])) {
-    const n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code, lang: nd.lang ?? 'text' };
+    const n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code, lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '' };
     S.nodes.push(n);
     const el = document.createElement('div');
     el.className = 'node';
@@ -838,7 +912,6 @@ function loadState(data) {
     setupNodeEvents(n, el);
     renderNode(n, el);
   }
-  S.links = data.links ?? [];
   renderLinks();
   applyVP();
 }
