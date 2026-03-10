@@ -627,6 +627,24 @@ function c2s(cx, cy) {
   };
 }
 
+// End point of arrow: defaults to upper-left area of target node,
+// adjusts based on where the start point (fp) is relative to the target.
+function targetEntryPoint(fp, tn) {
+  const nTL = c2s(tn.x,            tn.y);
+  const nBR = c2s(tn.x + tn.w,     tn.y + tn.h);
+
+  // candidate points (screen coords)
+  const left   = c2s(tn.x,              tn.y + tn.h * 0.25);
+  const top    = c2s(tn.x + tn.w * 0.2, tn.y);
+  const right  = c2s(tn.x + tn.w,       tn.y + tn.h * 0.25);
+  const bottom = c2s(tn.x + tn.w * 0.2, tn.y + tn.h);
+
+  if (fp.x > nBR.x) return right;   // source clearly to the right
+  if (fp.y > nBR.y) return bottom;  // source clearly below
+  if (fp.y < nTL.y) return top;     // source clearly above
+  return left;                       // default: left edge, upper area
+}
+
 function renderLinks() {
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
   for (const lnk of S.links) {
@@ -634,14 +652,21 @@ function renderLinks() {
     const tn = S.nodes.find(n => n.id === lnk.toId);
     if (!fn || !tn) continue;
 
-    // edge points in canvas coords, then convert to screen
-    const fpc = edgePoint(fn, tn);
-    const tpc = edgePoint(tn, fn);
-    const fp = c2s(fpc.x, fpc.y);
-    const tp = c2s(tpc.x, tpc.y);
+    // Start point: anchor element position if available, else node edge
+    const anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+    let fp;
+    if (anchorEl) {
+      const r = anchorEl.getBoundingClientRect();
+      fp = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    } else {
+      fp = c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+    }
+
+    const tp = targetEntryPoint(fp, tn);
 
     const dx = tp.x - fp.x;
-    const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y} ${tp.x - dx * 0.45},${tp.y} ${tp.x},${tp.y}`;
+    const dy = tp.y - fp.y;
+    const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
 
     const g = svgE('g', { class: 'lk' });
     g.appendChild(svgE('path', {
