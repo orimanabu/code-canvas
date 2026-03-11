@@ -115,23 +115,22 @@ body {
   border-radius: 2px;
 }
 
-.meta-inputs {
-  display: flex; flex-direction: column; gap: 0;
-  border-bottom: 1px solid #30363d;
+.node-meta input {
+  border: none; outline: none; width: 100%; min-width: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-.meta-inputs input {
-  background: #0d1117; color: #e6edf3;
-  border: none; outline: none;
-  padding: 5px 16px;
-  font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+.node-meta .inp-title {
+  font-size: 13px; font-weight: 700; color: #e6edf3;
+  background: rgba(56,139,253,0.15);
+  border-left: 3px solid #388bfd !important;
+  padding: 1px 6px; border-radius: 2px;
 }
-.meta-inputs input:first-child {
-  font-weight: 600; border-bottom: 1px solid #21262d;
+.node-meta .inp-filepath {
+  font-size: 11px; color: #79c0ff; font-family: monospace;
+  background: rgba(121,192,255,0.08);
+  padding: 1px 6px; border-radius: 2px;
 }
-.meta-inputs input:last-child {
-  font-size: 11px; color: #8b949e; font-family: monospace;
-}
-.meta-inputs input::placeholder { color: #484f58; }
+.node-meta input::placeholder { color: #484f58; font-weight: 400; }
 
 .node-body {
   flex: 1; overflow: auto; position: relative;
@@ -382,8 +381,65 @@ function zoom(factor, mx, my) {
 // ═══════════════════════════════════════════════════════
 // HIGHLIGHT
 // ═══════════════════════════════════════════════════════
-function highlight(code) {
+const EXT_LANG = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript',
+  jsx: 'javascript',
+  ts: 'typescript', mts: 'typescript', cts: 'typescript',
+  tsx: 'typescript',
+  py: 'python', pyw: 'python',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+  c: 'cpp', h: 'cpp',
+  cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp', hxx: 'cpp',
+  cs: 'csharp',
+  java: 'java',
+  kt: 'kotlin', kts: 'kotlin',
+  swift: 'swift',
+  sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+  html: 'html', htm: 'html',
+  css: 'css',
+  scss: 'scss',
+  less: 'less',
+  json: 'json',
+  yaml: 'yaml', yml: 'yaml',
+  toml: 'ini',
+  xml: 'xml',
+  md: 'markdown', markdown: 'markdown',
+  sql: 'sql',
+  r: 'r',
+  lua: 'lua',
+  php: 'php',
+  pl: 'perl',
+  ex: 'elixir', exs: 'elixir',
+  erl: 'erlang',
+  hs: 'haskell',
+  scala: 'scala',
+  dart: 'dart',
+  makefile: 'makefile',
+  dockerfile: 'dockerfile',
+};
+
+function langFromPath(filePath) {
+  if (!filePath) return null;
+  const base = filePath.split('/').pop();
+  // Dockerfile, Makefile などの拡張子なしファイル名
+  const nameLower = base.toLowerCase();
+  if (nameLower === 'dockerfile') return 'dockerfile';
+  if (nameLower === 'makefile')   return 'makefile';
+  const ext = base.includes('.') ? base.split('.').pop().toLowerCase() : null;
+  return ext ? (EXT_LANG[ext] ?? null) : null;
+}
+
+function highlight(code, filePath) {
   if (!code.trim()) return { html: esc(code), lang: 'text' };
+  const extLang = langFromPath(filePath);
+  if (extLang) {
+    try {
+      const res = hljs.highlight(code, { language: extLang });
+      return { html: res.value, lang: extLang };
+    } catch (_) { /* fallthrough */ }
+  }
   const res = hljs.highlightAuto(code);
   return { html: res.value, lang: res.language || 'text' };
 }
@@ -403,7 +459,8 @@ function injectAnchor(html, rawText, linkId) {
 }
 
 function buildCodeHTML(code, nodeId) {
-  let { html, lang } = highlight(code);
+  const n = S.nodes.find(n => n.id === nodeId);
+  let { html, lang } = highlight(code, n?.filePath);
   const nodeLinks = S.links.filter(l => l.fromId === nodeId);
   for (const lnk of nodeLinks) {
     html = injectAnchor(html, lnk.text, lnk.id);
@@ -451,15 +508,20 @@ function renderNode(n, el) {
   if (S.editing === n.id) {
     el.innerHTML = editHTML(n);
     const ta = el.querySelector('textarea');
-    ta.style.height = (n.h - 42 - 56) + 'px';
-    ta.addEventListener('input', () => {
-      n.code = ta.value;
-      const r = hljs.highlightAuto(n.code.slice(0, 500));
-      n.lang = r.language || 'text';
+    ta.style.height = '100%';
+    const updateLangBadge = () => {
+      const extLang = langFromPath(n.filePath);
+      if (extLang) {
+        n.lang = extLang;
+      } else {
+        const r = hljs.highlightAuto(n.code.slice(0, 500));
+        n.lang = r.language || 'text';
+      }
       el.querySelector('.lang-badge').textContent = n.lang;
-    });
+    };
+    ta.addEventListener('input', () => { n.code = ta.value; updateLangBadge(); });
     el.querySelector('.inp-title').addEventListener('input', e => { n.title = e.target.value; });
-    el.querySelector('.inp-filepath').addEventListener('input', e => { n.filePath = e.target.value; });
+    el.querySelector('.inp-filepath').addEventListener('input', e => { n.filePath = e.target.value; updateLangBadge(); });
     el.querySelector('.btn-done').addEventListener('click', e => {
       e.stopPropagation(); stopEdit();
     });
@@ -503,7 +565,10 @@ function renderNode(n, el) {
 function editHTML(n) {
   return `
   <div class="node-header">
-    <span style="color:#6e7681;font-size:11px;flex:1;">編集中...</span>
+    <div class="node-meta">
+      <input class="inp-title" placeholder="タイトル" value="${esc(n.title ?? '')}" spellcheck="false">
+      <input class="inp-filepath" placeholder="ファイルパス (例: src/utils/helper.ts)" value="${esc(n.filePath ?? '')}" spellcheck="false">
+    </div>
     <div class="node-actions" style="opacity:1">
       <span class="lang-badge">${esc(n.lang)}</span>
       <button class="node-btn btn-done">✓ 完了</button>
@@ -511,10 +576,6 @@ function editHTML(n) {
     </div>
   </div>
   <div class="node-body">
-    <div class="meta-inputs">
-      <input class="inp-title" placeholder="タイトル" value="${esc(n.title ?? '')}" spellcheck="false">
-      <input class="inp-filepath" placeholder="ファイルパス (例: src/utils/helper.ts)" value="${esc(n.filePath ?? '')}" spellcheck="false">
-    </div>
     <textarea spellcheck="false">${esc(n.code)}</textarea>
   </div>
   <div class="resize-handle"></div>`;
@@ -569,7 +630,7 @@ function setupNodeEvents(n, el) {
     selectNode(n.id);
 
     // drag from header
-    if (e.target.closest('.node-header') && !e.target.closest('.node-btn')) {
+    if (e.target.closest('.node-header') && !e.target.closest('.node-btn') && !e.target.closest('input')) {
       e.preventDefault();
       S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y };
       el.classList.add('dragging');
