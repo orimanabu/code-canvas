@@ -1075,8 +1075,14 @@ document.addEventListener('keydown', e => {
     if (S.linkMode) exitLinkMode();
     else if (S.editing) stopEdit();
   }
-  if (e.code === 'Delete' && S.sel && !S.editing) {
-    removeNode(S.sel);
+  if ((e.code === 'Delete' || e.code === 'Backspace') && !isInput && !S.editing) {
+    if (S.multiSel.size > 0) {
+      e.preventDefault();
+      [...S.multiSel].forEach(id => removeNode(id));
+    } else if (S.sel) {
+      e.preventDefault();
+      removeNode(S.sel);
+    }
   }
   // Ctrl/Cmd + 0: reset zoom
   if ((e.ctrlKey || e.metaKey) && e.key === '0') {
