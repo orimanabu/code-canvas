@@ -391,19 +391,14 @@ function highlight(code) {
 // Replace first occurrence of `rawText` in HTML string, only inside text nodes (outside tags)
 function injectAnchor(html, rawText, linkId) {
   const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re  = new RegExp(pat);
+  const re  = new RegExp(pat, 'g');
   // split on HTML tags
   const parts = html.split(/(<[^>]*>)/);
-  let done = false;
   return parts.map((p, i) => {
-    if (done || i % 2 === 1) return p; // tag → pass through
-    if (re.test(p)) {
-      done = true;
-      return p.replace(re,
-        `<span class="link-anchor" data-lid="${linkId}">${esc(rawText)}</span>`
-      );
-    }
-    return p;
+    if (i % 2 === 1) return p; // tag → pass through
+    return p.replace(re, () =>
+      `<span class="link-anchor" data-lid="${linkId}">${esc(rawText)}</span>`
+    );
   }).join('');
 }
 
@@ -640,7 +635,10 @@ function jumpTo(id) {
 // ═══════════════════════════════════════════════════════
 function createLink(fromId, text, toId) {
   // avoid duplicate
-  if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) return;
+  if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
+    setStatus(`⚠ "${text}" → このブロックへのリンクはすでに存在します`);
+    return;
+  }
   S.links.push({ id: S.lid++, fromId, text, toId });
   renderNode(S.nodes.find(n => n.id === fromId));
   renderLinks();
