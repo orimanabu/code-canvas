@@ -266,6 +266,64 @@ body.link-mode .node:hover {
   background: #21262d;
   font-family: monospace; letter-spacing: 0.5px;
 }
+
+/* ── Git Config Dialog ── */
+#git-dialog-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+}
+.git-dialog {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  padding: 24px 28px; width: 480px; max-width: 92vw;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.75);
+}
+.git-dialog-title {
+  font-size: 15px; font-weight: 700; color: #e6edf3;
+  margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+}
+.git-form-row { margin-bottom: 14px; }
+.git-form-label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: #8b949e; margin-bottom: 5px; text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.git-form-input {
+  width: 100%; padding: 7px 10px;
+  background: #0d1117; border: 1px solid #30363d;
+  border-radius: 6px; color: #e6edf3; font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  outline: none; transition: border-color 0.15s;
+}
+.git-form-input:focus { border-color: #388bfd; }
+.git-form-input::placeholder { color: #484f58; font-style: italic; }
+.git-form-divider {
+  text-align: center; font-size: 11px; color: #484f58;
+  margin: 4px 0 14px; position: relative;
+}
+.git-form-divider::before, .git-form-divider::after {
+  content: ''; position: absolute; top: 50%; width: 42%;
+  height: 1px; background: #21262d;
+}
+.git-form-divider::before { left: 0; }
+.git-form-divider::after { right: 0; }
+.git-form-note {
+  font-size: 11px; color: #6e7681; margin-top: 4px; min-height: 16px;
+  display: flex; align-items: center; gap: 5px;
+}
+.git-form-note.warn { color: #f0883e; }
+.git-form-note.ok   { color: #3fb950; }
+.git-form-note.err  { color: #f85149; }
+.git-form-buttons {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px;
+}
+.git-btn-save {
+  padding: 6px 18px; font-size: 12px; border-radius: 6px;
+  background: #1f6feb; border: 1px solid #388bfd; color: #fff;
+  cursor: pointer; font-weight: 600;
+}
+.git-btn-save:hover { background: #388bfd; }
+.git-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -275,6 +333,8 @@ body.link-mode .node:hover {
   <input id="canvas-title" placeholder="キャンバスのタイトル" spellcheck="false">
   <div class="sep"></div>
   <button class="tb-btn" id="btn-add">＋ ブロック追加</button>
+  <div class="sep"></div>
+  <button class="tb-btn" id="btn-git-config">⎇ Git設定</button>
   <div class="sep"></div>
   <button class="tb-btn" id="btn-export">↓ エクスポート</button>
   <label class="tb-btn" id="btn-import-label" style="cursor:pointer;">↑ インポート<input type="file" id="btn-import" accept=".json" style="display:none;"></label>
@@ -293,6 +353,42 @@ body.link-mode .node:hover {
       </marker>
     </defs>
   </svg>
+</div>
+
+<!-- Git Config Dialog -->
+<div id="git-dialog-overlay" style="display:none;">
+  <div class="git-dialog">
+    <div class="git-dialog-title">⎇ Git リポジトリ設定</div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="git-url">リポジトリ URL</label>
+      <input class="git-form-input" id="git-url" type="url" placeholder="https://github.com/owner/repo" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="git-branch">ブランチ名</label>
+      <input class="git-form-input" id="git-branch" type="text" placeholder="main" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-divider">または</div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="git-tag">タグ名</label>
+      <input class="git-form-input" id="git-tag" type="text" placeholder="v1.0.0" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="git-commit">Commit Hash <span style="color:#484f58;font-weight:400;">(省略可 — ブランチ/タグから自動解決)</span></label>
+      <input class="git-form-input" id="git-commit" type="text" placeholder="自動解決" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-note" id="git-resolve-note"></div>
+
+    <div class="git-form-buttons">
+      <button class="tb-btn" id="git-cancel">キャンセル</button>
+      <button class="git-btn-save" id="git-save">保存</button>
+    </div>
+  </div>
 </div>
 
 <div id="link-tip">🔗 ここからリンクを作成</div>
@@ -322,6 +418,7 @@ const S = {
   linkMode: false,
   clipboard: [],    // copied node snapshots [{x,y,w,h,code,lang,title,filePath}]
   pending: null,    // { fromId, text }
+  gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
 };
 
 // ═══════════════════════════════════════════════════════
@@ -1223,6 +1320,7 @@ function saveState() {
     nid: S.nid,
     lid: S.lid,
     vp: { ...S.vp },
+    gitConfig: { ...S.gitConfig },
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -1249,6 +1347,7 @@ function loadState(data) {
   S.nid = data.nid ?? 1;
   S.lid = data.lid ?? 1;
   if (data.vp) Object.assign(S.vp, data.vp);
+  if (data.gitConfig) Object.assign(S.gitConfig, data.gitConfig);
   canvasTitleEl.value = data.canvasTitle ?? '';
   document.title = data.canvasTitle || '∞ Code Canvas';
   resizeCanvasTitleInput();
@@ -1290,6 +1389,133 @@ document.addEventListener('mouseup', () => {
 document.addEventListener('mouseup', () => {
   if (S.pan) scheduleSave();
 }, true);
+
+// ═══════════════════════════════════════════════════════
+// GIT CONFIG DIALOG
+// ═══════════════════════════════════════════════════════
+(function () {
+  const overlay   = document.getElementById('git-dialog-overlay');
+  const urlEl     = document.getElementById('git-url');
+  const branchEl  = document.getElementById('git-branch');
+  const tagEl     = document.getElementById('git-tag');
+  const commitEl  = document.getElementById('git-commit');
+  const noteEl    = document.getElementById('git-resolve-note');
+  const saveBtn   = document.getElementById('git-save');
+  const cancelBtn = document.getElementById('git-cancel');
+
+  function openDialog() {
+    urlEl.value    = S.gitConfig.url;
+    branchEl.value = S.gitConfig.branch;
+    tagEl.value    = S.gitConfig.tag;
+    commitEl.value = S.gitConfig.commitHash;
+    setNote('', '');
+    overlay.style.display = 'flex';
+    urlEl.focus();
+  }
+
+  function closeDialog() {
+    overlay.style.display = 'none';
+  }
+
+  function setNote(msg, type) {
+    noteEl.textContent = msg;
+    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+  }
+
+  // Parse GitHub URL → { owner, repo } or null
+  function parseGitHubUrl(url) {
+    const m = url.trim().match(/github\.com[:/]([^/]+)\/([^/.?\s]+)/);
+    return m ? { owner: m[1], repo: m[2] } : null;
+  }
+
+  // Resolve branch HEAD commit hash via GitHub API
+  async function resolveBranch(owner, repo, branch) {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`
+    );
+    if (!res.ok) throw new Error(`branch not found (HTTP ${res.status})`);
+    const data = await res.json();
+    return data.commit?.sha ?? null;
+  }
+
+  // Resolve tag → commit hash via GitHub API (handles annotated tags)
+  async function resolveTag(owner, repo, tag) {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`
+    );
+    if (!res.ok) throw new Error(`tag not found (HTTP ${res.status})`);
+    const data = await res.json();
+    if (!data.object) throw new Error('unexpected API response');
+    if (data.object.type === 'commit') return data.object.sha;
+    // annotated tag → dereference the tag object
+    if (data.object.type === 'tag') {
+      const res2 = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/tags/${data.object.sha}`
+      );
+      if (!res2.ok) throw new Error(`tag object not found (HTTP ${res2.status})`);
+      const data2 = await res2.json();
+      return data2.object?.sha ?? null;
+    }
+    return null;
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    const url    = urlEl.value.trim();
+    const branch = branchEl.value.trim();
+    const tag    = tagEl.value.trim();
+    let   commit = commitEl.value.trim();
+
+    // Warn if both branch and tag are filled
+    if (branch && tag) {
+      setNote('⚠ ブランチ名とタグ名の両方が入力されています。どちらか一方を入力してください。', 'warn');
+      return;
+    }
+
+    const needResolve = (branch || tag) && !commit;
+    if (needResolve) {
+      const gh = parseGitHubUrl(url);
+      if (!gh) {
+        // Not a GitHub URL — save without hash
+        setNote('GitHub URL ではないため commit hash の自動解決をスキップします。', 'warn');
+        applyAndSave(url, branch, tag, '');
+        return;
+      }
+      saveBtn.disabled = true;
+      setNote('⏳ commit hash を解決中...', '');
+      try {
+        if (branch) {
+          commit = await resolveBranch(gh.owner, gh.repo, branch);
+          setNote(`✓ ${branch} の HEAD: ${commit.slice(0, 12)}…`, 'ok');
+        } else {
+          commit = await resolveTag(gh.owner, gh.repo, tag);
+          setNote(`✓ ${tag} の commit: ${commit.slice(0, 12)}…`, 'ok');
+        }
+      } catch (e) {
+        setNote(`✗ 解決失敗: ${e.message}`, 'err');
+        saveBtn.disabled = false;
+        return;
+      }
+      saveBtn.disabled = false;
+    }
+
+    applyAndSave(url, branch, tag, commit);
+  });
+
+  function applyAndSave(url, branch, tag, commitHash) {
+    S.gitConfig = { url, branch, tag, commitHash };
+    saveState();
+    closeDialog();
+    setStatus('Git 設定を保存しました');
+  }
+
+  cancelBtn.addEventListener('click', closeDialog);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDialog(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') closeDialog();
+  });
+
+  document.getElementById('btn-git-config').addEventListener('click', openDialog);
+})();
 
 // Export
 document.getElementById('btn-export').addEventListener('click', () => {
