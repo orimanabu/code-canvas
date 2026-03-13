@@ -29,7 +29,9 @@
 | `vp` | Viewport | ビューポートの状態 |
 | `gitConfig` | GitConfig | キャンバスに紐付くGitリポジトリの設定 |
 
-## Node オブジェクト
+## Node オブジェクト（コードブロック）
+
+`type` フィールドが存在しない、または `"code"` の場合はコードブロック。
 
 | フィールド | 型 | 説明 |
 |---|---|---|
@@ -44,6 +46,22 @@
 | `filePath` | string | コードが載っているファイルのパス |
 | `showLineNumbers` | boolean | 行番号を表示するか（デフォルト: `true`） |
 | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト: `1`） |
+
+## Node オブジェクト（吹き出し）
+
+`type` が `"bubble"` の場合は吹き出しノード。
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `id` | number | ノードの一意なID |
+| `type` | string | `"bubble"` 固定 |
+| `x` | number | キャンバス上のX座標（吹き出し本体の左上） |
+| `y` | number | キャンバス上のY座標（吹き出し本体の左上） |
+| `w` | number | 吹き出し本体の幅 |
+| `h` | number | 吹き出し本体の高さ |
+| `text` | string | 吹き出し内のテキスト |
+| `tailX` | number | しっぽ先端のキャンバス上X座標（本体と独立して移動可能） |
+| `tailY` | number | しっぽ先端のキャンバス上Y座標（本体と独立して移動可能） |
 
 ## Link オブジェクト
 
@@ -94,6 +112,17 @@ GitHubのURLを指定した場合、ブランチ名またはタグ名からcommi
       "filePath": "src/libcrun/linux.c",
       "showLineNumbers": true,
       "lineNumberStart": 1
+    },
+    {
+      "id": 2,
+      "type": "bubble",
+      "x": 300.0,
+      "y": 100.0,
+      "w": 200,
+      "h": 80,
+      "text": "ここで名前空間を初期化している",
+      "tailX": 250.0,
+      "tailY": 220.0
     }
   ],
   "links": [
