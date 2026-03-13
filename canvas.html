@@ -304,6 +304,52 @@ body.link-mode .node:hover {
 .node-title.meta-empty  { opacity: 0.28; font-weight: 400; font-style: italic; }
 .node-filepath.meta-empty { opacity: 0.28; font-style: italic; }
 
+/* ── Bubble nodes ── */
+.bubble-node {
+  background: #162116;
+  border: 2px solid #3fb950;
+  border-radius: 14px;
+  min-width: 120px; min-height: 60px;
+  opacity: 0.8;
+}
+.bubble-node.selected {
+  border-color: #56d364;
+  box-shadow: 0 0 0 3px rgba(63,185,80,0.28), 0 8px 32px rgba(0,0,0,0.55);
+}
+.bubble-node.multi-selected {
+  border-color: #56d364;
+  box-shadow: 0 0 0 3px rgba(63,185,80,0.42), 0 8px 32px rgba(0,0,0,0.55);
+}
+.bubble-header {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 5px 10px;
+  background: #1b2e1b;
+  border-bottom: 1px solid #2d4a2d;
+  border-radius: 12px 12px 0 0;
+  cursor: grab; min-height: 34px;
+}
+.bubble-header:active { cursor: grabbing; }
+.bubble-body {
+  flex: 1; padding: 10px 14px 14px;
+  overflow: auto;
+}
+.bubble-text {
+  font-size: 13px; color: #e6edf3; line-height: 1.65;
+  white-space: pre-wrap; word-break: break-word;
+  user-select: text;
+}
+.bubble-text.empty { color: #484f58; font-style: italic; }
+.bubble-textarea {
+  width: 100%; height: 100%; min-height: 50px; display: block;
+  background: transparent; color: #e6edf3;
+  border: none; outline: none; resize: none;
+  font-size: 13px; line-height: 1.65;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+/* tail SVG elements */
+.bubble-tail-poly { pointer-events: none; }
+.tail-handle { cursor: move; pointer-events: all; }
+
 /* ── Git Config Dialog ── */
 #git-dialog-overlay,
 #fetch-dialog-overlay {
@@ -371,6 +417,7 @@ body.link-mode .node:hover {
   <input id="canvas-title" placeholder="キャンバスのタイトル" spellcheck="false">
   <div class="sep"></div>
   <button class="tb-btn" id="btn-add">＋ ブロック追加</button>
+  <button class="tb-btn" id="btn-add-bubble">💬 吹き出し</button>
   <div class="sep"></div>
   <button class="tb-btn" id="btn-git-config">⎇ Git設定</button>
   <div class="sep"></div>
@@ -487,6 +534,7 @@ const S = {
   clipboard: [],    // copied node snapshots [{x,y,w,h,code,lang,title,filePath}]
   pending: null,    // { fromId, text }
   gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
+  tailDrag: null,   // { id } — bubble tail being dragged
 };
 
 // ═══════════════════════════════════════════════════════
@@ -722,7 +770,9 @@ function renderNode(n, el) {
   el.classList.toggle('selected', S.sel === n.id);
   el.classList.toggle('multi-selected', S.multiSel.has(n.id));
 
-  if (S.editing === n.id) {
+  if (n.type === 'bubble') {
+    renderBubbleContent(n, el);
+  } else if (S.editing === n.id) {
     el.innerHTML = editHTML(n);
     const ta = el.querySelector('textarea');
     ta.style.height = '100%';
@@ -861,6 +911,189 @@ function renderNode(n, el) {
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// BUBBLE NODE
+// ═══════════════════════════════════════════════════════
+function bubbleViewHTML(n) {
+  const body = n.text
+    ? `<div class="bubble-text">${esc(n.text).replace(/\n/g, '<br>')}</div>`
+    : `<div class="bubble-text empty">テキストを入力…</div>`;
+  return `
+  <div class="bubble-header">
+    <div class="node-actions">
+      <button class="node-btn btn-edit">編集</button>
+      <button class="node-btn danger btn-del">✕</button>
+    </div>
+  </div>
+  <div class="bubble-body">${body}</div>
+  <div class="resize-handle"></div>`;
+}
+
+function bubbleEditHTML(n) {
+  return `
+  <div class="bubble-header">
+    <div class="node-actions" style="opacity:1">
+      <button class="node-btn btn-done">✓ 完了</button>
+      <button class="node-btn danger btn-del">削除</button>
+    </div>
+  </div>
+  <div class="bubble-body">
+    <textarea class="bubble-textarea" spellcheck="false">${esc(n.text ?? '')}</textarea>
+  </div>
+  <div class="resize-handle"></div>`;
+}
+
+function renderBubbleContent(n, el) {
+  if (S.editing === n.id) {
+    el.innerHTML = bubbleEditHTML(n);
+    const ta = el.querySelector('textarea');
+    ta.style.height = (n.h - 54) + 'px';
+    ta.addEventListener('input', () => { n.text = ta.value; });
+    el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+    el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+    ta.focus();
+  } else {
+    el.innerHTML = bubbleViewHTML(n);
+    el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+    el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+    el.querySelector('.bubble-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+  }
+}
+
+// Ray vs rounded-rect intersection.
+// Returns { x, y, tx, ty } — hit point and tangent direction along the border — or null.
+function roundedRectRayHit(ocx, ocy, tipX, tipY, bl, br, r) {
+  const left = bl.x, right = br.x, top = bl.y, bottom = br.y;
+  const dx = tipX - ocx, dy = tipY - ocy;
+  let bestT = Infinity, bestX, bestY, bestTx, bestTy;
+
+  function tryT(t, px, py, tx, ty) {
+    if (t > 1e-9 && t < bestT) { bestT = t; bestX = px; bestY = py; bestTx = tx; bestTy = ty; }
+  }
+
+  // Four straight edges (only the non-corner segments)
+  if (Math.abs(dx) > 1e-9) {
+    const tl = (left  - ocx) / dx;
+    if (tl > 1e-9) { const py = ocy + tl * dy; if (py >= top + r && py <= bottom - r) tryT(tl, left,  py, 0, 1); }
+    const tr = (right - ocx) / dx;
+    if (tr > 1e-9) { const py = ocy + tr * dy; if (py >= top + r && py <= bottom - r) tryT(tr, right, py, 0, 1); }
+  }
+  if (Math.abs(dy) > 1e-9) {
+    const tt = (top    - ocy) / dy;
+    if (tt > 1e-9) { const px = ocx + tt * dx; if (px >= left + r && px <= right - r) tryT(tt, px, top,    1, 0); }
+    const tb = (bottom - ocy) / dy;
+    if (tb > 1e-9) { const px = ocx + tb * dx; if (px >= left + r && px <= right - r) tryT(tb, px, bottom, 1, 0); }
+  }
+
+  // Four corner arcs — each constrained to its quadrant
+  const arcs = [
+    { cx: left  + r, cy: top    + r, xMin: left,    xMax: left  + r, yMin: top,      yMax: top    + r },
+    { cx: right - r, cy: top    + r, xMin: right- r, xMax: right,    yMin: top,      yMax: top    + r },
+    { cx: left  + r, cy: bottom - r, xMin: left,    xMax: left  + r, yMin: bottom- r, yMax: bottom    },
+    { cx: right - r, cy: bottom - r, xMin: right- r, xMax: right,    yMin: bottom- r, yMax: bottom    },
+  ];
+  for (const arc of arcs) {
+    const fx = ocx - arc.cx, fy = ocy - arc.cy;
+    const a  = dx * dx + dy * dy;
+    const b  = 2 * (fx * dx + fy * dy);
+    const c  = fx * fx + fy * fy - r * r;
+    const disc = b * b - 4 * a * c;
+    if (disc < 0) continue;
+    const sq = Math.sqrt(disc);
+    for (const sign of [1, -1]) {
+      const t = (-b + sign * sq) / (2 * a);
+      if (t <= 1e-9 || t >= bestT) continue;
+      const px = ocx + t * dx, py = ocy + t * dy;
+      if (px < arc.xMin || px > arc.xMax || py < arc.yMin || py > arc.yMax) continue;
+      // Tangent = radius vector rotated 90° CCW
+      const rx = px - arc.cx, ry = py - arc.cy;
+      tryT(t, px, py, -ry / r, rx / r);
+    }
+  }
+
+  return bestT < Infinity ? { x: bestX, y: bestY, tx: bestTx, ty: bestTy } : null;
+}
+
+// Draw bubble tail as smooth SVG path + draggable handle (screen coords)
+function renderBubbleTail(n) {
+  svgLinks.querySelector(`[data-btail="${n.id}"]`)?.remove();
+
+  const bl  = c2s(n.x, n.y);
+  const br  = c2s(n.x + n.w, n.y + n.h);
+  const cx  = (bl.x + br.x) / 2;
+  const cy  = (bl.y + br.y) / 2;
+  const tip = c2s(n.tailX, n.tailY);
+
+  // Border radius in screen pixels (CSS: 14px, scaled by viewport)
+  const r = Math.min(14 * S.vp.scale, (br.x - bl.x) / 2, (br.y - bl.y) / 2);
+
+  // Exact intersection of center→tip ray with the rounded border + tangent there
+  const hit = roundedRectRayHit(cx, cy, tip.x, tip.y, bl, br, r);
+  if (!hit) return;
+
+  // Spread p1/p2 along the border tangent so they always stay on the bubble surface
+  const hw = 10;
+  const p1 = { x: hit.x + hit.tx * hw, y: hit.y + hit.ty * hw };
+  const p2 = { x: hit.x - hit.tx * hw, y: hit.y - hit.ty * hw };
+
+  // Bezier control points: curve each side smoothly toward the tip
+  const cp1 = { x: (p1.x + tip.x) / 2 + (hit.x - p1.x) * 0.25,
+                 y: (p1.y + tip.y) / 2 + (hit.y - p1.y) * 0.25 };
+  const cp2 = { x: (p2.x + tip.x) / 2 + (hit.x - p2.x) * 0.25,
+                 y: (p2.y + tip.y) / 2 + (hit.y - p2.y) * 0.25 };
+
+  const fillD   = `M ${p1.x},${p1.y} Q ${cp1.x},${cp1.y} ${tip.x},${tip.y} Q ${cp2.x},${cp2.y} ${p2.x},${p2.y} Z`;
+  const strokeD = `M ${p1.x},${p1.y} Q ${cp1.x},${cp1.y} ${tip.x},${tip.y} Q ${cp2.x},${cp2.y} ${p2.x},${p2.y}`;
+
+  const isSelected = S.sel === n.id || S.multiSel.has(n.id);
+  const stroke = isSelected ? '#56d364' : '#3fb950';
+
+  const g = svgE('g', { 'data-btail': n.id });
+  g.appendChild(svgE('path', {
+    class: 'bubble-tail-poly',
+    d: fillD, fill: 'rgba(22,33,22,0.8)', stroke: 'none',
+  }));
+  g.appendChild(svgE('path', {
+    class: 'bubble-tail-poly',
+    d: strokeD, fill: 'none', stroke,
+    'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+  }));
+
+  const handle = svgE('circle', {
+    class: 'tail-handle',
+    cx: tip.x, cy: tip.y, r: '6',
+    fill: '#3fb950', stroke: '#0d1117', 'stroke-width': '1.5',
+  });
+  handle.addEventListener('mousedown', e => {
+    e.stopPropagation(); e.preventDefault();
+    S.tailDrag = { id: n.id };
+  });
+  g.appendChild(handle);
+
+  svgLinks.appendChild(g);
+}
+
+function addBubble(x, y) {
+  const n = {
+    id: S.nid++, type: 'bubble',
+    x, y, w: 200, h: 100,
+    text: '',
+    tailX: x + 100, tailY: y + 140,
+  };
+  S.nodes.push(n);
+  const el = document.createElement('div');
+  el.className = 'node bubble-node';
+  el.id = 'nd-' + n.id;
+  canvas.appendChild(el);
+  setupNodeEvents(n, el);
+  renderNode(n, el);
+  renderLinks();
+  selectNode(n.id);
+  startEdit(n.id);
+  scheduleSave();
+  return n;
+}
+
 function editHTML(n) {
   return `
   <div class="node-header">
@@ -947,7 +1180,7 @@ function setupNodeEvents(n, el) {
       return;
     }
 
-    const onHeader = e.target.closest('.node-header') && !e.target.closest('.node-btn') && !e.target.closest('input');
+    const onHeader = e.target.closest('.node-header, .bubble-header') && !e.target.closest('.node-btn') && !e.target.closest('input');
 
     // If clicking a node already in multi-selection: keep selection, start group drag
     if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
@@ -961,7 +1194,8 @@ function setupNodeEvents(n, el) {
         const multiOrigins = new Map();
         allIds.forEach(id => {
           const mn = S.nodes.find(nn => nn.id === id);
-          if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y });
+          if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y,
+            otailX: mn.tailX, otailY: mn.tailY });
         });
         S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
         allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
@@ -976,7 +1210,8 @@ function setupNodeEvents(n, el) {
     // drag from header
     if (onHeader) {
       e.preventDefault();
-      S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y };
+      S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y,
+                 otailX: n.tailX, otailY: n.tailY };
       el.classList.add('dragging');
     }
   });
@@ -1032,6 +1267,7 @@ function clearMultiSel() {
 function removeNode(id) {
   S.nodes = S.nodes.filter(n => n.id !== id);
   S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
+  svgLinks.querySelector(`[data-btail="${id}"]`)?.remove();
   const el = ndEl(id);
   if (el) el.remove();
   if (S.sel === id)     S.sel = null;
@@ -1055,8 +1291,7 @@ function copyNodes() {
   if (ids.length === 0) return;
   S.clipboard = ids.map(id => {
     const n = S.nodes.find(nn => nn.id === id);
-    if (!n) return null;
-    return { x: n.x, y: n.y, w: n.w, h: n.h, code: n.code, lang: n.lang, title: n.title, filePath: n.filePath };
+    return n ? { ...n } : null;
   }).filter(Boolean);
   setStatus(`${S.clipboard.length} 個のブロックをコピーしました (Cmd/Ctrl+V でペースト)`);
 }
@@ -1066,8 +1301,7 @@ function cutNodes() {
   if (ids.length === 0) return;
   S.clipboard = ids.map(id => {
     const n = S.nodes.find(nn => nn.id === id);
-    if (!n) return null;
-    return { x: n.x, y: n.y, w: n.w, h: n.h, code: n.code, lang: n.lang, title: n.title, filePath: n.filePath };
+    return n ? { ...n } : null;
   }).filter(Boolean);
   ids.forEach(id => removeNode(id));
   setStatus(`${S.clipboard.length} 個のブロックをカットしました (Cmd/Ctrl+V でペースト)`);
@@ -1079,16 +1313,14 @@ function pasteNodes() {
   selectNode(null);
   const offset = 30;
   for (const data of S.clipboard) {
-    const n = {
-      id: S.nid++,
-      x: data.x + offset, y: data.y + offset,
-      w: data.w, h: data.h,
-      code: data.code, lang: data.lang,
-      title: data.title, filePath: data.filePath,
-    };
+    const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+    if (n.type === 'bubble') {
+      n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+      n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+    }
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'node';
+    el.className = 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupNodeEvents(n, el);
@@ -1179,6 +1411,7 @@ function targetEntryPoint(fp, tn) {
 
 function renderLinks() {
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+  svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
   for (const lnk of S.links) {
     const fn = S.nodes.find(n => n.id === lnk.fromId);
     const tn = S.nodes.find(n => n.id === lnk.toId);
@@ -1212,6 +1445,10 @@ function renderLinks() {
     g.appendChild(txt);
 
     svgLinks.appendChild(g);
+  }
+  // Bubble tails
+  for (const n of S.nodes) {
+    if (n.type === 'bubble') renderBubbleTail(n);
   }
 }
 
@@ -1348,11 +1585,15 @@ document.addEventListener('mousemove', e => {
     const dy = (e.clientY - S.drag.sy) * r;
     if (S.drag.multiOrigins) {
       // Multi-node drag: move all selected nodes together
-      S.drag.multiOrigins.forEach(({ ox, oy }, id) => {
+      S.drag.multiOrigins.forEach(({ ox, oy, otailX, otailY }, id) => {
         const mn = S.nodes.find(nn => nn.id === id);
         if (mn) {
           mn.x = ox + dx;
           mn.y = oy + dy;
+          if (mn.type === 'bubble' && otailX !== undefined) {
+            mn.tailX = otailX + dx;
+            mn.tailY = otailY + dy;
+          }
           const mel = ndEl(id);
           if (mel) { mel.style.left = mn.x + 'px'; mel.style.top = mn.y + 'px'; }
         }
@@ -1363,11 +1604,22 @@ document.addEventListener('mousemove', e => {
       if (n) {
         n.x = S.drag.ox + dx;
         n.y = S.drag.oy + dy;
+        if (n.type === 'bubble' && S.drag.otailX !== undefined) {
+          n.tailX = S.drag.otailX + dx;
+          n.tailY = S.drag.otailY + dy;
+        }
         const el = ndEl(n.id);
         if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
       }
     }
     renderLinks();
+  } else if (S.tailDrag) {
+    const n = S.nodes.find(n => n.id === S.tailDrag.id);
+    if (n) {
+      const p = s2c(e.clientX, e.clientY);
+      n.tailX = p.x; n.tailY = p.y;
+      renderBubbleTail(n);
+    }
   } else if (S.resize) {
     const r = 1 / S.vp.scale;
     const n = S.nodes.find(n => n.id === S.resize.id);
@@ -1394,6 +1646,7 @@ document.addEventListener('mouseup', () => {
       ndEl(S.drag.id)?.classList.remove('dragging');
     }
   }
+  if (S.tailDrag) { S.tailDrag = null; scheduleSave(); }
   S.drag = null; S.resize = null; S.zoomDrag = null;
   if (S.pan) S.pan = null;
   updateCursor();
@@ -1512,7 +1765,14 @@ canvasTitleEl.addEventListener('input', () => {
 function saveState() {
   const data = {
     canvasTitle: canvasTitleEl.value,
-    nodes: S.nodes.map(({ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart }) => ({ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart })),
+    nodes: S.nodes.map(n => {
+      if (n.type === 'bubble') {
+        const { id, type, x, y, w, h, text, tailX, tailY } = n;
+        return { id, type, x, y, w, h, text, tailX, tailY };
+      }
+      const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart } = n;
+      return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart };
+    }),
     links: S.links.map(({ id, fromId, text, toId }) => ({ id, fromId, text, toId })),
     nid: S.nid,
     lid: S.lid,
@@ -1552,10 +1812,18 @@ function loadState(data) {
   S.links = data.links ?? [];
 
   for (const nd of (data.nodes ?? [])) {
-    const n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code, lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '', showLineNumbers: nd.showLineNumbers ?? true, lineNumberStart: nd.lineNumberStart ?? 1 };
+    let n;
+    if (nd.type === 'bubble') {
+      n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+            text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50 };
+    } else {
+      n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code,
+            lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '',
+            showLineNumbers: nd.showLineNumbers ?? true, lineNumberStart: nd.lineNumberStart ?? 1 };
+    }
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'node';
+    el.className = 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupNodeEvents(n, el);
@@ -1713,7 +1981,13 @@ function parseGitHubUrl(url) {
     if (e.key === 'Escape' && overlay.style.display !== 'none') closeDialog();
   });
 
-  document.getElementById('btn-git-config').addEventListener('click', openDialog);
+  document.getElementById('btn-add-bubble').addEventListener('click', () => {
+  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+  const p = s2c(vw / 2, vh / 2);
+  addBubble(p.x - 100, p.y - 50);
+});
+
+document.getElementById('btn-git-config').addEventListener('click', openDialog);
 })();
 
 // ═══════════════════════════════════════════════════════
