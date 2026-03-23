@@ -1217,10 +1217,7 @@ function setupNodeEvents(n, el) {
   });
 
   el.addEventListener('dblclick', e => {
-    if (e.target.closest('.node-body') && S.editing !== n.id) {
-      e.stopPropagation();
-      startEdit(n.id);
-    }
+    e.stopPropagation();
   });
 }
 
