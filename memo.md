@@ -643,6 +643,12 @@
 
 ❯ `pub unsafe extern "C" fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32 {` という行をコードブロックに挿入すると、autoFitNode()で計算した横幅が足りず、`{` の部分が折り返されてしまいます。直してください
 
+❯ `http://localhost:8999/tags/write_volatile` のレスポンスから生成される `div id="csd-table-wrap"`のテーブルがおかしいです。interfaceとimplementationが同じカラムに混ざっている？もう一度表を作り直してください
+
+❯ `div id="csd-table-wrap"` のテーブルのカラムを並び替えてください。name, path, pattern, kindの4つは必ずこの順で左端から。残りはアルファベット順にソートして
+
+❯ `div id="codesnippetd-main-form` が表示された際、エンターキーを押すとfetchボタンを押したことにしてください
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して

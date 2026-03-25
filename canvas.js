@@ -1737,24 +1737,25 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   }
 
   function buildResultsTable(tags) {
-    const rows = tags.map((tag, i) => {
-      const cells = typeof tag === 'object' && tag !== null
-        ? Object.entries(tag).map(([k, v]) => `<td>${esc(String(v))}</td>`).join('')
-        : `<td>${esc(String(tag))}</td>`;
-      const headerCells = typeof tag === 'object' && tag !== null
-        ? Object.keys(tag).map(k => `<th>${esc(k)}</th>`).join('')
-        : '<th>Value</th>';
-      return { cells, headerCells, i };
+    // Collect all unique keys across every row (excluding internal _type field).
+    const keySet = new Set();
+    tags.forEach(tag => {
+      if (typeof tag === 'object' && tag !== null) {
+        Object.keys(tag).forEach(k => { if (k !== '_type') keySet.add(k); });
+      }
     });
+    const FIXED = ['name', 'path', 'pattern', 'kind'];
+    const rest  = Array.from(keySet).filter(k => !FIXED.includes(k)).sort();
+    const keys  = [...FIXED.filter(k => keySet.has(k)), ...rest];
 
-    const firstTag = tags[0];
-    const headerCells = typeof firstTag === 'object' && firstTag !== null
-      ? Object.keys(firstTag).map(k => `<th>${esc(k)}</th>`).join('')
-      : '<th>Value</th>';
+    const headerCells = keys.map(k => `<th>${esc(k)}</th>`).join('');
 
-    const tbody = rows.map(({ cells, i }) =>
-      `<tr class="csd-result-row" data-index="${i}"><td>${i + 1}</td>${cells}</tr>`
-    ).join('');
+    const tbody = tags.map((tag, i) => {
+      const cells = typeof tag === 'object' && tag !== null
+        ? keys.map(k => `<td>${tag[k] !== undefined ? esc(String(tag[k])) : ''}</td>`).join('')
+        : `<td colspan="${keys.length || 1}">${esc(String(tag))}</td>`;
+      return `<tr class="csd-result-row" data-index="${i}"><td>${i + 1}</td>${cells}</tr>`;
+    }).join('');
 
     tableWrap.innerHTML = `
       <table class="csd-table">
@@ -1819,7 +1820,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   cancelBtn.addEventListener('click', close);
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+    if (e.key === 'Escape' && overlay.style.display !== 'none') { close(); return; }
+    if (e.key === 'Enter' && mainForm.style.display !== 'none') fetchBtn.click();
   });
 })();
 
