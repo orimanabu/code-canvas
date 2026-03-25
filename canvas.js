@@ -1727,6 +1727,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
       n.showLineNumbers = true;
     }
     renderNode(n, ndEl(n.id));
+    autoFitNode(n);
     scheduleSave();
     close();
     setStatus('Snippet inserted');
