@@ -362,6 +362,7 @@ function renderNode(n, el) {
         e.stopPropagation();
         n.showLineNumbers = lnCb.checked;
         renderNode(n, el);
+        autoFitNode(n);
         scheduleSave();
       });
       lnCb.addEventListener('mousedown', e => e.stopPropagation());
@@ -748,8 +749,8 @@ function autoFitNode(n) {
   pre.style.whiteSpace = 'pre';
   codeLines.forEach(l => { l.style.whiteSpace = 'pre'; });
   el.style.width = 'max-content';
-  // box-sizing: border-box, so offsetWidth == CSS width value
-  const naturalW = Math.max(250, el.offsetWidth);
+  // Use getBoundingClientRect for sub-pixel accuracy, then ceil to avoid wrapping.
+  const naturalW = Math.max(250, Math.ceil(el.getBoundingClientRect().width));
   pre.style.whiteSpace = '';
   codeLines.forEach(l => { l.style.whiteSpace = ''; });
   n.w = naturalW;
@@ -1722,6 +1723,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     const n = S.nodes.find(n => n.id === targetNodeId);
     if (!n) throw new Error('Node not found');
     n.code = item.code;
+    n.title = keyword;
+    if (typeof item.path === 'string' && item.path) n.filePath = item.path;
     if (typeof item.start === 'number' && item.start > 0) {
       n.lineNumberStart = item.start;
       n.showLineNumbers = true;

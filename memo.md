@@ -637,7 +637,11 @@
 
 ❯ toolbar上の要素の並びを変えます。span id="mode-indicator"をAdd Blockボタンの左に移動してください
 
+❯ codesnippetdを使ったコード断片の挿入時、コードブロックのタイトルにはダイアログで入力したKeywordを、File pathにはREST APIのレスポンスに入っているpathを自動的にインプットしてください
 
+❯ 行番号表示のチェックボタンを操作したタイミングでも、autoFitNodeを呼び出すようにしてください
+
+❯ `pub unsafe extern "C" fn krun_init_log(target: RawFd, level: u32, style: u32, options: u32) -> i32 {` という行をコードブロックに挿入すると、autoFitNode()で計算した横幅が足りず、`{` の部分が折り返されてしまいます。直してください
 
 # claudeを起動したときに最初に打つプロンプト
 
