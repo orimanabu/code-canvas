@@ -104,6 +104,41 @@
   </div>
 </div>
 
+<!-- Codesnippetd Dialog -->
+<div id="codesnippetd-dialog-overlay" style="display:none;">
+  <div class="git-dialog csd-dialog">
+    <div class="git-dialog-title">📦 codesnippetd</div>
+    <div id="codesnippetd-main-form">
+      <div class="git-form-row">
+        <label class="git-form-label" for="csd-endpoint">API Endpoint</label>
+        <input class="git-form-input" id="csd-endpoint" type="text" value="localhost:8999" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="git-form-row">
+        <label class="git-form-label" for="csd-context">Context</label>
+        <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="git-form-row">
+        <label class="git-form-label" for="csd-keyword">Keyword</label>
+        <input class="git-form-input" id="csd-keyword" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="git-form-note" id="csd-note"></div>
+      <div class="git-form-buttons">
+        <button class="tb-btn" id="csd-cancel">Cancel</button>
+        <button class="git-btn-save" id="csd-fetch">Fetch</button>
+      </div>
+    </div>
+    <div id="codesnippetd-results" style="display:none;">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:10px;">Multiple snippets found. Click a row to select:</div>
+      <div id="csd-table-wrap"></div>
+      <div class="git-form-note" id="csd-results-note"></div>
+      <div class="git-form-buttons">
+        <button class="tb-btn" id="csd-results-back">← Back</button>
+        <button class="tb-btn" id="csd-results-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="link-tip">🔗 Create link from here</div>
 <div id="status">Ready</div>
 

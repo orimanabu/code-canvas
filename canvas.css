@@ -343,7 +343,8 @@ body.link-mode .node:hover {
 
 /* ── Git Config Dialog ── */
 #git-dialog-overlay,
-#fetch-dialog-overlay {
+#fetch-dialog-overlay,
+#codesnippetd-dialog-overlay {
   position: fixed; inset: 0; z-index: 500;
   background: rgba(0,0,0,0.65);
   display: flex; align-items: center; justify-content: center;
@@ -399,3 +400,31 @@ body.link-mode .node:hover {
 }
 .git-btn-save:hover { background: #388bfd; }
 .git-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Codesnippetd Dialog ── */
+.csd-dialog { width: 560px; }
+#csd-table-wrap {
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid #30363d; border-radius: 6px; margin-bottom: 10px;
+}
+.csd-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+.csd-table thead th {
+  background: #21262d; color: #8b949e; padding: 7px 10px;
+  text-align: left; font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  position: sticky; top: 0;
+}
+.csd-table tbody tr.csd-result-row {
+  border-top: 1px solid #21262d; cursor: pointer;
+  transition: background 0.1s;
+}
+.csd-table tbody tr.csd-result-row:hover { background: #1f2937; }
+.csd-table tbody td {
+  padding: 7px 10px; color: #e6edf3; vertical-align: top;
+}
+.csd-table tbody td:first-child {
+  color: #6e7681; width: 36px; text-align: right;
+}
