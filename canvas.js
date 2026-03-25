@@ -314,6 +314,13 @@ function renderNode(n, el) {
       btnFetch.addEventListener('click', e => { e.stopPropagation(); openFetchDialog(n.id); });
     }
 
+    // Codesnippetd button
+    const btnCsd = el.querySelector('.btn-codesnippetd');
+    if (btnCsd) {
+      btnCsd.addEventListener('mousedown', e => e.stopPropagation());
+      btnCsd.addEventListener('click', e => { e.stopPropagation(); openCodeSnippetdDialog(n.id); });
+    }
+
     // Inline edit for title / filePath
     el.querySelectorAll('.editable-meta').forEach(span => {
       span.addEventListener('mousedown', e => e.stopPropagation());
@@ -613,6 +620,7 @@ function viewHTML(n, codeHtml) {
     ${metaHtml}
     <div class="node-actions">
       <button class="node-btn btn-fetch-git">⬇ Fetch</button>
+      <button class="node-btn btn-codesnippetd">📦 codesnippetd</button>
       <label class="ln-toggle" title="Show/hide line numbers"><input type="checkbox" class="ln-cb"${n.showLineNumbers ? ' checked' : ''}> Line Nos</label>
       <button class="node-btn btn-edit">Edit</button>
       <button class="node-btn danger btn-del">✕</button>
@@ -1647,6 +1655,169 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
   setStatus('Cleared');
 });
+
+// ═══════════════════════════════════════════════════════
+// CODESNIPPETD DIALOG
+// ═══════════════════════════════════════════════════════
+(function () {
+  const overlay         = document.getElementById('codesnippetd-dialog-overlay');
+  const endpointEl      = document.getElementById('csd-endpoint');
+  const contextEl       = document.getElementById('csd-context');
+  const keywordEl       = document.getElementById('csd-keyword');
+  const noteEl          = document.getElementById('csd-note');
+  const fetchBtn        = document.getElementById('csd-fetch');
+  const cancelBtn       = document.getElementById('csd-cancel');
+  const mainForm        = document.getElementById('codesnippetd-main-form');
+  const resultsDiv      = document.getElementById('codesnippetd-results');
+  const tableWrap       = document.getElementById('csd-table-wrap');
+  const resultsNoteEl   = document.getElementById('csd-results-note');
+  const backBtn         = document.getElementById('csd-results-back');
+  const resultsCancelBtn = document.getElementById('csd-results-cancel');
+
+  let targetNodeId = null;
+  let pendingFetch = null; // { endpoint, keyword }
+
+  function setNote(msg, type) {
+    noteEl.textContent = msg;
+    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+  }
+
+  function setResultsNote(msg, type) {
+    resultsNoteEl.textContent = msg;
+    resultsNoteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+  }
+
+  function close() {
+    overlay.style.display = 'none';
+    showMain();
+  }
+
+  function showMain() {
+    mainForm.style.display = '';
+    resultsDiv.style.display = 'none';
+  }
+
+  function showResults() {
+    mainForm.style.display = 'none';
+    resultsDiv.style.display = '';
+  }
+
+  window.openCodeSnippetdDialog = function (nodeId) {
+    targetNodeId = nodeId;
+    pendingFetch = null;
+    setNote('', '');
+    showMain();
+    overlay.style.display = 'flex';
+    keywordEl.focus();
+  };
+
+  async function fetchAndInsert(endpoint, keyword, index) {
+    const url = `http://${endpoint}/snippets/${encodeURIComponent(keyword)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    const list = await res.json();
+    if (!Array.isArray(list) || list.length === 0) throw new Error('Empty snippets response');
+    const item = list[index];
+    if (!item || typeof item.code !== 'string') throw new Error('Invalid snippet at index ' + index);
+    const n = S.nodes.find(n => n.id === targetNodeId);
+    if (!n) throw new Error('Node not found');
+    n.code = item.code;
+    if (typeof item.start === 'number' && item.start > 0) {
+      n.lineNumberStart = item.start;
+      n.showLineNumbers = true;
+    }
+    renderNode(n, ndEl(n.id));
+    scheduleSave();
+    close();
+    setStatus('Snippet inserted');
+  }
+
+  function buildResultsTable(tags) {
+    const rows = tags.map((tag, i) => {
+      const cells = typeof tag === 'object' && tag !== null
+        ? Object.entries(tag).map(([k, v]) => `<td>${esc(String(v))}</td>`).join('')
+        : `<td>${esc(String(tag))}</td>`;
+      const headerCells = typeof tag === 'object' && tag !== null
+        ? Object.keys(tag).map(k => `<th>${esc(k)}</th>`).join('')
+        : '<th>Value</th>';
+      return { cells, headerCells, i };
+    });
+
+    const firstTag = tags[0];
+    const headerCells = typeof firstTag === 'object' && firstTag !== null
+      ? Object.keys(firstTag).map(k => `<th>${esc(k)}</th>`).join('')
+      : '<th>Value</th>';
+
+    const tbody = rows.map(({ cells, i }) =>
+      `<tr class="csd-result-row" data-index="${i}"><td>${i + 1}</td>${cells}</tr>`
+    ).join('');
+
+    tableWrap.innerHTML = `
+      <table class="csd-table">
+        <thead><tr><th>#</th>${headerCells}</tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>`;
+
+    tableWrap.querySelectorAll('.csd-result-row').forEach(row => {
+      row.addEventListener('click', async () => {
+        const index = parseInt(row.dataset.index, 10);
+        setResultsNote('⏳ Fetching snippet…', '');
+        try {
+          await fetchAndInsert(pendingFetch.endpoint, pendingFetch.keyword, index);
+        } catch (e) {
+          setResultsNote(`✗ Failed: ${e.message}`, 'err');
+        }
+      });
+    });
+  }
+
+  fetchBtn.addEventListener('click', async () => {
+    const endpoint = endpointEl.value.trim();
+    const context  = contextEl.value.trim();
+    const keyword  = keywordEl.value.trim();
+
+    if (!endpoint) { setNote('⚠ API Endpoint is required.', 'err'); return; }
+    if (!keyword)  { setNote('⚠ Keyword is required.', 'err'); return; }
+
+    let tagsUrl = `http://${endpoint}/tags/${encodeURIComponent(keyword)}`;
+    if (context) tagsUrl += `?context=${encodeURIComponent(context)}`;
+
+    fetchBtn.disabled = true;
+    setNote('⏳ Fetching…', '');
+    try {
+      const res = await fetch(tagsUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      const tags = await res.json();
+      if (!Array.isArray(tags)) throw new Error('Expected a JSON array from /tags');
+
+      if (tags.length === 0) {
+        setNote('⚠ No snippets found for this keyword.', 'warn');
+        fetchBtn.disabled = false;
+        return;
+      }
+
+      if (tags.length === 1) {
+        await fetchAndInsert(endpoint, keyword, 0);
+      } else {
+        pendingFetch = { endpoint, keyword };
+        setResultsNote('', '');
+        buildResultsTable(tags);
+        showResults();
+      }
+    } catch (e) {
+      setNote(`✗ Fetch failed: ${e.message}`, 'err');
+    }
+    fetchBtn.disabled = false;
+  });
+
+  backBtn.addEventListener('click', showMain);
+  resultsCancelBtn.addEventListener('click', close);
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+  });
+})();
 
 // ═══════════════════════════════════════════════════════
 // INIT
