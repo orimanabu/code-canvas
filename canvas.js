@@ -1665,3 +1665,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 restoreFromStorage();
 
 setStatus('Ready — double-click to add block | select text to create link | Alt+click to delete link');
+
+// ═══════════════════════════════════════════════════════
+// TEST EXPORTS (not used in production)
+// ═══════════════════════════════════════════════════════
+export { S, addNode, removeNode, selectNode, addBubble, loadState };
