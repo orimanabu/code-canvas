@@ -3509,6 +3509,132 @@ pv_ops.lock.queued_spin_lock_slowpath = __pv_queued_spin_lock_slowpath;
 ✻ Cooked for 2m 15s
 ```
 
+```
+❯ コードブロック内のフォントを等幅フォントにしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ font-family が .node-body pre code.hljs にしか指定されておらず、pre 自体は body の sans-serif フォントを継承しています。pre に直接指定します。
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line
+      136  .node-body pre {
+      137    margin: 0; padding: 14px 16px;
+      138    font-size: 12.5px; line-height: 1.0;
+      139 +  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      140    white-space: pre-wrap; word-break: break-word;
+      141    user-select: text;
+      142  }
+
+⏺ .node-body pre に font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace を追加しました。これで code.hljs
+  ラッパーの有無に関わらず、コードブロック内のテキストが常に等幅フォントで表示されます。
+
+❯ コードブロックのテキストのフォントを、ソースコード表示に適したフォントに変えてみてください
+
+⏺ 現在の 'JetBrains Mono', 'Fira Code', 'Consolas' はローカルインストール頼みで、未インストール環境では汎用等幅フォントにフォールバックします。Google Fonts
+  から読み込むよう変更します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 3 lines
+       4  <meta charset="UTF-8">
+       5  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       6  <title>∞ Code Canvas</title>
+       7 +<link rel="preconnect" href="https://fonts.googleapis.com">
+       8 +<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+       9 +<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&display=swap">
+      10  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+      11  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+      12  <link rel="stylesheet" href="canvas.css">
+
+⏺ CSS 側はフォントスタック順を整理し、リガチャを有効化します:
+
+⏺ Update(canvas.css)
+  ⎿  Added 4 lines, removed 3 lines
+      135
+      136  .node-body pre {
+      137    margin: 0; padding: 14px 16px;
+      138 -  font-size: 12.5px; line-height: 1.0;
+      139 -  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      138 +  font-size: 12.5px; line-height: 1.55;
+      139 +  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      140 +  font-variant-ligatures: common-ligatures;
+      141    white-space: pre-wrap; word-break: break-word;
+      142    user-select: text;
+      143  }
+      144  .node-body pre code.hljs {
+      145    background: transparent !important; padding: 0 !important;
+      145 -  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      146 +  font-family: inherit;
+      147    user-select: text;
+      148  }
+      149
+
+⏺ 残りの font-family 指定も同じスタックに揃えます:
+
+⏺ Update(canvas.css)
+  ⎿  Added 5 lines, removed 5 lines
+      153    border: none; outline: none;
+      154    padding: 14px 16px;
+      155    font-size: 12.5px; line-height: 1.65; tab-size: 2;
+      156 -  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      156 +  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      157    resize: none; border-radius: 0 0 10px 10px;
+      158  }
+      159
+     ...
+      292    padding: 0 4px; margin-right: 8px;
+      293    background: #1f6feb; color: #fff;
+      294    border: none; border-radius: 3px;
+      295 -  font-size: 11px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      295 +  font-size: 11px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      296    text-align: right; outline: none; vertical-align: top;
+      297  }
+      298  .ln-toggle {
+     ...
+      385    width: 100%; padding: 7px 10px;
+      386    background: #0d1117; border: 1px solid #30363d;
+      387    border-radius: 6px; color: #e6edf3; font-size: 13px;
+      388 -  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      388 +  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      389    outline: none; transition: border-color 0.15s;
+      390  }
+      391  .git-form-input:focus { border-color: #388bfd; }
+     ...
+      428  .csd-tab {
+      429    padding: 7px 18px;
+      430    font-size: 13px;
+      431 -  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      431 +  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      432    background: none;
+      433    border: none;
+      434    border-bottom: 2px solid transparent;
+     ...
+      445  }
+      446  .csd-table {
+      447    width: 100%; border-collapse: collapse;
+      448 -  font-size: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      448 +  font-size: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      449  }
+      450  .csd-table thead th {
+      451    background: #21262d; color: #8b949e; padding: 7px 10px;
+
+⏺ 変更内容をまとめます:
+
+  フォント選択の理由
+  - JetBrains Mono — コード可読性に特化して設計、=> != === などのプログラミングリガチャ対応、Google Fonts から配信
+  - Fira Code / Cascadia Code — 同様にリガチャ対応の人気プログラミングフォント（フォールバック）
+  - Consolas → monospace — ローカル/システムフォントへの最終フォールバック
+
+  その他の変更
+  - line-height: 1.0 → 1.55 — 行間を読みやすい値に調整
+  - font-variant-ligatures: common-ligatures — != => // などのリガチャを有効化
+  - code.hljs の font-family を inherit に変更して重複定義を解消
+
+✻ Brewed for 52s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
