@@ -4,6 +4,10 @@
     "allow": [
       "Bash(git status)",
       "Bash(git diff)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(head *)",
       "Bash(curl *)",
       "Bash(npm test *)",
       "Bash(npx playwright *)",
