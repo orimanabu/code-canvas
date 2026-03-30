@@ -780,16 +780,25 @@ function autoFitNode(n) {
   const pre    = el.querySelector('.node-body pre');
   if (!pre) return;
 
-  // Step 1: measure natural (unwrapped) width.
-  // Temporarily disable wrapping so the pre expands to its longest line.
+  // Step 1: measure natural (unwrapped) code width.
+  // pre has overflow:visible so scrollWidth == clientWidth (container width),
+  // not the actual content width.  Switch to inline-block so the element
+  // sizes itself to its content; then getBoundingClientRect gives true width.
   const codeLines = pre.querySelectorAll('.code-line');
   pre.style.whiteSpace = 'pre';
   codeLines.forEach(l => { l.style.whiteSpace = 'pre'; });
-  el.style.width = 'max-content';
-  // Use getBoundingClientRect for sub-pixel accuracy, then ceil to avoid wrapping.
-  const naturalW = Math.max(250, Math.ceil(el.getBoundingClientRect().width));
+  pre.style.display = 'inline-block';
+  // getBoundingClientRect returns the pre's padding-box width in viewport px.
+  // Dividing by scale gives CSS px.  Add the node's border (2px) so the final
+  // node width is wide enough to fit the pre at its measured size.
+  const codeW = Math.ceil(pre.getBoundingClientRect().width / S.vp.scale) + 2;
+  pre.style.display = '';
   pre.style.whiteSpace = '';
   codeLines.forEach(l => { l.style.whiteSpace = ''; });
+
+  // Also keep header fully visible.
+  const headW    = header ? Math.ceil(header.getBoundingClientRect().width / S.vp.scale) + 2 : 0;
+  const naturalW = Math.max(250, codeW, headW);
   n.w = naturalW;
   el.style.width = naturalW + 'px';
 
