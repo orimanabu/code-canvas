@@ -1681,6 +1681,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   const overlay          = document.getElementById('codesnippetd-dialog-overlay');
   const endpointEl       = document.getElementById('csd-endpoint');
   const apiTypeEl        = document.getElementById('csd-api-type');
+  const useCtagsEl       = document.getElementById('csd-use-ctags');
   const contextEl        = document.getElementById('csd-context');
   const keywordEl        = document.getElementById('csd-keyword');
   const noteEl           = document.getElementById('csd-note');
@@ -1753,6 +1754,8 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     keywordEl.disabled = isPipe;
     contextEl.style.opacity = isPipe ? '0.4' : '';
     keywordEl.style.opacity = isPipe ? '0.4' : '';
+    useCtagsEl.disabled = !isPipe;
+    useCtagsEl.parentElement.style.opacity = isPipe ? '' : '0.4';
     fetchBtn.disabled = false;
   }
 
@@ -1903,21 +1906,26 @@ document.getElementById('btn-clear').addEventListener('click', () => {
         const item = await res.json();
         if (!item || typeof item.code !== 'string') throw new Error('Invalid /pipe response');
 
-        // Switch to wasm results pane
         pendingPipeItem  = item;
         pendingCtagsName = null;
-        wasmOkBtn.disabled = true;
-        wasmTableWrap.innerHTML = '';
-        setWasmStatus('⏳ Running ctags-wasm…', '');
-        showWasmResults();
         setNote('', '');
 
-        // Run ctags
-        const { firstTagName, tags } = await runCtagsFull(item.code, item.path || 'input');
-        pendingCtagsName = firstTagName;
-        setWasmStatus('✓ Ctags-wasm complete', 'ok');
-        buildWasmTable(tags);
-        wasmOkBtn.disabled = false;
+        if (useCtagsEl.checked) {
+          // Switch to wasm results pane
+          wasmOkBtn.disabled = true;
+          wasmTableWrap.innerHTML = '';
+          setWasmStatus('⏳ Running ctags-wasm…', '');
+          showWasmResults();
+
+          const { firstTagName, tags } = await runCtagsFull(item.code, item.path || 'input');
+          pendingCtagsName = firstTagName;
+          setWasmStatus('✓ Ctags-wasm complete', 'ok');
+          buildWasmTable(tags);
+          wasmOkBtn.disabled = false;
+        } else {
+          // Apply immediately without ctags
+          applyPipeItem();
+        }
       } catch (e) {
         showMain();
         setNote(`✗ Fetch failed: ${e.message}`, 'err');
@@ -1962,7 +1970,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     fetchBtn.disabled = false;
   });
 
-  wasmOkBtn.addEventListener('click', () => {
+  function applyPipeItem() {
     const item = pendingPipeItem;
     if (!item) return;
     const n = S.nodes.find(n => n.id === targetNodeId);
@@ -1981,7 +1989,9 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     scheduleSave();
     close();
     setStatus('Snippet inserted via /pipe');
-  });
+  }
+
+  wasmOkBtn.addEventListener('click', applyPipeItem);
 
   wasmBackBtn.addEventListener('click', () => { showMain(); });
   wasmCancelBtn.addEventListener('click', close);

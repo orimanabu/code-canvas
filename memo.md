@@ -2913,6 +2913,163 @@ Cross origin requests are only supported for protocol schemes: chrome, chrome-ex
       1921        } catch (e) {
 ```
 
+```
+❯ div id="codesnippetd-main-form"において、API
+Typeが`/pipe`のときに、「ctags-wasmを使ってブロックのタイトルを自動的に抽出する」(キャプションは英語にしてください)というチェックボックスを有効にしてください。API
+Typeが`/snippetd`のときはこのチェックボックスは無効化してください。チェックが入っている場合はctags-wasmを実行し、チェックが入っていない場合はそのままブロックに/pipeで取得したJSON
+からブロックを生成してください
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ HTML — チェックボックス行を追加:
+
+⏺ Update(canvas.html)
+  ⎿  Added 7 lines
+      121          </select>
+      122        </div>
+      123        <div class="git-form-row">
+      124 +        <label class="git-form-label" for="csd-use-ctags"></label>
+      125 +        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#e6edf3;cursor:pointer;">
+      126 +          <input type="checkbox" id="csd-use-ctags" checked>
+      127 +          Auto-extract block title using ctags-wasm
+      128 +        </label>
+      129 +      </div>
+      130 +      <div class="git-form-row">
+      131          <label class="git-form-label" for="csd-context">Context</label>
+      132          <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      133        </div>
+
+⏺ JS — element 参照追加・updateApiTypeUI 更新・/pipe ハンドラ更新:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1681    const overlay          = document.getElementById('codesnippetd-dialog-overlay');
+      1682    const endpointEl       = document.getElementById('csd-endpoint');
+      1683    const apiTypeEl        = document.getElementById('csd-api-type');
+      1684 +  const useCtagsEl       = document.getElementById('csd-use-ctags');
+      1685    const contextEl        = document.getElementById('csd-context');
+      1686    const keywordEl        = document.getElementById('csd-keyword');
+      1687    const noteEl           = document.getElementById('csd-note');
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      1754      keywordEl.disabled = isPipe;
+      1755      contextEl.style.opacity = isPipe ? '0.4' : '';
+      1756      keywordEl.style.opacity = isPipe ? '0.4' : '';
+      1757 +    useCtagsEl.disabled = !isPipe;
+      1758 +    useCtagsEl.parentElement.style.opacity = isPipe ? '' : '0.4';
+      1759      fetchBtn.disabled = false;
+      1760    }
+      1761
+
+⏺ 次に /pipe ハンドラでチェック状態を参照するよう更新:
+
+⏺ Update(canvas.js)
+  ⎿  Added 16 lines, removed 11 lines
+      1906          const item = await res.json();
+      1907          if (!item || typeof item.code !== 'string') throw new Error('Invalid /pipe response');
+      1908
+      1909 -        // Switch to wasm results pane
+      1909          pendingPipeItem  = item;
+      1910          pendingCtagsName = null;
+      1912 -        wasmOkBtn.disabled = true;
+      1913 -        wasmTableWrap.innerHTML = '';
+      1914 -        setWasmStatus('⏳ Running ctags-wasm…', '');
+      1915 -        showWasmResults();
+      1911          setNote('', '');
+      1912
+      1918 -        // Run ctags
+      1919 -        const { firstTagName, tags } = await runCtagsFull(item.code, item.path || 'input');
+      1920 -        pendingCtagsName = firstTagName;
+      1921 -        setWasmStatus('✓ Ctags-wasm complete', 'ok');
+      1922 -        buildWasmTable(tags);
+      1923 -        wasmOkBtn.disabled = false;
+      1913 +        if (useCtagsEl.checked) {
+      1914 +          // Switch to wasm results pane
+      1915 +          wasmOkBtn.disabled = true;
+      1916 +          wasmTableWrap.innerHTML = '';
+      1917 +          setWasmStatus('⏳ Running ctags-wasm…', '');
+      1918 +          showWasmResults();
+      1919 +
+      1920 +          const { firstTagName, tags } = await runCtagsFull(item.code, item.path || 'input');
+      1921 +          pendingCtagsName = firstTagName;
+      1922 +          setWasmStatus('✓ Ctags-wasm complete', 'ok');
+      1923 +          buildWasmTable(tags);
+      1924 +          wasmOkBtn.disabled = false;
+      1925 +        } else {
+      1926 +          // Apply immediately without ctags
+      1927 +          wasmOkBtn.click();
+      1928 +        }
+      1929        } catch (e) {
+      1930          showMain();
+      1931          setNote(`✗ Fetch failed: ${e.message}`, 'err');
+
+⏺ 変更内容のまとめ:
+
+  - HTML: API Type セレクトと Context 行の間に id="csd-use-ctags" チェックボックス行を追加（デフォルト: チェック済み、キャプション: "Auto-extract block title using ctags-wasm"）
+  - JS updateApiTypeUI(): /pipe のときチェックボックスを有効、/snippets のときは disabled + 半透明に
+  - JS /pipe ハンドラ:
+    - チェック あり → 従来どおり wasm 結果ペインを表示して ctags-wasm 実行 → OK 待ち
+    - チェック なし → ctags-wasm をスキップして即座にノードへ適用・ダイアログを閉じる
+
+✻ Cogitated for 36s
+
+❯ div id="codesnippetd-main-form"のダイアログにおいて、API Typeを`/pipe`にして、「Auto-extract block title using
+ctags-wasm」のチェックを外してfetchボタンを押すと、何も動きません。調査をお願いします。(チェックをつけてfetchボタンを押した場合は、ctags-wasmの実行結果のダイアログに遷移します)
+
+⏺ コードを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 原因判明: wasmOkBtn は HTML で disabled 属性が付いた初期状態のままで、disabled なボタンへの .click() はイベントが発火しません。
+
+  適用ロジックを関数 applyPipeItem() に切り出し、直接呼ぶように修正します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ロジックを applyPipeItem() 関数に切り出し、OK ハンドラと else 分岐の両方から呼びます。
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 2 lines
+      1970      fetchBtn.disabled = false;
+      1971    });
+      1972
+      1973 -  wasmOkBtn.addEventListener('click', () => {
+      1973 +  function applyPipeItem() {
+      1974      const item = pendingPipeItem;
+      1975      if (!item) return;
+      1976      const n = S.nodes.find(n => n.id === targetNodeId);
+     ...
+      1989      scheduleSave();
+      1990      close();
+      1991      setStatus('Snippet inserted via /pipe');
+      1992 -  });
+      1992 +  }
+      1993
+      1994 +  wasmOkBtn.addEventListener('click', applyPipeItem);
+      1995 +
+      1996    wasmBackBtn.addEventListener('click', () => { showMain(); });
+      1997    wasmCancelBtn.addEventListener('click', close);
+      1998    backBtn.addEventListener('click', showMain);
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1924            wasmOkBtn.disabled = false;
+      1925          } else {
+      1926            // Apply immediately without ctags
+      1927 -          wasmOkBtn.click();
+      1927 +          applyPipeItem();
+      1928          }
+      1929        } catch (e) {
+      1930          showMain();
+
+⏺ 原因: wasmOkBtn は HTML で disabled 属性付きで定義されており、disabled なボタンへの .click() はブラウザがイベントを発火させないため、何も起きていませんでした。
+
+  修正: 適用ロジックを applyPipeItem() 関数に切り出し、OK ボタンのハンドラと else 分岐の両方から直接呼ぶようにしました。
+
+✻ Worked for 43s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
