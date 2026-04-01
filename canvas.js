@@ -236,16 +236,18 @@ const S = {
   pending: null,    // { fromId, text }
   gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
   tailDrag: null,   // { id } — bubble tail being dragged
+  marquee: null,    // { sx, sy, ex, ey } — rubber-band selection in screen coords
 };
 
 // ═══════════════════════════════════════════════════════
 // DOM REFS
 // ═══════════════════════════════════════════════════════
-const wrap      = document.getElementById('wrap');
-const canvas    = document.getElementById('canvas');
-const svgLinks  = document.getElementById('svg-links');
-const linkTip   = document.getElementById('link-tip');
-const statusEl  = document.getElementById('status');
+const wrap        = document.getElementById('wrap');
+const canvas      = document.getElementById('canvas');
+const svgLinks    = document.getElementById('svg-links');
+const linkTip     = document.getElementById('link-tip');
+const statusEl    = document.getElementById('status');
+const marqueeEl   = document.getElementById('marquee');
 
 // ═══════════════════════════════════════════════════════
 // MODE
@@ -1183,6 +1185,12 @@ wrap.addEventListener('mousedown', e => {
       e.preventDefault();
       S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
       wrap.style.cursor = 'grabbing';
+      return;
+    }
+    // Select mode + background drag: start marquee selection
+    if (S.mode === 'select' && onBg) {
+      e.preventDefault();
+      S.marquee = { sx: e.clientX, sy: e.clientY, ex: e.clientX, ey: e.clientY };
     }
   }
 });
@@ -1262,6 +1270,18 @@ document.addEventListener('mousemove', e => {
       }
       renderLinks();
     }
+  } else if (S.marquee) {
+    S.marquee.ex = e.clientX;
+    S.marquee.ey = e.clientY;
+    const x = Math.min(S.marquee.sx, S.marquee.ex);
+    const y = Math.min(S.marquee.sy, S.marquee.ey);
+    const w = Math.abs(S.marquee.ex - S.marquee.sx);
+    const h = Math.abs(S.marquee.ey - S.marquee.sy);
+    marqueeEl.style.display = 'block';
+    marqueeEl.style.left    = x + 'px';
+    marqueeEl.style.top     = y + 'px';
+    marqueeEl.style.width   = w + 'px';
+    marqueeEl.style.height  = h + 'px';
   }
 });
 
@@ -1274,6 +1294,28 @@ document.addEventListener('mouseup', () => {
     }
   }
   if (S.tailDrag) { S.tailDrag = null; scheduleSave(); }
+  if (S.marquee) {
+    marqueeEl.style.display = 'none';
+    const mq = S.marquee;
+    S.marquee = null;
+    // Convert marquee screen rect to canvas coords
+    const c0 = s2c(Math.min(mq.sx, mq.ex), Math.min(mq.sy, mq.ey));
+    const c1 = s2c(Math.max(mq.sx, mq.ex), Math.max(mq.sy, mq.ey));
+    // Only apply if the drag was large enough to be intentional (> 4px)
+    if (c1.x - c0.x > 4 / S.vp.scale || c1.y - c0.y > 4 / S.vp.scale) {
+      clearMultiSel();
+      selectNode(null);
+      S.nodes.forEach(n => {
+        // Axis-aligned rect overlap: node rect vs marquee rect
+        if (n.x < c1.x && n.x + n.w > c0.x && n.y < c1.y && n.y + n.h > c0.y) {
+          S.multiSel.add(n.id);
+          ndEl(n.id)?.classList.add('multi-selected');
+        }
+      });
+      const count = S.multiSel.size;
+      setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready');
+    }
+  }
   S.drag = null; S.resize = null; S.zoomDrag = null;
   if (S.pan) S.pan = null;
   updateCursor();

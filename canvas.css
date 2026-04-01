@@ -357,6 +357,17 @@ body.link-mode .node:hover {
 .bubble-tail-poly { pointer-events: none; }
 .tail-handle { cursor: move; pointer-events: all; }
 
+/* ── Marquee selection ── */
+#marquee {
+  position: fixed;
+  border: 1px solid rgba(56,139,253,0.7);
+  background: rgba(56,139,253,0.08);
+  border-radius: 2px;
+  pointer-events: none;
+  display: none;
+  z-index: 150;
+}
+
 /* ── Color swatches ── */
 .color-swatches {
   display: flex; align-items: center; gap: 3px;
