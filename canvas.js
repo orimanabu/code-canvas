@@ -2159,13 +2159,29 @@ document.getElementById('btn-clear').addEventListener('click', () => {
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
-if (window.__initialData && !sessionStorage.getItem('canvas-initial-loaded')) {
-  sessionStorage.setItem('canvas-initial-loaded', '1');
-  loadState(window.__initialData);
-  saveState();
-} else {
-  restoreFromStorage();
-}
+(async () => {
+  const dataUrl = new URLSearchParams(location.search).get('data');
+  if (dataUrl) {
+    setStatus('Loading data from URL…');
+    try {
+      const res = await fetch(dataUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      loadState(data);
+      saveState();
+      setStatus('Imported from URL');
+    } catch (e) {
+      setStatus('⚠ Failed to load data from URL: ' + e.message);
+      restoreFromStorage();
+    }
+  } else if (window.__initialData && !sessionStorage.getItem('canvas-initial-loaded')) {
+    sessionStorage.setItem('canvas-initial-loaded', '1');
+    loadState(window.__initialData);
+    saveState();
+  } else {
+    restoreFromStorage();
+  }
+})()
 
 setStatus('Ready — double-click to add block | select text to create link | Alt+click to delete link');
 
