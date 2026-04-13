@@ -786,7 +786,7 @@ function setupNodeEvents(n, el) {
         }
         toggleMultiSel(n.id);
         const count = S.multiSel.size;
-        setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready');
+        setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | Alt+click to delete link');
       }
       return;
     }
@@ -1102,7 +1102,7 @@ function exitLinkMode() {
   S.pending = null;
   document.body.classList.remove('link-mode');
   linkTip.style.display = 'none';
-  setStatus('Ready');
+  setStatus('Ready — double-click to add block | select text to create link | Alt+click to delete link');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1160,7 +1160,7 @@ wrap.addEventListener('mousedown', e => {
   if (onBg) {
     selectNode(null);
     clearMultiSel();
-    setStatus('Ready');
+    setStatus('Ready — double-click to add block | select text to create link | Alt+click to delete link');
     if (S.editing) stopEdit();
   }
 
@@ -1313,7 +1313,7 @@ document.addEventListener('mouseup', () => {
         }
       });
       const count = S.multiSel.size;
-      setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready');
+      setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | Alt+click to delete link');
     }
   }
   S.drag = null; S.resize = null; S.zoomDrag = null;
