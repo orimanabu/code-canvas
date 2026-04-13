@@ -933,6 +933,11 @@ function clearMultiSel() {
 }
 
 function removeNode(id) {
+  // Collect source nodes whose link-anchor spans must be cleared
+  const affectedFromIds = S.links
+    .filter(l => l.toId === id)
+    .map(l => l.fromId);
+
   S.nodes = S.nodes.filter(n => n.id !== id);
   S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
   svgLinks.querySelector(`[data-btail="${id}"]`)?.remove();
@@ -941,6 +946,13 @@ function removeNode(id) {
   if (S.sel === id)     S.sel = null;
   if (S.editing === id) S.editing = null;
   S.multiSel.delete(id);
+
+  // Re-render source nodes to remove stale link-anchor spans
+  affectedFromIds.forEach(fromId => {
+    const fn = S.nodes.find(n => n.id === fromId);
+    if (fn) renderNode(fn);
+  });
+
   renderLinks();
   scheduleSave();
 }

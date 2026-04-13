@@ -6183,6 +6183,45 @@ here"という選択肢を追加し、これを選ぶと「コードブロック
 ✻ Sautéed for 32s
 ```
 
+```
+❯ リンク関係の2つのコードブロックにおいて、リンク先のブロックを消すとリンクも消えますが、リンク元の選択テキストにlink-anchorのspan
+classがついたままの状態です。リンク先のブロックが消えたら、リンク元の選択テキストのlink-anchorもクリアしてください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 原因は明確です。removeNode がリンクを S.links から削除する前に fromId を収集して、削除後にそれらのソースノードを再��ンダリングする必要があります。
+
+⏺ Update(canvas.js)
+  ⎿  Added 12 lines
+      933  }
+      934
+      935  function removeNode(id) {
+      936 +  // Collect source nodes whose link-anchor spans must be cleared
+      937 +  const affectedFromIds = S.links
+      938 +    .filter(l => l.toId === id)
+      939 +    .map(l => l.fromId);
+      940 +
+      941    S.nodes = S.nodes.filter(n => n.id !== id);
+      942    S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
+      943    svgLinks.querySelector(`[data-btail="${id}"]`)?.remove();
+     ...
+      946    if (S.sel === id)     S.sel = null;
+      947    if (S.editing === id) S.editing = null;
+      948    S.multiSel.delete(id);
+      949 +
+      950 +  // Re-render source nodes to remove stale link-anchor spans
+      951 +  affectedFromIds.forEach(fromId => {
+      952 +    const fn = S.nodes.find(n => n.id === fromId);
+      953 +    if (fn) renderNode(fn);
+      954 +  });
+      955 +
+      956    renderLinks();
+      957    scheduleSave();
+      958  }
+
+⏺ これでリンク先ブロックを削除したとき、リンク元ノードが再レンダリングされ link-anchor の span が除去されます。
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
