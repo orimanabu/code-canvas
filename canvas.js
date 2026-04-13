@@ -245,6 +245,7 @@ const S = {
 const wrap        = document.getElementById('wrap');
 const canvas      = document.getElementById('canvas');
 const svgLinks    = document.getElementById('svg-links');
+const svgTails    = document.getElementById('svg-tails');
 const linkTip        = document.getElementById('link-tip');
 const linkTipLink    = document.getElementById('link-tip-link');
 const linkTipNewBlock = document.getElementById('link-tip-newblock');
@@ -647,7 +648,7 @@ function renderBubbleContent(n, el) {
 
 // Draw bubble tail as smooth SVG path + draggable handle (screen coords)
 function renderBubbleTail(n) {
-  svgLinks.querySelector(`[data-btail="${n.id}"]`)?.remove();
+  svgTails.querySelector(`[data-btail="${n.id}"]`)?.remove();
 
   const bl  = c2s(n.x, n.y);
   const br  = c2s(n.x + n.w, n.y + n.h);
@@ -702,7 +703,7 @@ function renderBubbleTail(n) {
   });
   g.appendChild(handle);
 
-  svgLinks.appendChild(g);
+  svgTails.appendChild(g);
 }
 
 function addBubble(x, y) {
@@ -1073,7 +1074,7 @@ function removeNode(id) {
 
   S.nodes = S.nodes.filter(n => n.id !== id);
   S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
-  svgLinks.querySelector(`[data-btail="${id}"]`)?.remove();
+  svgTails.querySelector(`[data-btail="${id}"]`)?.remove();
   const el = ndEl(id);
   if (el) el.remove();
   if (S.sel === id)     S.sel = null;
@@ -1208,7 +1209,7 @@ function targetEntryPoint(fp, tn) {
 
 function renderLinks() {
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
-  svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
+  svgTails.querySelectorAll('[data-btail]').forEach(e => e.remove());
   for (const lnk of S.links) {
     const fn = S.nodes.find(n => n.id === lnk.fromId);
     const tn = S.nodes.find(n => n.id === lnk.toId);
@@ -2170,7 +2171,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   S.multiSel.clear(); S.clipboard = [];
   S.gitConfig = { url: '', branch: '', tag: '', commitHash: '' };
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
-  svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
+  svgTails.querySelectorAll('[data-btail]').forEach(e => e.remove());
   setStatus('Cleared');
 });
 

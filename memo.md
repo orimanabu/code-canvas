@@ -7508,6 +7508,147 @@ classがついたままの状態です。リンク先のブロックが消えた
 ✻ Brewed for 33s
 ```
 
+```
+❯ バブルを作成した後、ブロックを作成して、ブロックをバブルの上に移動すると、バブルのテキストボックス部分は下に隠れますが、尻尾の部分が下に隠れずブロックの上に表示されたままになり
+ます。尻尾の部分のz-orderの計算を見直してください
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題の根本：#svg-links は #canvas より後のDOM順で描画されますが、#canvas は CSS transform
+  によってスタッキングコンテキストを形成するため、SVG全体が常にノード群の上に重なります。バブルの尻尾も同じSVGに描いているので、コードブロックを上に置いてもSVGが勝ちます。
+
+  解決策はSVGを2層に分けること：
+  - #svg-tails（#canvas の後ろ）— バブルの尻尾用
+  - #svg-links（#canvas の前）— リンク矢印用（現状維持）
+
+  まずHTMLに svg-tails を追加します：
+
+⏺ Update(canvas.html)
+  ⎿  Added 2 lines
+      32  </div>
+      33
+      34  <div id="wrap">
+      35 +  <svg id="svg-tails">
+      36 +  </svg>
+      37    <div id="canvas"></div>
+      38    <div id="marquee"></div>
+      39    <svg id="svg-links">
+
+⏺ CSSに #svg-tails のスタイルを追加します：
+
+⏺ Update(canvas.css)
+  ⎿  Added 7 lines
+      20    will-change: transform;
+      21  }
+      22
+      23 +#svg-tails {
+      24 +  position: absolute; inset: 0;
+      25 +  width: 100%; height: 100%;
+      26 +  pointer-events: none;
+      27 +  overflow: visible;
+      28 +}
+      29 +
+      30  #svg-links {
+      31    position: absolute; inset: 0;
+      32    width: 100%; height: 100%;
+
+⏺ 次にJSでバブルの尻尾を svgTails に描画するよう変更します。まず DOM ref を追加し、renderBubbleTail を更新します：
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      245  const wrap        = document.getElementById('wrap');
+      246  const canvas      = document.getElementById('canvas');
+      247  const svgLinks    = document.getElementById('svg-links');
+      248 +const svgTails    = document.getElementById('svg-tails');
+      249  const linkTip        = document.getElementById('link-tip');
+      250  const linkTipLink    = document.getElementById('link-tip-link');
+      251  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+
+⏺ 次に renderBubbleTail で svgLinks を使っている箇所を svgTails に変更します：
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ data-btail 関連の操作をすべて svgTails に切り替えます：
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      648
+      649  // Draw bubble tail as smooth SVG path + draggable handle (screen coords)
+      650  function renderBubbleTail(n) {
+      651 -  svgLinks.querySelector(`[data-btail="${n.id}"]`)?.remove();
+      651 +  svgTails.querySelector(`[data-btail="${n.id}"]`)?.remove();
+      652
+      653    const bl  = c2s(n.x, n.y);
+      654    const br  = c2s(n.x + n.w, n.y + n.h);
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      703    });
+      704    g.appendChild(handle);
+      705
+      706 -  svgLinks.appendChild(g);
+      706 +  svgTails.appendChild(g);
+      707  }
+      708
+      709  function addBubble(x, y) {
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1074
+      1075    S.nodes = S.nodes.filter(n => n.id !== id);
+      1076    S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
+      1077 -  svgLinks.querySelector(`[data-btail="${id}"]`)?.remove();
+      1077 +  svgTails.querySelector(`[data-btail="${id}"]`)?.remove();
+      1078    const el = ndEl(id);
+      1079    if (el) el.remove();
+      1080    if (S.sel === id)     S.sel = null;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1209
+      1210  function renderLinks() {
+      1211    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      1212 -  svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
+      1212 +  svgTails.querySelectorAll('[data-btail]').forEach(e => e.remove());
+      1213    for (const lnk of S.links) {
+      1214      const fn = S.nodes.find(n => n.id === lnk.fromId);
+      1215      const tn = S.nodes.find(n => n.id === lnk.toId);
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2171    S.multiSel.clear(); S.clipboard = [];
+      2172    S.gitConfig = { url: '', branch: '', tag: '', commitHash: '' };
+      2173    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      2174 -  svgLinks.querySelectorAll('[data-btail]').forEach(e => e.remove());
+      2174 +  svgTails.querySelectorAll('[data-btail]').forEach(e => e.remove());
+      2175    setStatus('Cleared');
+      2176  });
+      2177
+
+⏺ loadState 内でも同様に対処します：
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ すべて svgTails に切り替わっています。loadState 内にも残っている箇所を確認します：
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ すべて置換済みです。またtail handleの pointer-events が svgTails 側でも機能するよう、#svg-tails の pointer-events: none を上書きするためにハンドル要素の設定を確認します：
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ .tail-handle には既に pointer-events: all が設定されているので、#svg-tails の pointer-events: none に関わらずドラッグ操作は正常に動きます。
+
+  変更の概要：
+
+  #svg-tails（新設）を #canvas より前のDOM位置に配置することで、バブルの尻尾は常に #canvas 内のすべてのノードの後ろに描画されます。リンク矢印は引き続き #svg-links（#canvas
+  の後ろ）に描画され、ノードの上に表示されます。
+
+✻ Crunched for 2m 9s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
