@@ -1883,14 +1883,31 @@ document.getElementById('btn-git-config').addEventListener('click', openDialog);
 })();
 
 // Export
-document.getElementById('btn-export').addEventListener('click', () => {
+document.getElementById('btn-export').addEventListener('click', async () => {
   saveState();
   const raw = localStorage.getItem(STORAGE_KEY) ?? '{}';
   const data = JSON.stringify(JSON.parse(raw), null, 2);
+  const suggestedName = `code-canvas-${new Date().toISOString().slice(0,10)}.json`;
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(data);
+      await writable.close();
+      setStatus('Exported');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      // Fall through to legacy download on other errors
+    }
+  }
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `code-canvas-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = suggestedName;
   a.click();
   URL.revokeObjectURL(a.href);
   setStatus('Exported');

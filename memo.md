@@ -6493,6 +6493,59 @@ classがついたままの状態です。リンク先のブロックが消えた
 ⏺ 1行の追加で完了です。.node-body 以外の場所（キャンバス背景、ヘッダー、ツールバーなど）をクリックすると、テキスト選択がクリアされ link-tip も非表示になります。
 ```
 
+```
+❯ Export時、書き出し先のフォルダおよびファイル名を指定したいです
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 現在は code-canvas-YYYY-MM-DD.json という固定のファイル名でダウンロードしています。ブラウザの「名前を付けて保存」ダイアログを表示する方法を使います。
+
+  showSaveFilePicker API（モダンブラウザ対応）を使い、非対応の場合は従来の固定名フォールバックにします。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 19 lines, removed 2 lines
+      1883  })();
+      1884
+      1885  // Export
+      1886 -document.getElementById('btn-export').addEventListener('click', () => {
+      1886 +document.getElementById('btn-export').addEventListener('click', async () => {
+      1887    saveState();
+      1888    const raw = localStorage.getItem(STORAGE_KEY) ?? '{}';
+      1889    const data = JSON.stringify(JSON.parse(raw), null, 2);
+      1890 +  const suggestedName = `code-canvas-${new Date().toISOString().slice(0,10)}.json`;
+      1891 +  if (window.showSaveFilePicker) {
+      1892 +    try {
+      1893 +      const handle = await window.showSaveFilePicker({
+      1894 +        suggestedName,
+      1895 +        types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }],
+      1896 +      });
+      1897 +      const writable = await handle.createWritable();
+      1898 +      await writable.write(data);
+      1899 +      await writable.close();
+      1900 +      setStatus('Exported');
+      1901 +      return;
+      1902 +    } catch (e) {
+      1903 +      if (e.name === 'AbortError') return;
+      1904 +      // Fall through to legacy download on other errors
+      1905 +    }
+      1906 +  }
+      1907    const blob = new Blob([data], { type: 'application/json' });
+      1908    const a = document.createElement('a');
+      1909    a.href = URL.createObjectURL(blob);
+      1893 -  a.download = `code-canvas-${new Date().toISOString().slice(0,10)}.json`;
+      1910 +  a.download = suggestedName;
+      1911    a.click();
+      1912    URL.revokeObjectURL(a.href);
+      1913    setStatus('Exported');
+
+⏺ showSaveFilePicker API を使って保存先フォルダとファイル名を指定できるようにしました。
+
+  - 対応ブラウザ（Chrome/Edge など）: 「名前を付けて保存」ダイアログが開き、フォルダとファイル名を自由に指定可能。デフォルト名は code-canvas-YYYY-MM-DD.json
+  - 非対応ブラウザ（Firefox、file:// 経由など）: 従来どおり固定名でダウンロード
+  - キャンセルした場合は何も起きません
+```
 
 # claudeを起動したときに最初に打つプロンプト
 
