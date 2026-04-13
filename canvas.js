@@ -588,8 +588,22 @@ function renderNode(n, el) {
   if (rh) {
     rh.addEventListener('mousedown', e => {
       e.stopPropagation(); e.preventDefault();
-      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ow: n.w, oh: n.h };
+      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, ow: n.w, oh: n.h, edge: 'se' };
     });
+  }
+  setupEdgeResizeHandles(n, el);
+}
+
+function setupEdgeResizeHandles(n, el) {
+  el.querySelectorAll('.resize-edge').forEach(h => h.remove());
+  for (const edge of ['n', 's', 'e', 'w']) {
+    const h = document.createElement('div');
+    h.className = `resize-edge resize-edge-${edge}`;
+    h.addEventListener('mousedown', e => {
+      e.stopPropagation(); e.preventDefault();
+      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, ow: n.w, oh: n.h, edge };
+    });
+    el.appendChild(h);
   }
 }
 
@@ -1523,10 +1537,32 @@ document.addEventListener('mousemove', e => {
     const r = 1 / S.vp.scale;
     const n = S.nodes.find(n => n.id === S.resize.id);
     if (n) {
-      n.w = Math.max(250, S.resize.ow + (e.clientX - S.resize.sx) * r);
-      n.h = Math.max(120, S.resize.oh + (e.clientY - S.resize.sy) * r);
+      const dx   = (e.clientX - S.resize.sx) * r;
+      const dy   = (e.clientY - S.resize.sy) * r;
+      const edge = S.resize.edge;
+      const minW = (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
+      const minH = (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
+      if (edge === 'n') {
+        const newH = Math.max(minH, S.resize.oh - dy);
+        n.y = S.resize.oy + S.resize.oh - newH;
+        n.h = newH;
+      } else if (edge === 's') {
+        n.h = Math.max(minH, S.resize.oh + dy);
+      } else if (edge === 'e') {
+        n.w = Math.max(minW, S.resize.ow + dx);
+      } else if (edge === 'w') {
+        const newW = Math.max(minW, S.resize.ow - dx);
+        n.x = S.resize.ox + S.resize.ow - newW;
+        n.w = newW;
+      } else {
+        // se corner handle
+        n.w = Math.max(minW, S.resize.ow + dx);
+        n.h = Math.max(minH, S.resize.oh + dy);
+      }
       const el = ndEl(n.id);
       if (el) {
+        el.style.left   = n.x + 'px';
+        el.style.top    = n.y + 'px';
         el.style.width  = n.w + 'px';
         el.style.height = n.h + 'px';
         const ta = el.querySelector('textarea');

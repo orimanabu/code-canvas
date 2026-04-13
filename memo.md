@@ -7270,6 +7270,145 @@ classがついたままの状態です。リンク先のブロックが消えた
   - 何も選択していない状態でFrameボタン → ビューポート中央に 600×400 のフレームを作成
 ```
 
+```
+❯ Block、Bubble、Frameそれぞれについて、今はサイズ変更するには右下のマークをドラッグする実装になっています。これを、上下左右の各辺をドラッグすることでリサイズできるようにしてくだ
+さい
+
+⏺ 現在のリサイズコードと関連する箇所を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 全体像が把握できました。実装します。
+
+  まず CSS にエッジハンドルのスタイルを追加します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 9 lines
+      211    position: absolute; bottom: 0; right: 0;
+      212    width: 20px; height: 20px;
+      213    cursor: se-resize; border-radius: 0 0 10px 0;
+      214 +  z-index: 12;
+      215  }
+      216 +
+      217 +.resize-edge {
+      218 +  position: absolute; z-index: 11;
+      219 +}
+      220 +.resize-edge-n { top: 0;    left: 8px;  right: 8px;  height: 6px; cursor: ns-resize; }
+      221 +.resize-edge-s { bottom: 0; left: 8px;  right: 24px; height: 6px; cursor: ns-resize; }
+      222 +.resize-edge-e { right: 0;  top: 8px;   bottom: 24px; width: 6px; cursor: ew-resize; }
+      223 +.resize-edge-w { left: 0;   top: 8px;   bottom: 8px;  width: 6px; cursor: ew-resize; }
+      224  .resize-handle::after {
+      225    content: '';
+      226    position: absolute; bottom: 5px; right: 5px;
+
+⏺ 次に JS を変更します。まず renderNode 末尾のリサイズハンドル設定部分を更新し、エッジハンドルもセットアップするよう変更します：
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 1 line
+      588    if (rh) {
+      589      rh.addEventListener('mousedown', e => {
+      590        e.stopPropagation(); e.preventDefault();
+      591 -      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ow: n.w, oh: n.h };
+      591 +      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, ow: n.w, oh: n.h, edge: 'se' };
+      592      });
+      593    }
+      594 +  setupEdgeResizeHandles(n, el);
+      595  }
+      596
+      597  // ═══════════════════════════════════════════════════════
+
+⏺ setupEdgeResizeHandles 関数を FRAME NODE セクションの前に追加します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 13 lines
+      594    setupEdgeResizeHandles(n, el);
+      595  }
+      596
+      597 +function setupEdgeResizeHandles(n, el) {
+      598 +  el.querySelectorAll('.resize-edge').forEach(h => h.remove());
+      599 +  for (const edge of ['n', 's', 'e', 'w']) {
+      600 +    const h = document.createElement('div');
+      601 +    h.className = `resize-edge resize-edge-${edge}`;
+      602 +    h.addEventListener('mousedown', e => {
+      603 +      e.stopPropagation(); e.preventDefault();
+      604 +      S.resize = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, ow: n.w, oh: n.h, edge };
+      605 +    });
+      606 +    el.appendChild(h);
+      607 +  }
+      608 +}
+      609 +
+      610  // ═══════════════════════════════════════════════════════
+      611  // BUBBLE NODE
+      612  // ═══════════════════════════════════════════════════════
+
+⏺ 次に mousemove のリサイズ処理をエッジ対応に更新します：
+
+⏺ Update(canvas.js)
+  ⎿  Added 24 lines, removed 2 lines
+      1537      const r = 1 / S.vp.scale;
+      1538      const n = S.nodes.find(n => n.id === S.resize.id);
+      1539      if (n) {
+      1540 -      n.w = Math.max(250, S.resize.ow + (e.clientX - S.resize.sx) * r);
+      1541 -      n.h = Math.max(120, S.resize.oh + (e.clientY - S.resize.sy) * r);
+      1540 +      const dx   = (e.clientX - S.resize.sx) * r;
+      1541 +      const dy   = (e.clientY - S.resize.sy) * r;
+      1542 +      const edge = S.resize.edge;
+      1543 +      const minW = (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
+      1544 +      const minH = (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
+      1545 +      if (edge === 'n') {
+      1546 +        const newH = Math.max(minH, S.resize.oh - dy);
+      1547 +        n.y = S.resize.oy + S.resize.oh - newH;
+      1548 +        n.h = newH;
+      1549 +      } else if (edge === 's') {
+      1550 +        n.h = Math.max(minH, S.resize.oh + dy);
+      1551 +      } else if (edge === 'e') {
+      1552 +        n.w = Math.max(minW, S.resize.ow + dx);
+      1553 +      } else if (edge === 'w') {
+      1554 +        const newW = Math.max(minW, S.resize.ow - dx);
+      1555 +        n.x = S.resize.ox + S.resize.ow - newW;
+      1556 +        n.w = newW;
+      1557 +      } else {
+      1558 +        // se corner handle
+      1559 +        n.w = Math.max(minW, S.resize.ow + dx);
+      1560 +        n.h = Math.max(minH, S.resize.oh + dy);
+      1561 +      }
+      1562        const el = ndEl(n.id);
+      1563        if (el) {
+      1564 +        el.style.left   = n.x + 'px';
+      1565 +        el.style.top    = n.y + 'px';
+      1566          el.style.width  = n.w + 'px';
+      1567          el.style.height = n.h + 'px';
+      1568          const ta = el.querySelector('textarea');
+
+⏺ 動作確認のためテストを走らせます：
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿      2295|
+         2296|   apiTabsEl.addEventListener('click', e => {
+            |             ^
+     … +11 lines (ctrl+o to expand)
+
+⏺ 既存の（私の変更前からある）テスト失敗のみで、今回の変更による新たなエラーはありません。
+
+  実装内容：
+
+  - 上下左右の辺にそれぞれ6pxの透明なヒットゾーン (.resize-edge) を追加
+    - 上辺・下辺 → ns-resize カーソル
+    - 左辺・右辺 → ew-resize カーソル
+  - 上辺 ドラッグ → ノードを上方向に拡張（y座標も連動）
+  - 下辺 ドラッグ → ノードを下方向に拡張
+  - 右辺 ドラッグ → ノードを右方向に拡張
+  - 左辺 ドラッグ → ノードを左方向に拡張（x座標も連動）
+  - 右下コーナーの既存ハンドルは引き続き斜め方向リサイズとして機能
+  - Block・Bubble・Frame すべてに適用
+
+✻ Churned for 2m 36s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
