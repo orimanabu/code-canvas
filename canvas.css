@@ -418,8 +418,6 @@ body.link-mode .node:hover {
 /* ── Inline editable meta (title / filepath) ── */
 .node-title.editable-meta,
 .node-filepath.editable-meta { cursor: text; }
-.node-title.editable-meta:hover { filter: brightness(1.25); }
-.node-filepath.editable-meta:hover { filter: brightness(1.25); }
 .node-title.meta-empty  { opacity: 0.28; font-weight: 400; font-style: italic; }
 .node-filepath.meta-empty { opacity: 0.28; font-style: italic; }
 

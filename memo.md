@@ -7409,6 +7409,81 @@ classがついたままの状態です。リンク先のブロックが消えた
 ✻ Churned for 2m 36s
 ```
 
+```
+❯ ブロックのtitleとfilepathについて、今はviewモードでもクリックしたら編集できますが、これを「編集モードのときのみ編集可、viewモードではクリックしても編集できない」という動きに変え
+て。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ このコードがeditモードとviewモードのどちらのブロックにあるか確認します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ viewモードの else ブロック（line 484）の中にあります。.editable-meta のイベントハンドラーごと削除するだけです：
+
+⏺ Update(canvas.js)
+  ⎿  Removed 34 lines
+      506        });
+      507      });
+      508
+      509 -    // Git snippet fetch button
+      510 -    // Inline edit for title / filePath
+      511 -    el.querySelectorAll('.editable-meta').forEach(span => {
+      512 -      span.addEventListener('mousedown', e => e.stopPropagation());
+      513 -      span.addEventListener('click', e => {
+      514 -        e.stopPropagation();
+      515 -        const field = span.dataset.field; // 'title' or 'filePath'
+      516 -        const inp = document.createElement('input');
+      517 -        inp.type = 'text';
+      518 -        inp.value = n[field];
+      519 -        inp.className = field === 'filePath' ? 'inp-filepath' : 'inp-title';
+      520 -        inp.placeholder = field === 'filePath' ? 'File path (e.g. src/utils/helper.ts)' : 'Title';
+      521 -        inp.spellcheck = false;
+      522 -        span.replaceWith(inp);
+      523 -        inp.focus(); inp.select();
+      524 -        let committed = false;
+      525 -        const commit = () => {
+      526 -          if (committed) return; committed = true;
+      527 -          n[field] = inp.value.trim();
+      528 -          if (field === 'filePath') {
+      529 -            const extLang = langFromPath(n.filePath);
+      530 -            if (extLang) n.lang = extLang;
+      531 -          }
+      532 -          renderNode(n, el);
+      533 -          scheduleSave();
+      534 -        };
+      535 -        inp.addEventListener('blur', commit);
+      536 -        inp.addEventListener('keydown', ev => {
+      537 -          if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); }
+      538 -          if (ev.key === 'Escape') { committed = true; renderNode(n, el); }
+      539 -        });
+      540 -        inp.addEventListener('mousedown', ev => ev.stopPropagation());
+      541 -      });
+      542 -    });
+      509
+      510      // Line-number checkbox
+      511      const lnCb = el.querySelector('.ln-cb');
+
+⏺ 合わせて、viewモードの node-title / node-filepath のホバー時ポインターカーソルも外します：
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Removed 2 lines
+      418  /* ── Inline editable meta (title / filepath) ── */
+      419  .node-title.editable-meta,
+      420  .node-filepath.editable-meta { cursor: text; }
+      421 -.node-title.editable-meta:hover { filter: brightness(1.25); }
+      422 -.node-filepath.editable-meta:hover { filter: brightness(1.25); }
+      421  .node-title.meta-empty  { opacity: 0.28; font-weight: 400; font-style: italic; }
+      422  .node-filepath.meta-empty { opacity: 0.28; font-style: italic; }
+      423
+
+⏺ これでviewモードではtitleとfilepathはクリックしても何も起きず、editモード（Editボタン押下後）のみ編集できるようになりました。
+
+✻ Crunched for 38s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して

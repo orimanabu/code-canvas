@@ -506,40 +506,6 @@ function renderNode(n, el) {
       });
     });
 
-    // Git snippet fetch button
-    // Inline edit for title / filePath
-    el.querySelectorAll('.editable-meta').forEach(span => {
-      span.addEventListener('mousedown', e => e.stopPropagation());
-      span.addEventListener('click', e => {
-        e.stopPropagation();
-        const field = span.dataset.field; // 'title' or 'filePath'
-        const inp = document.createElement('input');
-        inp.type = 'text';
-        inp.value = n[field];
-        inp.className = field === 'filePath' ? 'inp-filepath' : 'inp-title';
-        inp.placeholder = field === 'filePath' ? 'File path (e.g. src/utils/helper.ts)' : 'Title';
-        inp.spellcheck = false;
-        span.replaceWith(inp);
-        inp.focus(); inp.select();
-        let committed = false;
-        const commit = () => {
-          if (committed) return; committed = true;
-          n[field] = inp.value.trim();
-          if (field === 'filePath') {
-            const extLang = langFromPath(n.filePath);
-            if (extLang) n.lang = extLang;
-          }
-          renderNode(n, el);
-          scheduleSave();
-        };
-        inp.addEventListener('blur', commit);
-        inp.addEventListener('keydown', ev => {
-          if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); }
-          if (ev.key === 'Escape') { committed = true; renderNode(n, el); }
-        });
-        inp.addEventListener('mousedown', ev => ev.stopPropagation());
-      });
-    });
 
     // Line-number checkbox
     const lnCb = el.querySelector('.ln-cb');
