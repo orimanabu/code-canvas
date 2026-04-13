@@ -19,6 +19,16 @@ if (typeof document === 'undefined') {
     highlightAuto: (code)       => ({ value: code, language: 'text' }),
   };
 
+  // Mock localStorage — jsdom may not provide a functional localStorage
+  // (requires a proper http:// URL, not about:blank).
+  const _store = {};
+  globalThis.localStorage = {
+    getItem:    (key)      => Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null,
+    setItem:    (key, val) => { _store[key] = String(val); },
+    removeItem: (key)      => { delete _store[key]; },
+    clear:      ()         => { Object.keys(_store).forEach(k => delete _store[k]); },
+  };
+
   // Minimal HTML structure that canvas.js requires at load time.
   // Includes all elements whose .addEventListener() is called in module-level IIFEs.
   document.body.innerHTML = `
@@ -27,6 +37,7 @@ if (typeof document === 'undefined') {
       <span id="mode-indicator"></span>
       <button id="btn-add"></button>
       <button id="btn-add-bubble"></button>
+      <button id="btn-group"></button>
       <button id="btn-git-config"></button>
       <button id="btn-export"></button>
       <input type="file" id="btn-import">
@@ -34,16 +45,23 @@ if (typeof document === 'undefined') {
       <button id="btn-help"></button>
     </div>
     <div id="wrap">
+      <svg id="svg-tails"></svg>
       <div id="canvas"></div>
+      <div id="marquee"></div>
       <svg id="svg-links">
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
             <polygon points="0 0, 8 3, 0 6"/>
           </marker>
         </defs>
+        <path id="link-preview" style="display:none"/>
       </svg>
     </div>
-    <div id="link-tip"></div>
+    <div id="link-tip">
+      <button id="link-tip-link"></button>
+      <button id="link-tip-newblock"></button>
+    </div>
+    <div id="link-ctx"><button id="link-ctx-del"></button></div>
     <div id="status"></div>
 
     <!-- Git Config Dialog -->
@@ -51,6 +69,13 @@ if (typeof document === 'undefined') {
       <input id="git-url"><input id="git-branch"><input id="git-tag">
       <input id="git-commit"><div id="git-resolve-note"></div>
       <button id="git-save"></button><button id="git-cancel"></button>
+    </div>
+
+    <!-- Group Frame Dialog -->
+    <div id="group-dialog-overlay" style="display:none;">
+      <input id="group-label-input">
+      <div id="group-color-swatches"></div>
+      <button id="group-cancel"></button><button id="group-ok"></button>
     </div>
 
     <!-- Git Fetch Dialog -->
@@ -64,7 +89,13 @@ if (typeof document === 'undefined') {
     <!-- Codesnippetd Dialog -->
     <div id="codesnippetd-dialog-overlay" style="display:none;">
       <div id="codesnippetd-main-form">
-        <input id="csd-endpoint"><input id="csd-context"><input id="csd-keyword">
+        <input id="csd-endpoint">
+        <div id="csd-api-tabs">
+          <button class="csd-tab active" data-value="snippets">/snippets</button>
+          <button class="csd-tab" data-value="pipe">/pipe</button>
+        </div>
+        <input type="checkbox" id="csd-use-ctags" checked>
+        <input id="csd-context"><input id="csd-keyword">
         <div id="csd-note"></div>
         <button id="csd-fetch"></button><button id="csd-cancel"></button>
       </div>
@@ -72,6 +103,13 @@ if (typeof document === 'undefined') {
         <div id="csd-table-wrap"></div>
         <div id="csd-results-note"></div>
         <button id="csd-results-back"></button><button id="csd-results-cancel"></button>
+      </div>
+      <div id="codesnippetd-wasm-results" style="display:none;">
+        <div id="csd-wasm-status"></div>
+        <div id="csd-wasm-table-wrap"></div>
+        <button id="csd-wasm-back"></button>
+        <button id="csd-wasm-cancel"></button>
+        <button id="csd-wasm-ok" disabled></button>
       </div>
     </div>
 

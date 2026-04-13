@@ -7649,6 +7649,228 @@ classがついたままの状態です。リンク先のブロックが消えた
 ✻ Crunched for 2m 9s
 ```
 
+```
+❯ 今のテストコードが通るか確認して。もし失敗するなら、テストコード自体が間違えている可能性も考慮して修正案を教えてください
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ❯ tests/canvas-integration.test.js (0 test)
+      ❯ tests/canvas-dom.test.js (0 test)
+     … +35 lines (ctrl+o to see all)
+
+⏺ Bash(sed -n '2255,2270p' /Users/ori/devel/src/github.com/orimanabu/code-canvas/canvas.js)
+  ⎿      keywordEl.disabled = isPipe;
+         contextEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
+         keywordEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
+     … +12 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ エラーの原因を詳しく確認します。
+
+⏺ Bash(sed -n '2240,2280p' /Users/ori/devel/src/github.com/orimanabu/code-canvas/canvas.js)
+  ⎿        try {
+             const t = JSON.parse(line);
+             if (t._type === 'tag' && t.name) {
+     … +37 lines (ctrl+o to expand)
+
+  Searched for 6 patterns, read 4 files (ctrl+o to expand)
+
+⏺ Bash(sed -n '1669,1840p' /Users/ori/devel/src/github.com/orimanabu/code-canvas/canvas.js)
+  ⎿  document.getElementById('btn-add').addEventListener('click', () => {
+       const p = s2c(wrap.clientWidth / 2, wrap.clientHeight / 2);
+       addNode(p.x - 215, p.y - 135);
+     … +59 lines (ctrl+o to expand)
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 問題が明確になりました。setup-dom.js が古くなっており、canvas.js が初期化時に参照する以下の要素が不足しています：
+
+  - svg-tails, marquee, link-preview
+  - link-tip-link, link-tip-newblock, link-ctx, link-ctx-del
+  - btn-group ボタン
+  - Group Frame Dialog 全体
+  - Codesnippetd Dialog の csd-api-tabs, csd-use-ctags, wasm関連要素
+
+  setup-dom.js を修正します：
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 30 lines, removed 2 lines
+      27        <span id="mode-indicator"></span>
+      28        <button id="btn-add"></button>
+      29        <button id="btn-add-bubble"></button>
+      30 +      <button id="btn-group"></button>
+      31        <button id="btn-git-config"></button>
+      32        <button id="btn-export"></button>
+      33        <input type="file" id="btn-import">
+     ...
+      35        <button id="btn-help"></button>
+      36      </div>
+      37      <div id="wrap">
+      38 +      <svg id="svg-tails"></svg>
+      39        <div id="canvas"></div>
+      40 +      <div id="marquee"></div>
+      41        <svg id="svg-links">
+      42          <defs>
+      43            <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      44              <polygon points="0 0, 8 3, 0 6"/>
+      45            </marker>
+      46          </defs>
+      47 +        <path id="link-preview" style="display:none"/>
+      48        </svg>
+      49      </div>
+      46 -    <div id="link-tip"></div>
+      50 +    <div id="link-tip">
+      51 +      <button id="link-tip-link"></button>
+      52 +      <button id="link-tip-newblock"></button>
+      53 +    </div>
+      54 +    <div id="link-ctx"><button id="link-ctx-del"></button></div>
+      55      <div id="status"></div>
+      56
+      57      <!-- Git Config Dialog -->
+     ...
+      61        <button id="git-save"></button><button id="git-cancel"></button>
+      62      </div>
+      63
+      64 +    <!-- Group Frame Dialog -->
+      65 +    <div id="group-dialog-overlay" style="display:none;">
+      66 +      <input id="group-label-input">
+      67 +      <div id="group-color-swatches"></div>
+      68 +      <button id="group-cancel"></button><button id="group-ok"></button>
+      69 +    </div>
+      70 +
+      71      <!-- Git Fetch Dialog -->
+      72      <div id="fetch-dialog-overlay" style="display:none;">
+      73        <div id="fetch-git-info"></div>
+     ...
+      79      <!-- Codesnippetd Dialog -->
+      80      <div id="codesnippetd-dialog-overlay" style="display:none;">
+      81        <div id="codesnippetd-main-form">
+      67 -        <input id="csd-endpoint"><input id="csd-context"><input id="csd-keyword">
+      82 +        <input id="csd-endpoint">
+      83 +        <div id="csd-api-tabs">
+      84 +          <button class="csd-tab active" data-value="snippets">/snippets</button>
+      85 +          <button class="csd-tab" data-value="pipe">/pipe</button>
+      86 +        </div>
+      87 +        <input type="checkbox" id="csd-use-ctags" checked>
+      88 +        <input id="csd-context"><input id="csd-keyword">
+      89          <div id="csd-note"></div>
+      90          <button id="csd-fetch"></button><button id="csd-cancel"></button>
+      91        </div>
+     ...
+       94          <div id="csd-results-note"></div>
+       95          <button id="csd-results-back"></button><button id="csd-results-cancel"></button>
+       96        </div>
+       97 +      <div id="codesnippetd-wasm-results" style="display:none;">
+       98 +        <div id="csd-wasm-status"></div>
+       99 +        <div id="csd-wasm-table-wrap"></div>
+      100 +        <button id="csd-wasm-back"></button>
+      101 +        <button id="csd-wasm-cancel"></button>
+      102 +        <button id="csd-wasm-ok" disabled></button>
+      103 +      </div>
+      104      </div>
+      105
+      106      <!-- Help Dialog -->
+
+⏺ Also, vitest.config.js が canvas-integration.test.js を jsdom 環境として登録していないのも確認します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ canvas-integration.test.js は // @vitest-environment jsdom コメントで環境を指定しているので config の追記は不要です。テストを実行します：
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+     (node:56931) Warning: `--localstorage-file` was provided without a valid path
+     (Use `node --trace-warnings ...` to show where the warning was created)
+     … +138 lines (ctrl+o to see all)
+
+⏺ canvas-dom.test.js は全19テスト合格。次は canvas-integration.test.js の localStorage の問題を調べます：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(node -e "const { JSDOM } = require('jsdom'); const j = new JSDOM(''); console.log(typeof j.window.localStorage.removeItem);" 2>&1 || echo "ERR")
+  ⎿  Error: Permission to use Bash with command node -e "const { JSDOM } = require('jsdom'); const j = new JSDOM(''); console.log(typeof j.window.localStorage.removeItem);" 2>&1 ||
+      echo "ERR" has been denied.
+
+⏺ Update(vitest.config.js)
+  ⎿  Added 1 line
+       7      // DOM tests run in jsdom
+       8      environmentMatchGlobs: [
+       9        ['tests/canvas-dom.test.js', 'jsdom'],
+      10 +      ['tests/canvas-integration.test.js', 'jsdom'],
+      11      ],
+      12      // Runs before every test file; guarded inside for node vs jsdom
+      13      setupFiles: ['tests/setup-dom.js'],
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+     (node:57475) Warning: `--localstorage-file` was provided without a valid path
+     (Use `node --trace-warnings ...` to show where the warning was created)
+     … +138 lines (ctrl+o to see all)
+
+⏺ --localstorage-file の警告はjsdomがLocalStorageを正しく初期化できていないことを示しています。setup-dom.js でLocalStorageをモック化します：
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 10 lines
+      19      highlightAuto: (code)       => ({ value: code, language: 'text' }),
+      20    };
+      21
+      22 +  // Mock localStorage — jsdom may not provide a functional localStorage
+      23 +  // (requires a proper http:// URL, not about:blank).
+      24 +  const _store = {};
+      25 +  globalThis.localStorage = {
+      26 +    getItem:    (key)      => Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null,
+      27 +    setItem:    (key, val) => { _store[key] = String(val); },
+      28 +    removeItem: (key)      => { delete _store[key]; },
+      29 +    clear:      ()         => { Object.keys(_store).forEach(k => delete _store[k]); },
+      30 +  };
+      31 +
+      32    // Minimal HTML structure that canvas.js requires at load time.
+      33    // Includes all elements whose .addEventListener() is called in module-level IIFEs.
+      34    document.body.innerHTML = `
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全39テスト合格しました。
+
+  修正の概要：
+
+  1. tests/setup-dom.js — 不足していたDOM要素を追加：
+    - svg-tails, marquee, link-preview (wrap内)
+    - link-tip-link, link-tip-newblock, link-ctx, link-ctx-del
+    - btn-group ボタン
+    - Group Frame Dialog全体 (group-dialog-overlay 等)
+    - Codesnippetd Dialogに csd-api-tabs, csd-use-ctags, wasmセクション
+    - localStorage モック（jsdomが about:blank URLでLocalStorageを初期化できないため）
+  2. vitest.config.js — canvas-integration.test.js を environmentMatchGlobs に追加（確実なjsdom環境の適用）
+
+✻ Worked for 4m 22s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して

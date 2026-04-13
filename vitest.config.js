@@ -7,6 +7,7 @@ export default defineConfig({
     // DOM tests run in jsdom
     environmentMatchGlobs: [
       ['tests/canvas-dom.test.js', 'jsdom'],
+      ['tests/canvas-integration.test.js', 'jsdom'],
     ],
     // Runs before every test file; guarded inside for node vs jsdom
     setupFiles: ['tests/setup-dom.js'],
