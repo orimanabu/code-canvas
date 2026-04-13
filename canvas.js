@@ -759,7 +759,7 @@ function viewHTML(n, codeHtml) {
   <div class="node-header">
     ${metaHtml}
     <div class="node-actions">
-      <label class="ln-toggle" title="Show/hide line numbers"><input type="checkbox" class="ln-cb"${n.showLineNumbers ? ' checked' : ''}> Line Nos</label>
+      <label class="ln-toggle" title="Show/hide line numbers"><input type="checkbox" class="ln-cb"${n.showLineNumbers ? ' checked' : ''}> Line No</label>
       <button class="node-btn btn-edit">Edit</button>
       <button class="node-btn danger btn-del">✕</button>
     </div>
