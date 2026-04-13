@@ -372,7 +372,7 @@ function ndEl(id) { return document.getElementById('nd-' + id); }
 function addNode(x, y, code) {
   const n = {
     id: S.nid++, x, y, w: 430, h: 270,
-    code: code ?? defaultCode(),
+    code: code ?? '',
     lang: 'javascript',
     title: '', filePath: '',
     showLineNumbers: true, lineNumberStart: 1,
@@ -385,6 +385,9 @@ function addNode(x, y, code) {
   canvas.appendChild(el);
   setupNodeEvents(n, el);
   renderNode(n, el);
+  renderLinks();
+  selectNode(n.id);
+  startEdit(n.id);
   scheduleSave();
   return n;
 }
@@ -469,7 +472,9 @@ function renderNode(n, el) {
 
     ta.focus();
   } else {
-    const { html, lang } = buildCodeHTML(n.code, n.id);
+    const { html, lang } = n.code
+      ? buildCodeHTML(n.code, n.id)
+      : highlight(defaultCode(), n.filePath);
     n.lang = lang;
     el.innerHTML = viewHTML(n, html);
     el.querySelector('.btn-edit').addEventListener('click', e => {
@@ -743,7 +748,7 @@ function editHTML(n) {
     </div>
   </div>
   <div class="node-body">
-    <textarea spellcheck="false">${esc(n.code)}</textarea>
+    <textarea spellcheck="false" placeholder="${esc(defaultCode())}">${esc(n.code)}</textarea>
   </div>
   <div class="resize-handle"></div>`;
 }

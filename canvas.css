@@ -156,6 +156,7 @@ body {
   font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace;
   resize: none; border-radius: 0 0 10px 10px;
 }
+.node-body textarea::placeholder { color: #3d444d; }
 
 .resize-handle {
   position: absolute; bottom: 0; right: 0;

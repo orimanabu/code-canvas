@@ -6258,6 +6258,182 @@ classがついたままの状態です。リンク先のブロックが消えた
   - ホバー: 既存の #1f6feb で統一感
 ```
 
+```
+❯ Add Nodeした際、編集モードでブロックを作成してください。サンプルのコードが入力されますが、このサンプルコードの色をグレーにしてください。サンプルコードはブロックに1文字も入力がな
+いときのみ表示してください
+
+  Searched for 4 patterns, read 1 file (ctrl+o to expand)
+
+⏺ スニペット挿入側の addNode 呼び出しも確認します。
+
+  Searched for 5 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 全体把握できました。実装方針：
+
+  1. addNode — デフォルトコードを '' に、作成時に編集モードで開く
+  2. editHTML — textarea に placeholder 属性でサンプルコードを表示
+  3. viewHTML — n.code === '' のとき placeholder を灰色で表示
+  4. CSS — placeholder のスタイル追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      372  function addNode(x, y, code) {
+      373    const n = {
+      374      id: S.nid++, x, y, w: 430, h: 270,
+      375 -    code: code ?? defaultCode(),
+      375 +    code: code ?? '',
+      376      lang: 'javascript',
+      377      title: '', filePath: '',
+      378      showLineNumbers: true, lineNumberStart: 1,
+     ...
+      385    canvas.appendChild(el);
+      386    setupNodeEvents(n, el);
+      387    renderNode(n, el);
+      388 +  renderLinks();
+      389 +  selectNode(n.id);
+      390 +  startEdit(n.id);
+      391    scheduleSave();
+      392    return n;
+      393  }
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      746      </div>
+      747    </div>
+      748    <div class="node-body">
+      749 -    <textarea spellcheck="false">${esc(n.code)}</textarea>
+      749 +    <textarea spellcheck="false" placeholder="${esc(defaultCode())}">${esc(n.code)}</textarea>
+      750    </div>
+      751    <div class="resize-handle"></div>`;
+      752  }
+
+⏺ 次に viewHTML で空コードの場合に placeholder を灰色表示します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines, removed 3 lines
+      755    const titleSpan    = `<span class="node-title editable-meta${n.title ? '' : ' meta-empty'}" data-field="title">${n.title ? esc(n.title) : 'Title…'}</span>`;
+      756    const filepathSpan = `<span class="node-filepath editable-meta${n.filePath ? '' : ' meta-empty'}" data-field="filePath">${n.filePath ? esc(n.filePath) : 'File p
+           ath…'}</span>`;
+      757    const metaHtml = `<div class="node-meta">${titleSpan}${filepathSpan}</div>`;
+      758 -  const bodyHtml = n.showLineNumbers
+      759 -    ? `<pre class="has-ln"><code class="hljs">${addLineNumbers(codeHtml, n.lineNumberStart ?? 1)}</code></pre>`
+      760 -    : `<pre><code class="hljs">${codeHtml}</code></pre>`;
+      758 +  const bodyHtml = n.code === ''
+      759 +    ? `<pre class="code-placeholder"><code>${esc(defaultCode())}</code></pre>`
+      760 +    : (n.showLineNumbers
+      761 +        ? `<pre class="has-ln"><code class="hljs">${addLineNumbers(codeHtml, n.lineNumberStart ?? 1)}</code></pre>`
+      762 +        : `<pre><code class="hljs">${codeHtml}</code></pre>`);
+      763    return `
+      764    <div class="node-header">
+      765      ${metaHtml}
+
+⏺ 最後に CSS を追加します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 3 lines
+      156    font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace;
+      157    resize: none; border-radius: 0 0 10px 10px;
+      158  }
+      159 +.node-body textarea::placeholder { color: #3d444d; }
+      160 +.code-placeholder { pointer-events: none; }
+      161 +.code-placeholder code { color: #3d444d !important; }
+      162
+      163  .resize-handle {
+      164    position: absolute; bottom: 0; right: 0;
+
+⏺ 実装完了です。動作まとめ：
+
+  - Add Block / ダブルクリック / "Create new block and link" — ブロックが編集モードで開きます
+  - 編集モード（空コード） — textarea の placeholder としてサンプルコードが薄いグレーで表示され、1文字入力すると消えます
+  - ビューモード（空コード） — .code-placeholder クラスで同じサンプルコードをグレー表示
+  - ビューモード（コードあり） — 従来通りシンタックスハイライト表示
+
+✻ Cogitated for 2m 14s
+
+❯ ありがとうございます。おおむね期待どおりですが、一点変更をお願いします。サンプルコードが薄いグレーで表示された状態でDoneボタンを押すと、通常通り文字は白ベースでhighlightした状態
+のブロックにしてください
+
+⏺ viewHTML でグレー表示するのをやめ、n.code が空のときは defaultCode() を通常のシンタックスハイライトで表示するよう変更します。
+
+  renderNode のビューモードで n.code が空の場合に defaultCode() をハイライト表示する処理を追加し、viewHTML の .code-placeholder 分岐を削除します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      472
+      473      ta.focus();
+      474    } else {
+      475 -    const { html, lang } = buildCodeHTML(n.code, n.id);
+      475 +    const codeToDisplay = n.code || defaultCode();
+      476 +    const { html, lang } = n.code
+      477 +      ? buildCodeHTML(n.code, n.id)
+      478 +      : { html: highlight(codeToDisplay, n.filePath).html, lang: highlight(codeToDisplay, n.filePath).lang };
+      479      n.lang = lang;
+      480      el.innerHTML = viewHTML(n, html);
+      481      el.querySelector('.btn-edit').addEventListener('click', e => {
+
+⏺ highlight を2回呼ぶのは無駄なので1回にまとめます。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 2 lines
+      472
+      473      ta.focus();
+      474    } else {
+      475 -    const codeToDisplay = n.code || defaultCode();
+      475      const { html, lang } = n.code
+      476        ? buildCodeHTML(n.code, n.id)
+      478 -      : { html: highlight(codeToDisplay, n.filePath).html, lang: highlight(codeToDisplay, n.filePath).lang };
+      477 +      : highlight(defaultCode(), n.filePath);
+      478      n.lang = lang;
+      479      el.innerHTML = viewHTML(n, html);
+      480      el.querySelector('.btn-edit').addEventListener('click', e => {
+
+⏺ 次に viewHTML の .code-placeholder 分岐を削除します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 5 lines
+      757    const titleSpan    = `<span class="node-title editable-meta${n.title ? '' : ' meta-empty'}" data-field="title">${n.title ? esc(n.title) : 'Title…'}</span>`;
+      758    const filepathSpan = `<span class="node-filepath editable-meta${n.filePath ? '' : ' meta-empty'}" data-field="filePath">${n.filePath ? esc(n.filePath) : 'File p
+           ath…'}</span>`;
+      759    const metaHtml = `<div class="node-meta">${titleSpan}${filepathSpan}</div>`;
+      760 -  const bodyHtml = n.code === ''
+      761 -    ? `<pre class="code-placeholder"><code>${esc(defaultCode())}</code></pre>`
+      762 -    : (n.showLineNumbers
+      763 -        ? `<pre class="has-ln"><code class="hljs">${addLineNumbers(codeHtml, n.lineNumberStart ?? 1)}</code></pre>`
+      764 -        : `<pre><code class="hljs">${codeHtml}</code></pre>`);
+      760 +  const bodyHtml = n.showLineNumbers
+      761 +    ? `<pre class="has-ln"><code class="hljs">${addLineNumbers(codeHtml, n.lineNumberStart ?? 1)}</code></pre>`
+      762 +    : `<pre><code class="hljs">${codeHtml}</code></pre>`;
+      763    return `
+      764    <div class="node-header">
+      765      ${metaHtml}
+
+⏺ CSS の .code-placeholder も削除します。
+
+⏺ Update(canvas.css)
+  ⎿  Removed 2 lines
+      157    resize: none; border-radius: 0 0 10px 10px;
+      158  }
+      159  .node-body textarea::placeholder { color: #3d444d; }
+      160 -.code-placeholder { pointer-events: none; }
+      161 -.code-placeholder code { color: #3d444d !important; }
+      160
+      161  .resize-handle {
+      162    position: absolute; bottom: 0; right: 0;
+
+⏺ これで：
+  - 編集モード（空） — グレーのプレースホルダーとしてサンプルコードが表示される
+  - Done ボタン押下（空のまま） — サンプルコードが通常のシンタックスハイライトで白ベース表示される
+  - コードを入力して Done — 入力したコードが通常通りハイライト表示される
+
+✻ Worked for 56s
+```
+
 # claudeを起動したときに最初に打つプロンプト
 
 ❯ このプロジェクトが何をしているか理解して
