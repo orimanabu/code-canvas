@@ -8398,3 +8398,183 @@ classがついたままの状態です。リンク先のブロックが消えた
 
 ⏺ これで編集モードに入っても、タイトル入力欄は .frame-label と同じく左側（flex: 1）に配置され、右に移動しなくなります。
 ```
+
+```
+❯ Exportするデータについて、README.mdは最新の実装を反映できているか調べて
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+⏺ Now let me check the Japanese README too.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装との差異を確認できました。frame ノードについても確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 差異の分析が完了しました。README.md と README.ja.md の両方が最新の実装を反映できていない箇所が2点あります。
+
+  ---
+  README と実装の差異
+
+  1. color フィールドが全ノード型に未記載
+
+  saveState() では code / bubble / frame の全ノードに color フィールドが含まれるが、README のテーブルには記載なし。
+
+  実装 (canvas.js:1779-1787):
+  // bubble
+  const { id, type, x, y, w, h, text, tailX, tailY, color } = n;
+  // frame
+  const { id, type, x, y, w, h, label, color } = n;
+  // code
+  const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color } = n;
+
+  2. frame ノード型が完全に未記載
+
+  addFrame() (canvas.js:876) で生成されるフレームノードが README に一切記載されていない。
+
+  フレームノードのフィールド (canvas.js:1783-1784):
+  { id, type: "frame", x, y, w, h, label, color }
+
+  ---
+  必要な修正まとめ
+
+  ┌────────────────────────────────┬───────────────────────────────────────────┐
+  │              対象              │                 修正内容                  │
+  ├────────────────────────────────┼───────────────────────────────────────────┤
+  │ Node object (code) テーブル    │ color フィールドを追加                    │
+  ├────────────────────────────────┼───────────────────────────────────────────┤
+  │ Node object (bubble) テーブル  │ color フィールドを追加                    │
+  ├────────────────────────────────┼───────────────────────────────────────────┤
+  │ Node object (frame) セクション │ 新規追加 (type, x, y, w, h, label, color) │
+  ├────────────────────────────────┼───────────────────────────────────────────┤
+  │ サンプル JSON                  │ color フィールドとframeノード例を追加     │
+  ├────────────────────────────────┼───────────────────────────────────────────┤
+  │ README.ja.md                   │ 同様の修正                                │
+  └────────────────────────────────┴───────────────────────────────────────────┘
+
+  修正しましょうか？
+
+✻ Cooked for 30s
+
+❯ お願いします
+
+⏺ Update(README.md)
+  ⎿  Added 17 lines
+      71  | `filePath` | string | Path of the file the code belongs to |
+      72  | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
+      73  | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+      74 +| `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      75
+      76  ## Node object (bubble)
+      77
+     ...
+       88  | `text` | string | Text inside the bubble |
+       89  | `tailX` | number | X coordinate of the tail tip on the canvas (movable independently of the body) |
+       90  | `tailY` | number | Y coordinate of the tail tip on the canvas (movable independently of the body) |
+       91 +| `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+       92
+       93 +## Node object (frame)
+       94 +
+       95 +A node is a frame when `type` is `"frame"`. Frames are used to visually group other nodes.                                                                                                                                        96 +
+       97 +| Field | Type | Description |                                                                                                                                                                                                    98 +|---|---|---|
+       99 +| `id` | number | Unique node ID |
+      100 +| `type` | string | Fixed value `"frame"` |                                                                                                                                                                                      101 +| `x` | number | X coordinate of the frame's top-left corner |                                                                                                                                                                   102 +| `y` | number | Y coordinate of the frame's top-left corner |                                                                                                                                                                   103 +| `w` | number | Width of the frame |                                                                                                                                                                                            104 +| `h` | number | Height of the frame |
+      105 +| `label` | string | Label text displayed in the frame header |
+      106 +| `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |                                                                                                                                                        107 +                                                                                                                                                                                                                                 108  ## Link object                                                                                                                                                                                                                   109                                                                                                                                                                                                                                   110  | Field | Type | Description |
+
+                                                                                                                                                                                             ⏺ 次にサンプル JSON を更新します。                                                                                                                                                                                                                                                                                                                                                                                                                                          ⏺ Update(README.md)
+  ⎿  Added 14 lines, removed 2 lines                                                                                                                                                                                                        153        "title": "init_container()",                                                                                                                                                                                               154        "filePath": "src/libcrun/linux.c",                                                                                                                                                                                         155        "showLineNumbers": true,                                                                                                                                                                                                   156 -      "lineNumberStart": 1
+      156 +      "lineNumberStart": 1,
+      157 +      "color": "blue"
+      158      },
+      159      {
+      160        "id": 2,
+     ...
+      165        "h": 80,
+      166        "text": "Namespaces are initialized here",
+      167        "tailX": 250.0,
+      167 -      "tailY": 220.0
+      168 +      "tailY": 220.0,
+      169 +      "color": "green"
+      170 +    },
+      171 +    {                                                                                                                                                                                                                            172 +      "id": 3,
+      173 +      "type": "frame",
+      174 +      "x": 50.0,
+      175 +      "y": 180.0,
+      176 +      "w": 1100.0,
+      177 +      "h": 3100.0,                                                                                                                                                                                                               178 +      "label": "Namespace setup",
+      179 +      "color": "blue"
+      180      }
+      181    ],
+      182    "links": [
+
+⏺ 次に README.ja.md を同様に更新します。
+                                                                                                                                                                                                                                      ⏺ Update(README.ja.md)
+  ⎿  Added 17 lines
+      71  | `filePath` | string | コードが属するファイルのパス |
+      72  | `showLineNumbers` | boolean | 行番号を表示するかどうか（デフォルト：`true`） |                                                                                                                                                  73  | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト：`1`） |
+      74 +| `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+      75                                                                                                                                                                                                                                    76  ## Nodeオブジェクト（吹き出し）
+      77
+     ...
+       88  | `text` | string | 吹き出し内のテキスト |
+       89  | `tailX` | number | キャンバス上の尾部先端のX座標（本体とは独立して移動可能） |
+       90  | `tailY` | number | キャンバス上の尾部先端のY座標（本体とは独立して移動可能） |
+       91 +| `color` | string | カラーテーマID（例：`"green"`、`"blue"`、`"red"`） |
+       92
+       93 +## Nodeオブジェクト（フレーム）
+       94 +                                                                                                                                                                                                                                  95 +`type` が `"frame"` の場合、ノードはフレームです。フレームは他のノードを視覚的にグループ化するために使用します。
+       96 +
+       97 +| フィールド | 型 | 説明 |
+       98 +|---|---|---|
+       99 +| `id` | number | 一意のノードID |
+      100 +| `type` | string | 固定値 `"frame"` |                                                                                                                                                                                           101 +| `x` | number | フレームの左上隅のX座標 |
+      102 +| `y` | number | フレームの左上隅のY座標 |                                                                                                                                                                                       103 +| `w` | number | フレームの幅 |
+      104 +| `h` | number | フレームの高さ |
+      105 +| `label` | string | フレームヘッダーに表示されるラベルテキスト |
+      106 +| `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |                                                                                                                                                        107 +
+      108  ## Linkオブジェクト
+      109
+      110  | フィールド | 型 | 説明 |
+
+⏺ Update(README.ja.md)
+  ⎿  Added 14 lines, removed 2 lines
+      153        "title": "init_container()",
+      154        "filePath": "src/libcrun/linux.c",
+      155        "showLineNumbers": true,
+      156 -      "lineNumberStart": 1
+      156 +      "lineNumberStart": 1,
+      157 +      "color": "blue"
+      158      },                                                                                                                                                                                                                           159      {
+      160        "id": 2,
+     ...
+      165        "h": 80,
+      166        "text": "Namespaces are initialized here",
+      167        "tailX": 250.0,
+      167 -      "tailY": 220.0
+      168 +      "tailY": 220.0,
+      169 +      "color": "green"
+      170 +    },
+      171 +    {
+      172 +      "id": 3,
+      173 +      "type": "frame",
+      174 +      "x": 50.0,
+      175 +      "y": 180.0,
+      176 +      "w": 1100.0,
+      177 +      "h": 3100.0,
+      178 +      "label": "Namespace setup",
+      179 +      "color": "blue"
+      180      }
+      181    ],
+      182    "links": [
+
+⏺ 以下の修正を両 README に適用しました。
+
+  - code ノード: color フィールドを追加
+  - bubble ノード: color フィールドを追加
+  - frame ノード: セクションを新規追加 (id, type, x, y, w, h, label, color)
+  - サンプル JSON: 全ノードに color を追加、frame ノードの例を追加
+
+✻ Sautéed for 44s
+```

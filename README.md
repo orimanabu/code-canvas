@@ -71,6 +71,7 @@ A node is a code block when the `type` field is absent or `"code"`.
 | `filePath` | string | Path of the file the code belongs to |
 | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
 | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+| `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
 
 ## Node object (bubble)
 
@@ -87,6 +88,22 @@ A node is a bubble when `type` is `"bubble"`.
 | `text` | string | Text inside the bubble |
 | `tailX` | number | X coordinate of the tail tip on the canvas (movable independently of the body) |
 | `tailY` | number | Y coordinate of the tail tip on the canvas (movable independently of the body) |
+| `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+
+## Node object (frame)
+
+A node is a frame when `type` is `"frame"`. Frames are used to visually group other nodes.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | number | Unique node ID |
+| `type` | string | Fixed value `"frame"` |
+| `x` | number | X coordinate of the frame's top-left corner |
+| `y` | number | Y coordinate of the frame's top-left corner |
+| `w` | number | Width of the frame |
+| `h` | number | Height of the frame |
+| `label` | string | Label text displayed in the frame header |
+| `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
 
 ## Link object
 
@@ -136,7 +153,8 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "title": "init_container()",
       "filePath": "src/libcrun/linux.c",
       "showLineNumbers": true,
-      "lineNumberStart": 1
+      "lineNumberStart": 1,
+      "color": "blue"
     },
     {
       "id": 2,
@@ -147,7 +165,18 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "h": 80,
       "text": "Namespaces are initialized here",
       "tailX": 250.0,
-      "tailY": 220.0
+      "tailY": 220.0,
+      "color": "green"
+    },
+    {
+      "id": 3,
+      "type": "frame",
+      "x": 50.0,
+      "y": 180.0,
+      "w": 1100.0,
+      "h": 3100.0,
+      "label": "Namespace setup",
+      "color": "blue"
     }
   ],
   "links": [
