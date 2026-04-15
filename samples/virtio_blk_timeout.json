@@ -21,7 +21,7 @@
       "y": 457.5,
       "w": 562,
       "h": 189,
-      "code": "static inline bool blk_should_fake_timeout(struct request_queue *q)\n{\n\tif (IS_ENABLED(CONFIG_FAIL_IO_TIMEOUT) &&\n\t    test_bit(QUEUE_FLAG_FAIL_IO, &q->queue_flags))\n\t\treturn __blk_should_fake_timeout(q);\n\treturn false;\n}",
+      "code": "static inline bool blk_should_fake_timeout(struct request_queue *q)\n{\n\tif (IS_ENABLED(CONFIG_FAIL_IO_TIMEOUT) &&\n\t test_bit(QUEUE_FLAG_FAIL_IO, &q->queue_flags))\n\t\treturn __blk_should_fake_timeout(q);\n\treturn false;\n}",
       "lang": "cpp",
       "title": "blk_should_fake_timeout",
       "filePath": "include/linux/blk-mq.h",
@@ -35,7 +35,7 @@
       "y": 566,
       "w": 560,
       "h": 234,
-      "code": "config FAIL_IO_TIMEOUT\n\tbool \"Fault-injection capability for faking disk interrupts\"\n\tdepends on FAULT_INJECTION && BLOCK\n\thelp\n\t  Provide fault-injection capability on end IO handling. This\n\t  will make the block layer \"forget\" an interrupt as configured,\n\t  thus exercising the error handling.\n\n\t  Only works with drivers that use the generic timeout handling,\n\t  for others it won't do anything.",
+      "code": "config FAIL_IO_TIMEOUT\n\tbool \"Fault-injection capability for faking disk interrupts\"\n\tdepends on FAULT_INJECTION && BLOCK\n\thelp\n\t Provide fault-injection capability on end IO handling. This\n\t will make the block layer \"forget\" an interrupt as configured,\n\t thus exercising the error handling.\n\n\t Only works with drivers that use the generic timeout handling,\n\t for others it won't do anything.",
       "lang": "vbnet",
       "title": "FAIL_IO_TIMEOUT",
       "filePath": "lib/Kconfig.debug",
@@ -63,7 +63,7 @@
       "y": -211.5,
       "w": 620,
       "h": 1899,
-      "code": "struct blk_mq_ops {\n\t/**\n\t * @queue_rq: Queue a new request from block IO.\n\t */\n\tblk_status_t (*queue_rq)(struct blk_mq_hw_ctx *,\n\t\t\t\t const struct blk_mq_queue_data *);\n\n\t/**\n\t * @commit_rqs: If a driver uses bd->last to judge when to submit\n\t * requests to hardware, it must define this function. In case of errors\n\t * that make us stop issuing further requests, this hook serves the\n\t * purpose of kicking the hardware (which the last request otherwise\n\t * would have done).\n\t */\n\tvoid (*commit_rqs)(struct blk_mq_hw_ctx *);\n\n\t/**\n\t * @queue_rqs: Queue a list of new requests. Driver is guaranteed\n\t * that each request belongs to the same queue. If the driver doesn't\n\t * empty the @rqlist completely, then the rest will be queued\n\t * individually by the block layer upon return.\n\t */\n\tvoid (*queue_rqs)(struct request **rqlist);\n\n\t/**\n\t * @get_budget: Reserve budget before queue request, once .queue_rq is\n\t * run, it is driver's responsibility to release the\n\t * reserved budget. Also we have to handle failure case\n\t * of .get_budget for avoiding I/O deadlock.\n\t */\n\tint (*get_budget)(struct request_queue *);\n\n\t/**\n\t * @put_budget: Release the reserved budget.\n\t */\n\tvoid (*put_budget)(struct request_queue *, int);\n\n\t/**\n\t * @set_rq_budget_token: store rq's budget token\n\t */\n\tvoid (*set_rq_budget_token)(struct request *, int);\n\t/**\n\t * @get_rq_budget_token: retrieve rq's budget token\n\t */\n\tint (*get_rq_budget_token)(struct request *);\n\n\t/**\n\t * @timeout: Called on request timeout.\n\t */\n\tenum blk_eh_timer_return (*timeout)(struct request *);\n\n\t/**\n\t * @poll: Called to poll for completion of a specific tag.\n\t */\n\tint (*poll)(struct blk_mq_hw_ctx *, struct io_comp_batch *);\n\n\t/**\n\t * @complete: Mark the request as complete.\n\t */\n\tvoid (*complete)(struct request *);\n\n\t/**\n\t * @init_hctx: Called when the block layer side of a hardware queue has\n\t * been set up, allowing the driver to allocate/init matching\n\t * structures.\n\t */\n\tint (*init_hctx)(struct blk_mq_hw_ctx *, void *, unsigned int);\n\t/**\n\t * @exit_hctx: Ditto for exit/teardown.\n\t */\n\tvoid (*exit_hctx)(struct blk_mq_hw_ctx *, unsigned int);\n\n\t/**\n\t * @init_request: Called for every command allocated by the block layer\n\t * to allow the driver to set up driver specific data.\n\t *\n\t * Tag greater than or equal to queue_depth is for setting up\n\t * flush request.\n\t */\n\tint (*init_request)(struct blk_mq_tag_set *set, struct request *,\n\t\t\t    unsigned int, unsigned int);\n\t/**\n\t * @exit_request: Ditto for exit/teardown.\n\t */\n\tvoid (*exit_request)(struct blk_mq_tag_set *set, struct request *,\n\t\t\t     unsigned int);\n\n\t/**\n\t * @cleanup_rq: Called before freeing one request which isn't completed\n\t * yet, and usually for freeing the driver private data.\n\t */\n\tvoid (*cleanup_rq)(struct request *);\n\n\t/**\n\t * @busy: If set, returns whether or not this queue currently is busy.\n\t */\n\tbool (*busy)(struct request_queue *);\n\n\t/**\n\t * @map_queues: This allows drivers specify their own queue mapping by\n\t * overriding the setup-time function that builds the mq_map.\n\t */\n\tvoid (*map_queues)(struct blk_mq_tag_set *set);\n\n#ifdef CONFIG_BLK_DEBUG_FS\n\t/**\n\t * @show_rq: Used by the debugfs implementation to show driver-specific\n\t * information about a request.\n\t */\n\tvoid (*show_rq)(struct seq_file *m, struct request *rq);\n#endif\n\n\tRH_KABI_RESERVE(1)\n\tRH_KABI_RESERVE(2)\n\tRH_KABI_RESERVE(3)\n\tRH_KABI_RESERVE(4)\n\tRH_KABI_RESERVE(5)\n\tRH_KABI_RESERVE(6)\n\tRH_KABI_RESERVE(7)\n\tRH_KABI_RESERVE(8)\n};",
+      "code": "struct blk_mq_ops {\n\t/**\n\t * @queue_rq: Queue a new request from block IO.\n\t */\n\tblk_status_t (*queue_rq)(struct blk_mq_hw_ctx *,\n\t\t\t\t const struct blk_mq_queue_data *);\n\n\t/**\n\t * @commit_rqs: If a driver uses bd->last to judge when to submit\n\t * requests to hardware, it must define this function. In case of errors\n\t * that make us stop issuing further requests, this hook serves the\n\t * purpose of kicking the hardware (which the last request otherwise\n\t * would have done).\n\t */\n\tvoid (*commit_rqs)(struct blk_mq_hw_ctx *);\n\n\t/**\n\t * @queue_rqs: Queue a list of new requests. Driver is guaranteed\n\t * that each request belongs to the same queue. If the driver doesn't\n\t * empty the @rqlist completely, then the rest will be queued\n\t * individually by the block layer upon return.\n\t */\n\tvoid (*queue_rqs)(struct request **rqlist);\n\n\t/**\n\t * @get_budget: Reserve budget before queue request, once .queue_rq is\n\t * run, it is driver's responsibility to release the\n\t * reserved budget. Also we have to handle failure case\n\t * of .get_budget for avoiding I/O deadlock.\n\t */\n\tint (*get_budget)(struct request_queue *);\n\n\t/**\n\t * @put_budget: Release the reserved budget.\n\t */\n\tvoid (*put_budget)(struct request_queue *, int);\n\n\t/**\n\t * @set_rq_budget_token: store rq's budget token\n\t */\n\tvoid (*set_rq_budget_token)(struct request *, int);\n\t/**\n\t * @get_rq_budget_token: retrieve rq's budget token\n\t */\n\tint (*get_rq_budget_token)(struct request *);\n\n\t/**\n\t * @timeout: Called on request timeout.\n\t */\n\tenum blk_eh_timer_return (*timeout)(struct request *);\n\n\t/**\n\t * @poll: Called to poll for completion of a specific tag.\n\t */\n\tint (*poll)(struct blk_mq_hw_ctx *, struct io_comp_batch *);\n\n\t/**\n\t * @complete: Mark the request as complete.\n\t */\n\tvoid (*complete)(struct request *);\n\n\t/**\n\t * @init_hctx: Called when the block layer side of a hardware queue has\n\t * been set up, allowing the driver to allocate/init matching\n\t * structures.\n\t */\n\tint (*init_hctx)(struct blk_mq_hw_ctx *, void *, unsigned int);\n\t/**\n\t * @exit_hctx: Ditto for exit/teardown.\n\t */\n\tvoid (*exit_hctx)(struct blk_mq_hw_ctx *, unsigned int);\n\n\t/**\n\t * @init_request: Called for every command allocated by the block layer\n\t * to allow the driver to set up driver specific data.\n\t *\n\t * Tag greater than or equal to queue_depth is for setting up\n\t * flush request.\n\t */\n\tint (*init_request)(struct blk_mq_tag_set *set, struct request *,\n\t\t\t unsigned int, unsigned int);\n\t/**\n\t * @exit_request: Ditto for exit/teardown.\n\t */\n\tvoid (*exit_request)(struct blk_mq_tag_set *set, struct request *,\n\t\t\t unsigned int);\n\n\t/**\n\t * @cleanup_rq: Called before freeing one request which isn't completed\n\t * yet, and usually for freeing the driver private data.\n\t */\n\tvoid (*cleanup_rq)(struct request *);\n\n\t/**\n\t * @busy: If set, returns whether or not this queue currently is busy.\n\t */\n\tbool (*busy)(struct request_queue *);\n\n\t/**\n\t * @map_queues: This allows drivers specify their own queue mapping by\n\t * overriding the setup-time function that builds the mq_map.\n\t */\n\tvoid (*map_queues)(struct blk_mq_tag_set *set);\n\n#ifdef CONFIG_BLK_DEBUG_FS\n\t/**\n\t * @show_rq: Used by the debugfs implementation to show driver-specific\n\t * information about a request.\n\t */\n\tvoid (*show_rq)(struct seq_file *m, struct request *rq);\n#endif\n\n\tRH_KABI_RESERVE(1)\n\tRH_KABI_RESERVE(2)\n\tRH_KABI_RESERVE(3)\n\tRH_KABI_RESERVE(4)\n\tRH_KABI_RESERVE(5)\n\tRH_KABI_RESERVE(6)\n\tRH_KABI_RESERVE(7)\n\tRH_KABI_RESERVE(8)\n};",
       "lang": "cpp",
       "title": "blk_mq_ops",
       "filePath": "include/linux/blk-mq.h",
@@ -78,7 +78,7 @@
       "y": 392,
       "w": 200,
       "h": 100,
-      "text": "繧ｿ繧､繝�繧｢繧ｦ繝亥�逅��蝓ｺ譛ｬ逧�↓縺薙�繝｡繧ｽ繝�ラ縺悟他縺ｰ繧後ｋ",
+      "text": "タイムアウト処理は基本的にこのメソッドが呼ばれる",
       "tailX": -1077,
       "tailY": 586,
       "color": "green"
@@ -90,7 +90,7 @@
       "y": 177,
       "w": 395,
       "h": 92,
-      "text": "virtio_blk縺ｮblk_mq_ops縺ｫ縺ｯ.timeout縺ｯ螳夂ｾｩ縺輔ｌ縺ｦ縺�↑縺�",
+      "text": "virtio_blkのblk_mq_opsには.timeoutは定義されていない",
       "tailX": -172,
       "tailY": 467,
       "color": "green"
@@ -102,7 +102,7 @@
       "y": 57,
       "w": 341,
       "h": 84,
-      "text": "virtio_blk縺ｧtimeout縺ｧgrep縺吶ｋ縺ｨ縺薙％縺励°蜃ｺ縺ｦ縺薙↑縺�",
+      "text": "virtio_blkでtimeoutでgrepするとここしか出てこない",
       "tailX": 558,
       "tailY": 440,
       "color": "green"
@@ -114,7 +114,7 @@
       "y": 425,
       "w": 200,
       "h": 100,
-      "text": "縺ｩ縺�ｄ繧峨ョ繝舌ャ繧ｰ逕ｨ縺ｮ迚ｹ谿翫↑繧ｳ繝ｼ繝峨ヱ繧ｹ縺｣縺ｽ縺�",
+      "text": "どうやらデバッグ用の特殊なコードパスっぽい",
       "tailX": 1800,
       "tailY": 632,
       "color": "green"
@@ -126,7 +126,7 @@
       "y": -395,
       "w": 282,
       "h": 97,
-      "text": "block繝�ヰ繧､繧ｹ縺ｫ蟇ｾ縺吶ｋ謫堺ｽ懊�縺薙�讒矩�菴薙↓縺ｾ縺ｨ繧√ｉ繧後※縺�ｋ",
+      "text": "blockデバイスに対する操作はこの構造体にまとめられている",
       "tailX": -1047,
       "tailY": -193,
       "color": "green"
@@ -138,7 +138,7 @@
       "y": -447,
       "w": 1457,
       "h": 2162.5,
-      "label": "譬ｹ諡�縺昴�1: block繝�ヰ繧､繧ｹ謫堺ｽ懃畑縺ｮ讒矩�菴薙↓縺翫＞縺ｦ縲�.timeout繝｡繧ｽ繝�ラ縺悟ｮ夂ｾｩ縺輔ｌ縺ｦ縺�ｋ縺九ｒ遒ｺ隱阪☆繧�",
+      "label": "根拠その1: blockデバイス操作用の構造体において、.timeoutメソッドが定義されているかを確認する",
       "color": "yellow"
     },
     {
@@ -148,7 +148,7 @@
       "y": 5,
       "w": 2034,
       "h": 823,
-      "label": "逧�ｱ�◎縺ｮ2: virtio_blk.c縺ｧ 'time.*out' 縺ｧgrep縺励※縺ｲ縺｣縺九°縺｣縺滄未謨ｰ繧貞ｿｵ縺ｮ縺溘ａ隱ｿ縺ｹ縺ｦ繧�",
+      "label": "皇居その2: virtio_blk.cで 'time.*out' でgrepしてひっかかった関数を念のため調べてる",
       "color": "yellow"
     }
   ],
