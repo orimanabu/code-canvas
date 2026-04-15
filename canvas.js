@@ -1883,6 +1883,18 @@ document.addEventListener('mouseup', () => {
   if (S.pan) scheduleSave();
 }, true);
 
+// flush pending save immediately before the page unloads
+window.addEventListener('beforeunload', () => {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveState(); }
+});
+
+// also flush when the tab goes hidden (e.g. Cmd+W, tab switch before reload)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && saveTimer) {
+    clearTimeout(saveTimer); saveTimer = null; saveState();
+  }
+});
+
 // ═══════════════════════════════════════════════════════
 // GIT UTILITIES
 // ═══════════════════════════════════════════════════════

@@ -8653,3 +8653,42 @@ static void blk_mq_complete_send_ipi(struct request *rq)
 
   これにより枠線の太さが変わっても正しくリサイズされます。
 ```
+
+```
+❯ ブラウザをリロードすると、canvas上で作成したいくつかの変更が消え、前の状態に戻ってしまいました。localStorageへの保存が適切に行えているか精査してください
+
+  Searched for 4 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 原因が分かりました。scheduleSave() は 500ms のデバウンスタイマーを使っているため、変更後すぐにリロードするとタイマーが発火する前にページが消えます。beforeunload ハンドラーが存在しないのが問題です。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 12 lines
+      1883    if (S.pan) scheduleSave();
+      1884  }, true);
+      1885
+      1886 +// flush pending save immediately before the page unloads
+      1887 +window.addEventListener('beforeunload', () => {
+      1888 +  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveState(); }
+      1889 +});
+      1890 +
+      1891 +// also flush when the tab goes hidden (e.g. Cmd+W, tab switch before reload)
+      1892 +document.addEventListener('visibilitychange', () => {
+      1893 +  if (document.visibilityState === 'hidden' && saveTimer) {
+      1894 +    clearTimeout(saveTimer); saveTimer = null; saveState();
+      1895 +  }
+      1896 +});
+      1897 +
+      1898  // ═══════════════════════════════════════════════════════
+      1899  // GIT UTILITIES
+      1900  // ═══════════════════════════════════════════════════════
+
+⏺ 根本原因: scheduleSave() は500msのデバウンスタイマーで保存を遅延させますが、beforeunload ハンドラーがなかったため、リロード時にタイマーが発火する前にページが破棄され、未保存の変更が消えていました。
+
+  修正内容:
+  - beforeunload — ページアンロード直前にタイマーをキャンセルして即時 saveState() を実行
+  - visibilitychange (hidden) — タブ切り替えや Cmd+W などでタブが非表示になった際にも同様にフラッシュ
+
+✻ Baked for 44s
+```
