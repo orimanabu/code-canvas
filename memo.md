@@ -9068,3 +9068,89 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
   - ◁ / ▷ ボタン：ビューポート中心を基準に 1.2 倍ずつズームイン/アウト
   - ズーム入力欄：Enter または フォーカスアウトで値を適用、Escape でキャンセル。% 付き・なしどちらでも入力可能
 ```
+
+```
+❯ 「100%」と「▷」の間に「□」ボタンを配置して、ここをクリックすると「全体がちょうどおさまるサイズに拡大/縮小する」という動きにしたいです
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ バブルノードのtailも含めた全ノードのバウンディングボックスを計算して fit する実装をします。
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      27    <div class="zoom-ctrl">
+      28      <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#9665;</button>
+      29      <input id="zoom-input" class="zoom-input" type="text" value="100%" title="Zoom level (click to edit)">
+      30 +    <button class="zoom-btn" id="btn-zoom-fit" title="Fit all to screen">&#9633;</button>
+      31      <button class="zoom-btn" id="btn-zoom-in" title="Zoom in">&#9655;</button>
+      32    </div>
+      33    <div class="sep"></div>
+
+⏺ Now add the fit function and event listener in canvas.js. I'll put the function near jumpTo and the listener near the other zoom controls:
+
+⏺ Update(canvas.js)
+  ⎿  Added 28 lines
+      1238    scheduleSave();
+      1239  }
+      1240
+      1241 +function fitAll() {
+      1242 +  if (!S.nodes.length) return;
+      1243 +  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      1244 +  for (const n of S.nodes) {
+      1245 +    minX = Math.min(minX, n.x);
+      1246 +    minY = Math.min(minY, n.y);
+      1247 +    maxX = Math.max(maxX, n.x + n.w);
+      1248 +    maxY = Math.max(maxY, n.y + n.h);
+      1249 +    if (n.type === 'bubble') {
+      1250 +      minX = Math.min(minX, n.tailX);
+      1251 +      minY = Math.min(minY, n.tailY);
+      1252 +      maxX = Math.max(maxX, n.tailX);
+      1253 +      maxY = Math.max(maxY, n.tailY);
+      1254 +    }
+      1255 +  }
+      1256 +  const pad = 40;
+      1257 +  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+      1258 +  const bw = maxX - minX, bh = maxY - minY;
+      1259 +  const ns = Math.min(4, Math.max(0.08,
+      1260 +    Math.min((vw - pad * 2) / bw, (vh - pad * 2) / bh)
+      1261 +  ));
+      1262 +  S.vp.scale = ns;
+      1263 +  S.vp.x = vw / 2 - (minX + bw / 2) * ns;
+      1264 +  S.vp.y = vh / 2 - (minY + bh / 2) * ns;
+      1265 +  applyVP();
+      1266 +  setStatus(`Fit: ${Math.round(ns * 100)}%`);
+      1267 +}
+      1268 +
+      1269  function jumpTo(id) {
+      1270    const n = S.nodes.find(n => n.id === id);
+      1271    if (!n) return;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2242    const cy = wrap.clientHeight / 2;
+      2243    zoom(1 / 1.2, cx, cy);
+      2244  });
+      2245 +document.getElementById('btn-zoom-fit').addEventListener('click', fitAll);
+      2246  document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      2247    const cx = wrap.clientWidth / 2;
+      2248    const cy = wrap.clientHeight / 2;
+
+⏺ 完了です。□ ボタンをクリックすると fitAll() が呼ばれ、全ノード（バブルのtailも含む）のバウンディングボックスを計算し、40pxのパディングを確保しつつビューポート中央に収ま
+  るスケールに調整します。ノードが0個の場合は何もしません。
+
+❯ □ボタンを少し大きくして、▷とバランスが取れるようにしてください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line
+      361    line-height: 1;
+      362  }
+      363  .zoom-btn:hover { background: #30363d; }
+      364 +#btn-zoom-fit { font-size: 13px; padding: 3px 6px; }
+      365  .zoom-input {
+      366    width: 48px; text-align: center; font-size: 12px;
+      367    border: 1px solid #30363d; border-radius: 6px;
+
+⏺ □ のフォントサイズを13px（▷ の11pxより少し大きめ）に調整しました。見た目のバランスが合わなければサイズを微調整するのでお知らせください。
+```

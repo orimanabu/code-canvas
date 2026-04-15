@@ -1238,6 +1238,34 @@ function pasteNodes() {
   scheduleSave();
 }
 
+function fitAll() {
+  if (!S.nodes.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of S.nodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + n.w);
+    maxY = Math.max(maxY, n.y + n.h);
+    if (n.type === 'bubble') {
+      minX = Math.min(minX, n.tailX);
+      minY = Math.min(minY, n.tailY);
+      maxX = Math.max(maxX, n.tailX);
+      maxY = Math.max(maxY, n.tailY);
+    }
+  }
+  const pad = 40;
+  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+  const bw = maxX - minX, bh = maxY - minY;
+  const ns = Math.min(4, Math.max(0.08,
+    Math.min((vw - pad * 2) / bw, (vh - pad * 2) / bh)
+  ));
+  S.vp.scale = ns;
+  S.vp.x = vw / 2 - (minX + bw / 2) * ns;
+  S.vp.y = vh / 2 - (minY + bh / 2) * ns;
+  applyVP();
+  setStatus(`Fit: ${Math.round(ns * 100)}%`);
+}
+
 function jumpTo(id) {
   const n = S.nodes.find(n => n.id === id);
   if (!n) return;
@@ -2214,6 +2242,7 @@ document.getElementById('btn-zoom-out').addEventListener('click', () => {
   const cy = wrap.clientHeight / 2;
   zoom(1 / 1.2, cx, cy);
 });
+document.getElementById('btn-zoom-fit').addEventListener('click', fitAll);
 document.getElementById('btn-zoom-in').addEventListener('click', () => {
   const cx = wrap.clientWidth / 2;
   const cy = wrap.clientHeight / 2;

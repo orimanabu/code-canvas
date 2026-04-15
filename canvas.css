@@ -361,6 +361,7 @@ kbd {
   line-height: 1;
 }
 .zoom-btn:hover { background: #30363d; }
+#btn-zoom-fit { font-size: 16px; padding: 3px 6px; }
 .zoom-input {
   width: 48px; text-align: center; font-size: 12px;
   border: 1px solid #30363d; border-radius: 6px;
