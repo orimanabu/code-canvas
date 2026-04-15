@@ -8578,3 +8578,78 @@ classがついたままの状態です。リンク先のブロックが消えた
 
 ✻ Sautéed for 44s
 ```
+
+```
+❯ autoFitNodeの自動リサイズがうまく動いていません。例えば下記コードの場合、下から2行目で改行が発生してしまいます。改行しないようなサイズにリサイズできるようにしてください。もしかしたらブロックの枠線の太さを変更したことが影響して
+ますか？
+---
+static void blk_mq_complete_send_ipi(struct request *rq)
+{
+    unsigned int cpu;
+
+    cpu = rq->mq_ctx->cpu;
+    if (llist_add(&rq->ipi_list, &per_cpu(blk_cpu_done, cpu)))
+        smp_call_function_single_async(cpu, &per_cpu(blk_cpu_csd, cpu));
+}
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me check the CSS for the node border width.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Let me check the node-body padding/margin.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ The issue is clear. The node border is 2px solid (2px on left + 2px on right = 4px total), but autoFitNode only adds + 2 when computing the required width. This leaves 2px too narrow, causing wrapping.
+
+  The fix: compute border widths dynamically instead of hardcoding + 2.
+
+⏺ Update(canvas.js)
+  ⎿  Added 7 lines, removed 4 lines
+      1062    codeLines.forEach(l => { l.style.whiteSpace = 'pre'; });
+      1063    pre.style.display = 'inline-block';
+      1064    // getBoundingClientRect returns the pre's padding-box width in viewport px.
+      1065 -  // Dividing by scale gives CSS px.  Add the node's border (2px) so the final
+      1066 -  // node width is wide enough to fit the pre at its measured size.
+      1067 -  const codeW = Math.ceil(pre.getBoundingClientRect().width / S.vp.scale) + 2;
+      1065 +  // Dividing by scale gives CSS px.  Add the node's left+right borders so the
+      1066 +  // final node width is wide enough to fit the pre at its measured size.
+      1067 +  const cs = getComputedStyle(el);
+      1068 +  const borderH = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+      1069 +  const borderV = parseFloat(cs.borderTopWidth)  + parseFloat(cs.borderBottomWidth);
+      1070 +  const codeW = Math.ceil(pre.getBoundingClientRect().width / S.vp.scale) + borderH;
+      1071    pre.style.display = '';
+      1072    pre.style.whiteSpace = '';
+      1073    codeLines.forEach(l => { l.style.whiteSpace = ''; });
+      1074
+      1075    // Also keep header fully visible.
+      1073 -  const headW    = header ? Math.ceil(header.getBoundingClientRect().width / S.vp.scale) + 2 : 0;
+      1076 +  const headW    = header ? Math.ceil(header.getBoundingClientRect().width / S.vp.scale) + borderH : 0;
+      1077    const naturalW = Math.max(250, codeW, headW);
+      1078    n.w = naturalW;
+      1079    el.style.width = naturalW + 'px';
+
+⏺ Now fix the height calculation too:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1080
+      1081    // Step 2: measure height at the new width (wrap may reflow lines).
+      1082    const headerH = header ? header.offsetHeight : 40;
+      1083 -  const newH    = Math.max(120, headerH + pre.scrollHeight + 2);
+      1083 +  const newH    = Math.max(120, headerH + pre.scrollHeight + borderV);
+      1084    n.h = newH;
+      1085    el.style.height = newH + 'px';
+      1086  }
+
+⏺ 原因はおっしゃる通りです。ノードの枠線を 1px → 2px に変更した際、autoFitNode のハードコードされた + 2 が左右2px×2 = 4pxの合計を考慮できておらず、幅が2px足りなくなって折り返しが発生していました。
+
+  修正内容:
+  - + 2 を getComputedStyle で実際のボーダー幅を動的に取得する方式に変更
+  - 幅: borderLeftWidth + borderRightWidth を加算
+  - 高さ: borderTopWidth + borderBottomWidth を加算
+
+  これにより枠線の太さが変わっても正しくリサイズされます。
+```
