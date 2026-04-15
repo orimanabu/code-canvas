@@ -9154,3 +9154,41 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ⏺ □ のフォントサイズを13px（▷ の11pxより少し大きめ）に調整しました。見た目のバランスが合わなければサイズを微調整するのでお知らせください。
 ```
+
+```
+❯ fit-to-screenボタンを押すと、canvasの内容とツールバーが重なってしまいます。スケールする際、ツールバーに重ならないようにしてください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ ツールバーの実際の高さを動的に取得して、上部のオフセットとして計算に反映します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 5 lines
+      1254      }
+      1255    }
+      1256    const pad = 40;
+      1257 +  const tb = document.getElementById('toolbar');
+      1258 +  const tbBottom = tb ? tb.getBoundingClientRect().bottom : 0;
+      1259 +  const topPad = tbBottom + pad;
+      1260    const vw = wrap.clientWidth, vh = wrap.clientHeight;
+      1261 +  const availW = vw - pad * 2;
+      1262 +  const availH = vh - topPad - pad;
+      1263    const bw = maxX - minX, bh = maxY - minY;
+      1259 -  const ns = Math.min(4, Math.max(0.08,
+      1260 -    Math.min((vw - pad * 2) / bw, (vh - pad * 2) / bh)
+      1261 -  ));
+      1264 +  const ns = Math.min(4, Math.max(0.08, Math.min(availW / bw, availH / bh)));
+      1265    S.vp.scale = ns;
+      1263 -  S.vp.x = vw / 2 - (minX + bw / 2) * ns;
+      1264 -  S.vp.y = vh / 2 - (minY + bh / 2) * ns;
+      1266 +  const cx = pad + availW / 2;
+      1267 +  const cy = topPad + availH / 2;
+      1268 +  S.vp.x = cx - (minX + bw / 2) * ns;
+      1269 +  S.vp.y = cy - (minY + bh / 2) * ns;
+      1270    applyVP();
+      1271    setStatus(`Fit: ${Math.round(ns * 100)}%`);
+      1272  }
+
+⏺ ツールバーの getBoundingClientRect().bottom
+  で実際の下端を動的に取得し、その分を上部パディングに加算するようにしました。これでfit後のコンテンツがツールバーと重なりません。
+```

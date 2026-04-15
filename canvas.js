@@ -1254,14 +1254,19 @@ function fitAll() {
     }
   }
   const pad = 40;
+  const tb = document.getElementById('toolbar');
+  const tbBottom = tb ? tb.getBoundingClientRect().bottom : 0;
+  const topPad = tbBottom + pad;
   const vw = wrap.clientWidth, vh = wrap.clientHeight;
+  const availW = vw - pad * 2;
+  const availH = vh - topPad - pad;
   const bw = maxX - minX, bh = maxY - minY;
-  const ns = Math.min(4, Math.max(0.08,
-    Math.min((vw - pad * 2) / bw, (vh - pad * 2) / bh)
-  ));
+  const ns = Math.min(4, Math.max(0.08, Math.min(availW / bw, availH / bh)));
   S.vp.scale = ns;
-  S.vp.x = vw / 2 - (minX + bw / 2) * ns;
-  S.vp.y = vh / 2 - (minY + bh / 2) * ns;
+  const cx = pad + availW / 2;
+  const cy = topPad + availH / 2;
+  S.vp.x = cx - (minX + bw / 2) * ns;
+  S.vp.y = cy - (minY + bh / 2) * ns;
   applyVP();
   setStatus(`Fit: ${Math.round(ns * 100)}%`);
 }
