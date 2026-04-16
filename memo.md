@@ -9473,3 +9473,68 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
   selected をbubbleヘッダーの表示条件から除外し、hover中 と 編集中（is-editing） のみヘッダーを表示するよう修正しました。
 ```
+
+```
+❯ 今の状態でテストコードが正しく動くか確認し、もし不具合があるようなら直してください
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ❯ tests/canvas-integration.test.js (0 test)
+      ❯ tests/canvas-dom.test.js (0 test)
+     … +33 lines (ctrl+o to see all)
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ HTML にはボタンがあります。テストのセットアップ側の問題を確認します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ setup-dom.js にズームボタンが含まれていません。canvas.js のモジュールロード時に必要なボタン群を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ setup-dom.js のツールバーに btn-zoom-out、btn-zoom-fit、btn-zoom-in、zoom-input が欠けています。
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 4 lines
+      43        <input type="file" id="btn-import">
+      44        <button id="btn-clear"></button>
+      45        <button id="btn-help"></button>
+      46 +      <button id="btn-zoom-out"></button>
+      47 +      <button id="btn-zoom-fit"></button>
+      48 +      <button id="btn-zoom-in"></button>
+      49 +      <input id="zoom-input">
+      50      </div>
+      51      <div id="wrap">
+      52        <svg id="svg-tails"></svg>
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全39テストがパスしました。問題は setup-dom.js にズームコントロール用の要素 (btn-zoom-out, btn-zoom-fit, btn-zoom-in, zoom-input)
+  が欠けていたことで、それらを追加して修正しました。
+
+✻ Churned for 35s
+
+❯ /commit-message
+
+⏺ Skill(/commit-message)
+  ⎿  Successfully loaded skill
+
+⏺ Bash(git diff HEAD 2>&1)
+  ⎿  diff --git a/tests/setup-dom.js b/tests/setup-dom.js
+     index 0cd8ee1..a555843 100644
+     --- a/tests/setup-dom.js
+     … +12 lines (ctrl+o to expand)
+
+⏺ test: add missing zoom control elements to DOM setup fixture
+```

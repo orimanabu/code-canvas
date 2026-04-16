@@ -43,6 +43,10 @@ if (typeof document === 'undefined') {
       <input type="file" id="btn-import">
       <button id="btn-clear"></button>
       <button id="btn-help"></button>
+      <button id="btn-zoom-out"></button>
+      <button id="btn-zoom-fit"></button>
+      <button id="btn-zoom-in"></button>
+      <input id="zoom-input">
     </div>
     <div id="wrap">
       <svg id="svg-tails"></svg>
