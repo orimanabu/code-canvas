@@ -148,7 +148,7 @@
       "y": 5,
       "w": 2034,
       "h": 823,
-      "label": "皇居その2: virtio_blk.cで 'time.*out' でgrepしてひっかかった関数を念のため調べてる",
+      "label": "根拠その2: virtio_blk.cで 'time.*out' でgrepしてひっかかった関数を念のため調べてる",
       "color": "yellow"
     }
   ],
