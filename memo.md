@@ -12410,3 +12410,280 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
   - 現在のタブのキー（STORAGE_KEY）は対象外なので、起動直後に自分のデータを消してしまうことはない
   - savedAt が存在しない古いエントリ（フォーマット変更前のデータ）も削除対象にしています
 ```
+
+```
+❯ 現状を反映してREADME.mdを更新してください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Bash(git log --oneline -20)
+  ⎿  aad4f27 feat: purge stale per-tab localStorage entries after 30 days
+     c68fd35 feat: add DATA_VERSION constant and embed dataVersion in saved state
+     b710fbc feat: isolate localStorage per tab using sessionStorage-scoped key
+     … +17 lines (ctrl+o to expand)
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Now let me check the canvas.js to understand the current features in detail, especially the newer ones.
+
+  Searched for 5 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at the keyboard shortcuts section:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have a complete picture. Let me update both README files:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have everything I need. Let me update both README files with the current state:
+
+⏺ Write(README.md)
+  ⎿  Added 55 lines, removed 2 lines
+      12  - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
+      13  - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. Click to jump to
+          the target. Right-click a link to change its color, width, and dash style.
+      14  - **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox.
+      15 +- **Frames**: Group related nodes visually with a labeled frame rectangle.
+      16 +- **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and dash sty
+         +le are configurable via right-click menu.
+      17 +- **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
+      18  - **Infinite canvas**: Miro-style navigation (drag to pan, Cmd+drag to zoom, v/h to switch modes).
+      19 +- **Multi-tab isolation**: Each browser tab stores its own canvas independently in localStorage. Stale entries from closed tabs are purg
+         +ed automatically after 30 days.
+      20  - **Save / Load**: Export and import as JSON.
+      21
+      22
+     ...
+      45
+      46  When a JSON file is specified, its contents are loaded into the canvas on startup and also written to `localStorage`, so the state is pr
+          eserved across page refreshes.
+      47
+      48 +# Keyboard Shortcuts
+      49 +
+      50 +| Key | Action |
+      51 +|-----|--------|
+      52 +| `v` | Select mode |
+      53 +| `h` | Hand/pan mode |
+      54 +| `Space` (hold) | Temporary hand mode |
+      55 +| `l` | Toggle link mode |
+      56 +| `Del` / `Backspace` | Delete selected node or line |
+      57 +| `Cmd/Ctrl+C` | Copy selected node(s) or line |
+      58 +| `Cmd/Ctrl+X` | Cut selected node(s) or line |
+      59 +| `Cmd/Ctrl+V` | Paste |
+      60 +| `Cmd/Ctrl+Z` | Undo (up to 10 steps) |
+      61 +| `Escape` | Exit edit / link mode |
+      62 +
+      63  # JSON Output Format
+      64
+      65  ## Top level
+      66
+      67  | Field | Type | Description |
+      68  |---|---|---|
+      69 +| `dataVersion` | string | Format version (currently `"1.0"`) |
+      70  | `canvasTitle` | string | Title of the entire canvas |
+      51 -| `nodes` | Node[] | Array of code blocks |
+      71 +| `nodes` | Node[] | Array of code blocks, bubbles, and frames |
+      72  | `links` | Link[] | Array of links |
+      73 +| `freeLines` | FreeLine[] | Array of freehand line objects |
+      74  | `nid` | number | Counter for the next node ID to assign |
+      75  | `lid` | number | Counter for the next link ID to assign |
+      76 +| `flid` | number | Counter for the next free-line ID to assign |
+      77  | `vp` | Viewport | Viewport state |
+      78  | `gitConfig` | GitConfig | Git repository settings associated with the canvas |
+      79
+     ...
+      137  | `fromId` | number | ID of the source node |
+      138  | `text` | string | Text selected in the source node (anchor text) |
+      139  | `toId` | number | ID of the target node |
+      140 +| `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
+      141 +| `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
+      142 +| `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
+      143
+      144 +## FreeLine object
+      145 +
+      146 +Freehand line drawn directly on the canvas.
+      147 +
+      148 +| Field | Type | Description |
+      149 +|---|---|---|
+      150 +| `id` | number | Unique free-line ID |
+      151 +| `points` | `{x, y}`[] | Array of canvas-coordinate points |
+      152 +| `lineStyle` | string | Shape mode: `"polyline"`, `"curve"`, or `"straight"` |
+      153 +| `stroke` | string | Line color (CSS color string) |
+      154 +| `strokeWidth` | number | Line width in pixels |
+      155 +| `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, etc.) |
+      156 +
+      157  ## Viewport object
+      158
+      159  | Field | Type | Description |
+     ...
+      180
+      181  ```json
+      182  {
+      183 +  "dataVersion": "1.0",
+      184    "canvasTitle": "crun_code_reading",
+      185    "nodes": [
+      186      {
+     ...
+      226        "id": 1,
+      227        "fromId": 1,
+      228        "text": "get_fd_map",
+      190 -      "toId": 3
+      229 +      "toId": 3,
+      230 +      "stroke": "#388bfd",
+      231 +      "strokeWidth": 1.5,
+      232 +      "dash": ""
+      233      }
+      234    ],
+      235 +  "freeLines": [
+      236 +    {
+      237 +      "id": 1,
+      238 +      "points": [{"x": 200, "y": 300}, {"x": 350, "y": 280}, {"x": 500, "y": 320}],
+      239 +      "lineStyle": "curve",
+      240 +      "stroke": "#e6edf3",
+      241 +      "strokeWidth": 2,
+      242 +      "dash": ""
+      243 +    }
+      244 +  ],
+      245    "nid": 7,
+      246    "lid": 6,
+      247 +  "flid": 2,
+      248    "vp": {
+      249      "x": 76.9,
+      250      "y": -6.8,
+
+⏺ Now update the Japanese README:
+
+⏺ Write(README.ja.md)
+  ⎿  Added 55 lines, removed 2 lines
+      12  - **シンタックスハイライト**: コードの内容から言語を自動検出し、適切にハイライト表示します。
+      13  - **リンク**: コードブロック内の文字列（関数名など）を選択し、別のブロックへ矢印で接続できます。クリックするとジャンプ先へ移動します。右
+          クリックでリンクの色・太さ・破線スタイルを変更できます。
+      14  - **吹き出し**: 移動可能な尾部を持つコメント吹き出しを追加できます。吹き出しヘッダーのチェックボックスで尾部の表示・非表示を切り替えられ
+          ます。
+      15 +- **フレーム**: ラベル付きのフレーム矩形で関連するノードを視覚的にグループ化できます。
+      16 +- **フリーハンド線**: ポリライン・スムーズカーブ・直線をキャンバス上に描けます。右クリックメニューで形状・色・太さ・破線スタイルを変更で
+         +きます。
+      17 +- **アンドゥ**: Cmd/Ctrl+Z で直前の操作を取り消せます（スナップショット方式、最大10ステップ）。
+      18  - **無限キャンバス**: Miro風のナビゲーション（ドラッグでパン、Cmd+ドラッグでズーム、v/hでモード切替）。
+      19 +- **タブ独立保存**: ブラウザのタブごとに独立したlocalStorageキーでキャンバスを保存します。閉じたタブのエントリは30日後に自動削除されます
+         +。
+      20  - **保存 / 読み込み**: JSONとしてエクスポート・インポートできます。
+      21
+      22
+     ...
+      45
+      46  JSONファイルを指定した場合、その内容は起動時にキャンバスへ読み込まれ、`localStorage` にも書き込まれます。そのためページをリロードしても
+          状態が保持されます。
+      47
+      48 +# キーボードショートカット
+      49 +
+      50 +| キー | 操作 |
+      51 +|------|------|
+      52 +| `v` | 選択モード |
+      53 +| `h` | ハンド（パン）モード |
+      54 +| `Space`（長押し） | 一時的なハンドモード |
+      55 +| `l` | リンクモードの切り替え |
+      56 +| `Del` / `Backspace` | 選択中のノードまたは線を削除 |
+      57 +| `Cmd/Ctrl+C` | 選択中のノード・線をコピー |
+      58 +| `Cmd/Ctrl+X` | 選択中のノード・線をカット |
+      59 +| `Cmd/Ctrl+V` | ペースト |
+      60 +| `Cmd/Ctrl+Z` | アンドゥ（最大10ステップ） |
+      61 +| `Escape` | 編集モード・リンクモードを終了 |
+      62 +
+      63  # JSON出力フォーマット
+      64
+      65  ## トップレベル
+      66
+      67  | フィールド | 型 | 説明 |
+      68  |---|---|---|
+      69 +| `dataVersion` | string | フォーマットバージョン（現在 `"1.0"`） |
+      70  | `canvasTitle` | string | キャンバス全体のタイトル |
+      51 -| `nodes` | Node[] | コードブロックの配列 |
+      71 +| `nodes` | Node[] | コードブロック・吹き出し・フレームの配列 |
+      72  | `links` | Link[] | リンクの配列 |
+      73 +| `freeLines` | FreeLine[] | フリーハンド線の配列 |
+      74  | `nid` | number | 次に割り当てるノードIDのカウンター |
+      75  | `lid` | number | 次に割り当てるリンクIDのカウンター |
+      76 +| `flid` | number | 次に割り当てるフリーハンド線IDのカウンター |
+      77  | `vp` | Viewport | ビューポートの状態 |
+      78  | `gitConfig` | GitConfig | キャンバスに関連付けられたGitリポジトリの設定 |
+      79
+     ...
+      137  | `fromId` | number | 接続元ノードのID |
+      138  | `text` | string | 接続元ノードで選択されたテキスト（アンカーテキスト） |
+      139  | `toId` | number | 接続先ノードのID |
+      140 +| `stroke` | string | 矢印の色（CSSカラー文字列、デフォルト：`"#388bfd"`） |
+      141 +| `strokeWidth` | number | 矢印の太さ（ピクセル、デフォルト：`1.5`） |
+      142 +| `dash` | string | SVGのstroke-dasharray値（`""` = 実線、`"8 4"` = 破線、`"16 6"` = 長破線） |
+      143
+      144 +## FreeLineオブジェクト
+      145 +
+      146 +キャンバス上に直接描いたフリーハンド線です。
+      147 +
+      148 +| フィールド | 型 | 説明 |
+      149 +|---|---|---|
+      150 +| `id` | number | 一意のフリーハンド線ID |
+      151 +| `points` | `{x, y}`[] | キャンバス座標系の点の配列 |
+      152 +| `lineStyle` | string | 形状モード：`"polyline"`・`"curve"`・`"straight"` |
+      153 +| `stroke` | string | 線の色（CSSカラー文字列） |
+      154 +| `strokeWidth` | number | 線の太さ（ピクセル） |
+      155 +| `dash` | string | SVGのstroke-dasharray値（`""` = 実線、`"8 4"` = 破線など） |
+      156 +
+      157  ## Viewportオブジェクト
+      158
+      159  | フィールド | 型 | 説明 |
+     ...
+      180
+      181  ```json
+      182  {
+      183 +  "dataVersion": "1.0",
+      184    "canvasTitle": "crun_code_reading",
+      185    "nodes": [
+      186      {
+     ...
+      226        "id": 1,
+      227        "fromId": 1,
+      228        "text": "get_fd_map",
+      190 -      "toId": 3
+      229 +      "toId": 3,
+      230 +      "stroke": "#388bfd",
+      231 +      "strokeWidth": 1.5,
+      232 +      "dash": ""
+      233      }
+      234    ],
+      235 +  "freeLines": [
+      236 +    {
+      237 +      "id": 1,
+      238 +      "points": [{"x": 200, "y": 300}, {"x": 350, "y": 280}, {"x": 500, "y": 320}],
+      239 +      "lineStyle": "curve",
+      240 +      "stroke": "#e6edf3",
+      241 +      "strokeWidth": 2,
+      242 +      "dash": ""
+      243 +    }
+      244 +  ],
+      245    "nid": 7,
+      246    "lid": 6,
+      247 +  "flid": 2,
+      248    "vp": {
+      249      "x": 76.9,
+      250      "y": -6.8,
+
+⏺ 両方のREADMEを更新しました。変更内容：
+
+  追加した機能の記載
+  - フレーム — ノードをグループ化するフレーム矩形（既にJSONフォーマットには記載があったが機能説明に未記載だった）
+  - フリーハンド線 — ポリライン/カーブ/直線の描画（freeLines オブジェクト型も追加）
+  - アンドゥ — Cmd/Ctrl+Z（最大10ステップ）
+  - タブ独立保存 — タブごとのlocalStorage分離と30日後の自動削除
+
+  JSONフォーマットの更新
+  - トップレベルに dataVersion・freeLines・flid フィールドを追加
+  - links オブジェクトに stroke・strokeWidth・dash フィールドを追加
+  - FreeLine オブジェクト型を新規追加
+  - サンプルJSONを最新のスキーマに合わせて更新
+
+  キーボードショートカット一覧を新規追加（Cmd/Ctrl+Z のアンドゥを含む）
+
+✻ Worked for 2m 30s
+```

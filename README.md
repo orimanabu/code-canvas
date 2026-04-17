@@ -12,7 +12,11 @@ A browser-based tool for reading and understanding source code. Visually organiz
 - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
 - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. Click to jump to the target. Right-click a link to change its color, width, and dash style.
 - **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox.
+- **Frames**: Group related nodes visually with a labeled frame rectangle.
+- **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and dash style are configurable via right-click menu.
+- **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
 - **Infinite canvas**: Miro-style navigation (drag to pan, Cmd+drag to zoom, v/h to switch modes).
+- **Multi-tab isolation**: Each browser tab stores its own canvas independently in localStorage. Stale entries from closed tabs are purged automatically after 30 days.
 - **Save / Load**: Export and import as JSON.
 
 
@@ -41,17 +45,35 @@ The server opens `http://localhost:8765/code-canvas/canvas.html` in the browser 
 
 When a JSON file is specified, its contents are loaded into the canvas on startup and also written to `localStorage`, so the state is preserved across page refreshes.
 
+# Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `v` | Select mode |
+| `h` | Hand/pan mode |
+| `Space` (hold) | Temporary hand mode |
+| `l` | Toggle link mode |
+| `Del` / `Backspace` | Delete selected node or line |
+| `Cmd/Ctrl+C` | Copy selected node(s) or line |
+| `Cmd/Ctrl+X` | Cut selected node(s) or line |
+| `Cmd/Ctrl+V` | Paste |
+| `Cmd/Ctrl+Z` | Undo (up to 10 steps) |
+| `Escape` | Exit edit / link mode |
+
 # JSON Output Format
 
 ## Top level
 
 | Field | Type | Description |
 |---|---|---|
+| `dataVersion` | string | Format version (currently `"1.0"`) |
 | `canvasTitle` | string | Title of the entire canvas |
-| `nodes` | Node[] | Array of code blocks |
+| `nodes` | Node[] | Array of code blocks, bubbles, and frames |
 | `links` | Link[] | Array of links |
+| `freeLines` | FreeLine[] | Array of freehand line objects |
 | `nid` | number | Counter for the next node ID to assign |
 | `lid` | number | Counter for the next link ID to assign |
+| `flid` | number | Counter for the next free-line ID to assign |
 | `vp` | Viewport | Viewport state |
 | `gitConfig` | GitConfig | Git repository settings associated with the canvas |
 
@@ -115,6 +137,22 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `fromId` | number | ID of the source node |
 | `text` | string | Text selected in the source node (anchor text) |
 | `toId` | number | ID of the target node |
+| `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
+| `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
+| `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
+
+## FreeLine object
+
+Freehand line drawn directly on the canvas.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | number | Unique free-line ID |
+| `points` | `{x, y}`[] | Array of canvas-coordinate points |
+| `lineStyle` | string | Shape mode: `"polyline"`, `"curve"`, or `"straight"` |
+| `stroke` | string | Line color (CSS color string) |
+| `strokeWidth` | number | Line width in pixels |
+| `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, etc.) |
 
 ## Viewport object
 
@@ -142,6 +180,7 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
 
 ```json
 {
+  "dataVersion": "1.0",
   "canvasTitle": "crun_code_reading",
   "nodes": [
     {
@@ -187,11 +226,25 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "id": 1,
       "fromId": 1,
       "text": "get_fd_map",
-      "toId": 3
+      "toId": 3,
+      "stroke": "#388bfd",
+      "strokeWidth": 1.5,
+      "dash": ""
+    }
+  ],
+  "freeLines": [
+    {
+      "id": 1,
+      "points": [{"x": 200, "y": 300}, {"x": 350, "y": 280}, {"x": 500, "y": 320}],
+      "lineStyle": "curve",
+      "stroke": "#e6edf3",
+      "strokeWidth": 2,
+      "dash": ""
     }
   ],
   "nid": 7,
   "lid": 6,
+  "flid": 2,
   "vp": {
     "x": 76.9,
     "y": -6.8,
