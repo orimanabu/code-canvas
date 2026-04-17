@@ -678,19 +678,25 @@
       "id": 3,
       "fromId": 5,
       "text": "blk_mq_ops",
-      "toId": 6
+      "toId": 6,
+      "strokeWidth": 2,
+      "dash": "8 4"
     },
     {
       "id": 4,
       "fromId": 18,
       "text": "mq_ops->timeout",
-      "toId": 6
+      "toId": 6,
+      "strokeWidth": 2,
+      "dash": "8 4"
     },
     {
       "id": 5,
       "fromId": 17,
       "text": "mq_ops->timeout",
-      "toId": 6
+      "toId": 6,
+      "strokeWidth": 2,
+      "dash": "8 4"
     },
     {
       "id": 6,
