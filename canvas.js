@@ -1,5 +1,7 @@
 'use strict';
 
+const DATA_VERSION = '1.0';
+
 // ═══════════════════════════════════════════════════════
 // UTILS
 // ═══════════════════════════════════════════════════════
@@ -2524,6 +2526,7 @@ canvasTitleEl.addEventListener('input', () => {
 
 function saveState() {
   const data = {
+    dataVersion: DATA_VERSION,
     canvasTitle: canvasTitleEl.value,
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {

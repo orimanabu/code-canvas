@@ -12281,3 +12281,35 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ✻ Sautéed for 30s
 ```
+
+```
+❯ まずcanvas.jsのトップレベルにconstでDATA_VERSION="1.0"; を定義し、次にsaveState()でデータを永続化する際、"dataVersion"というキーにDATA_VERSIONを入れて
+おいてください。今後、JSONデータのフォーマットに互換性がなくなる変更が入るときにバージョンを上げようと思います
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      1  'use strict';
+      2
+      3 +const DATA_VERSION = '1.0';
+      4 +
+      5  // ═══════════════════════════════════════════════════════
+      6  // UTILS
+      7  // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2526
+      2527  function saveState() {
+      2528    const data = {
+      2529 +    dataVersion: DATA_VERSION,
+      2530      canvasTitle: canvasTitleEl.value,
+      2531      nodes: S.nodes.map(n => {
+      2532        if (n.type === 'bubble') {
+
+⏺ 完了です。
+
+  - canvas.js の先頭（'use strict'; の直後）に const DATA_VERSION = '1.0'; を追加
+  - saveState() の出力オブジェクトの先頭に dataVersion: DATA_VERSION を追加
+```
