@@ -235,7 +235,7 @@ const S = {
   spaceDown: false,
   mode: 'select',   // 'select' | 'hand'
   linkMode: false,
-  clipboard: [],    // copied node snapshots [{x,y,w,h,code,lang,title,filePath}]
+  clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
   pending: null,    // { fromId, text }
   gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
   tailDrag: null,   // { id } — bubble tail being dragged
@@ -1231,24 +1231,36 @@ function getSelectedIds() {
 }
 
 function copyNodes() {
-  const ids = getSelectedIds();
-  if (ids.length === 0) return;
-  S.clipboard = ids.map(id => {
+  const items = [];
+  for (const id of getSelectedIds()) {
     const n = S.nodes.find(nn => nn.id === id);
-    return n ? { ...n } : null;
-  }).filter(Boolean);
-  setStatus(`${S.clipboard.length} block(s) copied (Cmd/Ctrl+V to paste)`);
+    if (n) items.push({ _clipType: 'node', ...n });
+  }
+  if (S.selLine !== null) {
+    const line = S.freeLines.find(l => l.id === S.selLine);
+    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+  }
+  if (items.length === 0) return;
+  S.clipboard = items;
+  setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
 }
 
 function cutNodes() {
+  const items = [];
   const ids = getSelectedIds();
-  if (ids.length === 0) return;
-  S.clipboard = ids.map(id => {
+  for (const id of ids) {
     const n = S.nodes.find(nn => nn.id === id);
-    return n ? { ...n } : null;
-  }).filter(Boolean);
+    if (n) items.push({ _clipType: 'node', ...n });
+  }
   ids.forEach(id => removeNode(id));
-  setStatus(`${S.clipboard.length} block(s) cut (Cmd/Ctrl+V to paste)`);
+  if (S.selLine !== null) {
+    const line = S.freeLines.find(l => l.id === S.selLine);
+    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+    removeFreeLine(S.selLine);
+  }
+  if (items.length === 0) return;
+  S.clipboard = items;
+  setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
 }
 
 function pasteNodes() {
@@ -1256,25 +1268,59 @@ function pasteNodes() {
   clearMultiSel();
   selectNode(null);
   const offset = 30;
+  let pastedLineId = null;
+
   for (const data of S.clipboard) {
-    const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
-    if (n.type === 'bubble') {
-      n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
-      n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+    if (data._clipType === 'freeline') {
+      const line = {
+        id: S.flid++,
+        points: data.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+        lineStyle: data.lineStyle || 'polyline',
+        stroke: data.stroke || '#e6edf3',
+        strokeWidth: data.strokeWidth || 2,
+        dash: data.dash || '',
+      };
+      S.freeLines.push(line);
+      pastedLineId = line.id;
+    } else {
+      // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
+      const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+      delete n._clipType;
+      if (n.type === 'bubble') {
+        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+      }
+      S.nodes.push(n);
+      const el = document.createElement('div');
+      el.className = n.type === 'frame' ? 'frame-node'
+                   : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+      el.id = 'nd-' + n.id;
+      canvas.appendChild(el);
+      if (n.type === 'frame') setupFrameEvents(n, el);
+      else setupNodeEvents(n, el);
+      renderNode(n, el);
+      S.multiSel.add(n.id);
+      ndEl(n.id)?.classList.add('multi-selected');
     }
-    S.nodes.push(n);
-    const el = document.createElement('div');
-    el.className = 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
-    el.id = 'nd-' + n.id;
-    canvas.appendChild(el);
-    setupNodeEvents(n, el);
-    renderNode(n, el);
-    S.multiSel.add(n.id);
-    ndEl(n.id)?.classList.add('multi-selected');
   }
+
+  if (pastedLineId !== null) {
+    // Show pasted line; select it only when no nodes were pasted alongside
+    renderFreeLines();
+    if (S.multiSel.size === 0) {
+      S.selLine = pastedLineId;
+      renderFreeLines();
+    }
+  }
+
   // Shift clipboard so the next paste lands further offset
-  S.clipboard = S.clipboard.map(d => ({ ...d, x: d.x + offset, y: d.y + offset }));
-  setStatus(`${S.clipboard.length} block(s) pasted`);
+  S.clipboard = S.clipboard.map(d => {
+    if (d._clipType === 'freeline') {
+      return { ...d, points: d.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+    }
+    return { ...d, x: d.x + offset, y: d.y + offset };
+  });
+  setStatus(`${S.clipboard.length} object(s) pasted`);
   scheduleSave();
 }
 

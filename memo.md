@@ -11439,3 +11439,167 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ✻ Churned for 1m 25s
 ```
+
+```
+❯ オブジェクト(Block, Bubble, Frame, Line)のコピー＆ペーストができるようにしてください
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+⏺ 現在の copy/paste 実装を読んだので、変更を加えます。3つの関数を書き換えてクリップボードに freeline 対応のタグ付きエントリを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      235    spaceDown: false,
+      236    mode: 'select',   // 'select' | 'hand'
+      237    linkMode: false,
+      238 -  clipboard: [],    // copied node snapshots [{x,y,w,h,code,lang,title,filePath}]
+      238 +  clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
+      239    pending: null,    // { fromId, text }
+      240    gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
+      241    tailDrag: null,   // { id } — bubble tail being dragged
+
+⏺ Update(canvas.js)
+  ⎿  Added 72 lines, removed 26 lines
+      1231  }
+      1232
+      1233  function copyNodes() {
+      1234 -  const ids = getSelectedIds();
+      1235 -  if (ids.length === 0) return;
+      1236 -  S.clipboard = ids.map(id => {
+      1234 +  const items = [];
+      1235 +  for (const id of getSelectedIds()) {
+      1236      const n = S.nodes.find(nn => nn.id === id);
+      1238 -    return n ? { ...n } : null;
+      1239 -  }).filter(Boolean);
+      1240 -  setStatus(`${S.clipboard.length} block(s) copied (Cmd/Ctrl+V to paste)`);
+      1237 +    if (n) items.push({ _clipType: 'node', ...n });
+      1238 +  }
+      1239 +  if (S.selLine !== null) {
+      1240 +    const line = S.freeLines.find(l => l.id === S.selLine);
+      1241 +    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1242 +  }
+      1243 +  if (items.length === 0) return;
+      1244 +  S.clipboard = items;
+      1245 +  setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
+      1246  }
+      1247
+      1248  function cutNodes() {
+      1249 +  const items = [];
+      1250    const ids = getSelectedIds();
+      1245 -  if (ids.length === 0) return;
+      1246 -  S.clipboard = ids.map(id => {
+      1251 +  for (const id of ids) {
+      1252      const n = S.nodes.find(nn => nn.id === id);
+      1248 -    return n ? { ...n } : null;
+      1249 -  }).filter(Boolean);
+      1253 +    if (n) items.push({ _clipType: 'node', ...n });
+      1254 +  }
+      1255    ids.forEach(id => removeNode(id));
+      1251 -  setStatus(`${S.clipboard.length} block(s) cut (Cmd/Ctrl+V to paste)`);
+      1256 +  if (S.selLine !== null) {
+      1257 +    const line = S.freeLines.find(l => l.id === S.selLine);
+      1258 +    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1259 +    removeFreeLine(S.selLine);
+      1260 +  }
+      1261 +  if (items.length === 0) return;
+      1262 +  S.clipboard = items;
+      1263 +  setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
+      1264  }
+      1265
+      1266  function pasteNodes() {
+     ...
+      1268    clearMultiSel();
+      1269    selectNode(null);
+      1270    const offset = 30;
+      1271 +  let pastedLineId = null;
+      1272 +
+      1273    for (const data of S.clipboard) {
+      1260 -    const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+      1261 -    if (n.type === 'bubble') {
+      1262 -      n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+      1263 -      n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+      1274 +    if (data._clipType === 'freeline') {
+      1275 +      const line = {
+      1276 +        id: S.flid++,
+      1277 +        points: data.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+      1278 +        lineStyle: data.lineStyle || 'polyline',
+      1279 +        stroke: data.stroke || '#e6edf3',
+      1280 +        strokeWidth: data.strokeWidth || 2,
+      1281 +        dash: data.dash || '',
+      1282 +      };
+      1283 +      S.freeLines.push(line);
+      1284 +      pastedLineId = line.id;
+      1285 +    } else {
+      1286 +      // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
+      1287 +      const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+      1288 +      delete n._clipType;
+      1289 +      if (n.type === 'bubble') {
+      1290 +        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+      1291 +        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+      1292 +      }
+      1293 +      S.nodes.push(n);
+      1294 +      const el = document.createElement('div');
+      1295 +      el.className = n.type === 'frame' ? 'frame-node'
+      1296 +                   : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+      1297 +      el.id = 'nd-' + n.id;
+      1298 +      canvas.appendChild(el);
+      1299 +      if (n.type === 'frame') setupFrameEvents(n, el);
+      1300 +      else setupNodeEvents(n, el);
+      1301 +      renderNode(n, el);
+      1302 +      S.multiSel.add(n.id);
+      1303 +      ndEl(n.id)?.classList.add('multi-selected');
+      1304      }
+      1265 -    S.nodes.push(n);
+      1266 -    const el = document.createElement('div');
+      1267 -    el.className = 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+      1268 -    el.id = 'nd-' + n.id;
+      1269 -    canvas.appendChild(el);
+      1270 -    setupNodeEvents(n, el);
+      1271 -    renderNode(n, el);
+      1272 -    S.multiSel.add(n.id);
+      1273 -    ndEl(n.id)?.classList.add('multi-selected');
+      1305    }
+      1306 +
+      1307 +  if (pastedLineId !== null) {
+      1308 +    // Show pasted line; select it only when no nodes were pasted alongside
+      1309 +    renderFreeLines();
+      1310 +    if (S.multiSel.size === 0) {
+      1311 +      S.selLine = pastedLineId;
+      1312 +      renderFreeLines();
+      1313 +    }
+      1314 +  }
+      1315 +
+      1316    // Shift clipboard so the next paste lands further offset
+      1276 -  S.clipboard = S.clipboard.map(d => ({ ...d, x: d.x + offset, y: d.y + offset }));
+      1277 -  setStatus(`${S.clipboard.length} block(s) pasted`);
+      1317 +  S.clipboard = S.clipboard.map(d => {
+      1318 +    if (d._clipType === 'freeline') {
+      1319 +      return { ...d, points: d.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+      1320 +    }
+      1321 +    return { ...d, x: d.x + offset, y: d.y + offset };
+      1322 +  });
+      1323 +  setStatus(`${S.clipboard.length} object(s) pasted`);
+      1324    scheduleSave();
+      1325  }
+      1326
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿  > test
+     > vitest run
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容まとめ:
+
+  copy (Cmd+C): 選択中のノード群 + 選択中の Line を一括でクリップボードに保存
+
+  cut (Cmd+X): 選択中のノード群 + 選択中の Line をクリップボードに保存して削除
+
+  paste (Cmd+V): クリップボード内容を +30px オフセットで貼り付け
+  - ノード → 従来通り multi-select 状態で貼り付け
+  - Line → 点列をオフセットして貼り付け（ノードなしの場合はその Line が選択状態に）
+  - 混在していても両方貼り付け可能
+
+  繰り返し Cmd+V するたびに +30px ずつずれる動作もノード・Line 両方で機能します。
+
+✻ Sautéed for 1m 58s
+```
