@@ -9900,3 +9900,416 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ✻ Churned for 57s
 ```
+
+```
+❯ 今はリンクを右クリックすると、Delete linkというメニュー項目のみです。ここに項目を追加して、以下を実現してください
+- リンクの太さ、色を変更できるようにする
+- リンクの形状(破線等)を変更できるようにする
+
+  Searched for 4 patterns (ctrl+o to expand)
+
+⏺ Now let me see the full renderLinks and link data structure:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ Now I have everything I need. Here's my plan:
+
+  1. Add stroke, strokeWidth, dash fields to link objects
+  2. Update renderLinks() to apply these per-link styles
+  3. Replace the simple #link-ctx with a richer panel (color swatches, width buttons, dash buttons + delete)
+  4. Update showLinkCtx() to wire up the controls
+
+  Let me implement this:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 16 lines, removed 1 line
+      232    <button id="link-tip-link">🔗 Create link from here</button>
+      233    <button id="link-tip-newblock">📄 Create new block and link</button>
+      234  </div>
+      235 -<div id="link-ctx"><button id="link-ctx-del">🗑 Delete link</button></div>
+      235 +<div id="link-ctx">
+      236 +  <div class="link-ctx-row">
+      237 +    <span class="link-ctx-label">Color</span>
+      238 +    <div id="link-ctx-colors"></div>
+      239 +  </div>
+      240 +  <div class="link-ctx-row">
+      241 +    <span class="link-ctx-label">Width</span>
+      242 +    <div id="link-ctx-widths"></div>
+      243 +  </div>
+      244 +  <div class="link-ctx-row">
+      245 +    <span class="link-ctx-label">Style</span>
+      246 +    <div id="link-ctx-dashes"></div>
+      247 +  </div>
+      248 +  <div class="link-ctx-sep"></div>
+      249 +  <button id="link-ctx-del">🗑 Delete link</button>
+      250 +</div>
+      251  <div id="status">Ready</div>
+      252
+      253  <script src="../ctags/build-wasm/ctags-wasm.js"></script>
+
+⏺ Now update the CSS:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 34 lines, removed 5 lines
+      295  #link-ctx {
+      296    position: fixed; z-index: 310;
+      297    background: #161b22; border: 1px solid #30363d;
+      298 -  border-radius: 6px; padding: 4px;
+      298 +  border-radius: 6px; padding: 8px;
+      299    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      300 -  display: none;
+      300 +  display: none; min-width: 200px;
+      301  }
+      302 -#link-ctx button {
+      302 +.link-ctx-row {
+      303 +  display: flex; align-items: center; gap: 8px;
+      304 +  padding: 4px 4px;
+      305 +}
+      306 +.link-ctx-label {
+      307 +  font-size: 11px; color: #8b949e; width: 36px; flex-shrink: 0;
+      308 +}
+      309 +#link-ctx-colors, #link-ctx-widths, #link-ctx-dashes {
+      310 +  display: flex; gap: 4px; flex-wrap: wrap;
+      311 +}
+      312 +.lk-color-swatch {
+      313 +  width: 18px; height: 18px; border-radius: 50%;
+      314 +  border: 2px solid transparent; cursor: pointer;
+      315 +  transition: transform 0.1s;
+      316 +}
+      317 +.lk-color-swatch:hover { transform: scale(1.2); }
+      318 +.lk-color-swatch.active { border-color: #e6edf3; }
+      319 +.lk-width-btn, .lk-dash-btn {
+      320 +  background: #21262d; border: 1px solid #30363d;
+      321 +  border-radius: 4px; cursor: pointer;
+      322 +  display: flex; align-items: center; justify-content: center;
+      323 +  padding: 2px 6px; height: 24px;
+      324 +}
+      325 +.lk-width-btn:hover, .lk-dash-btn:hover { border-color: #58a6ff; }
+      326 +.lk-width-btn.active, .lk-dash-btn.active { border-color: #388bfd; background: #1f3a5f; }
+      327 +.lk-width-btn svg, .lk-dash-btn svg { display: block; }
+      328 +.link-ctx-sep {
+      329 +  height: 1px; background: #30363d; margin: 6px 0;
+      330 +}
+      331 +#link-ctx button#link-ctx-del {
+      332    display: block; width: 100%;
+      333    background: none; border: none; color: #e6edf3;
+      305 -  padding: 6px 14px; font-size: 13px; text-align: left;
+      334 +  padding: 6px 10px; font-size: 13px; text-align: left;
+      335    border-radius: 4px; cursor: pointer; white-space: nowrap;
+      336  }
+      308 -#link-ctx button:hover { background: #da3633; color: #fff; }
+      337 +#link-ctx button#link-ctx-del:hover { background: #da3633; color: #fff; }
+      338
+      339  /* ── Toolbar ── */
+      340  #toolbar {
+
+⏺ Now update the JS — first the DOM refs, then createLink, renderLinks, and showLinkCtx:
+
+⏺ Update(canvas.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines
+      254  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+      255  const linkCtx        = document.getElementById('link-ctx');
+      256  const linkCtxDel     = document.getElementById('link-ctx-del');
+      257 +const linkCtxColors  = document.getElementById('link-ctx-colors');
+      258 +const linkCtxWidths  = document.getElementById('link-ctx-widths');
+      259 +const linkCtxDashes  = document.getElementById('link-ctx-dashes');
+      260  const linkPreviewEl  = document.getElementById('link-preview');
+      261  const statusEl    = document.getElementById('status');
+      262  const marqueeEl   = document.getElementById('marquee');
+
+⏺ Now update createLink to include the new fields:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1318      setStatus(`⚠ A link from "${text}" to this block already exists`);
+      1319      return;
+      1320    }
+      1321 -  S.links.push({ id: S.lid++, fromId, text, toId });
+      1321 +  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '' });
+      1322    renderNode(S.nodes.find(n => n.id === fromId));
+      1323    renderLinks();
+      1324    scheduleSave();
+
+⏺ Now update renderLinks to apply per-link stroke/width/dash:
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 3 lines
+      1381      const dy = tp.y - fp.y;
+      1382      const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
+      1383
+      1384 +    const stroke = lnk.stroke || '#388bfd';
+      1385 +    const strokeWidth = lnk.strokeWidth || 1.5;
+      1386 +    const dash = lnk.dash || '';
+      1387 +
+      1388      const g = svgE('g', { class: 'lk' });
+      1385 -    g.appendChild(svgE('path', {
+      1386 -      d, class: 'link-path', 'marker-end': 'url(#arrow)'
+      1387 -    }));
+      1389 +    const pathAttrs = {
+      1390 +      d, class: 'link-path', 'marker-end': 'url(#arrow)',
+      1391 +      stroke, 'stroke-width': strokeWidth,
+      1392 +    };
+      1393 +    if (dash) pathAttrs['stroke-dasharray'] = dash;
+      1394 +    g.appendChild(svgE('path', pathAttrs));
+      1395      const hit = svgE('path', { d, class: 'link-hit' });
+      1396      hit.addEventListener('contextmenu', e => {
+      1397        e.preventDefault();
+
+⏺ Now replace showLinkCtx with the full implementation:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 106 lines, removed 3 lines
+      1437  // ═══════════════════════════════════════════════════════
+      1438  // LINK CONTEXT MENU
+      1439  // ═══════════════════════════════════════════════════════
+      1440 +const LINK_COLORS = [
+      1441 +  { label: 'Blue',   value: '#388bfd' },
+      1442 +  { label: 'Green',  value: '#3fb950' },
+      1443 +  { label: 'Yellow', value: '#d29922' },
+      1444 +  { label: 'Red',    value: '#f85149' },
+      1445 +  { label: 'Purple', value: '#bc8cff' },
+      1446 +  { label: 'Gray',   value: '#8b949e' },
+      1447 +  { label: 'White',  value: '#e6edf3' },
+      1448 +];
+      1449 +
+      1450 +const LINK_WIDTHS = [
+      1451 +  { label: '1',   value: 1   },
+      1452 +  { label: '2',   value: 2   },
+      1453 +  { label: '3',   value: 3.5 },
+      1454 +  { label: '5',   value: 5   },
+      1455 +];
+      1456 +
+      1457 +const LINK_DASHES = [
+      1458 +  { label: 'solid',  value: '',       title: 'Solid' },
+      1459 +  { label: 'dash',   value: '8 4',    title: 'Dashed' },
+      1460 +  { label: 'dot',    value: '2 4',    title: 'Dotted' },
+      1461 +  { label: 'ldash',  value: '16 6',   title: 'Long dash' },
+      1462 +  { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+      1463 +];
+      1464 +
+      1465 +function makeDashSvg(dash, color) {
+      1466 +  const sw = 2;
+      1467 +  const w = 36, h = 12;
+      1468 +  const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+      1469 +    (dash ? ` stroke-dasharray="${dash}"` : '');
+      1470 +  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+      1471 +}
+      1472 +
+      1473 +function makeWidthSvg(width, color) {
+      1474 +  const w = 28, h = 16;
+      1475 +  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width}" f
+           +ill="none" stroke-linecap="round"/></svg>`;
+      1476 +}
+      1477 +
+      1478  function showLinkCtx(linkId, x, y) {
+      1441 -  linkCtx.style.left = x + 'px';
+      1442 -  linkCtx.style.top  = y + 'px';
+      1443 -  linkCtx.style.display = 'block';
+      1479 +  const lnk = S.links.find(l => l.id === linkId);
+      1480 +  if (!lnk) return;
+      1481 +
+      1482 +  const curStroke = lnk.stroke || '#388bfd';
+      1483 +  const curWidth  = lnk.strokeWidth || 1.5;
+      1484 +  const curDash   = lnk.dash || '';
+      1485 +
+      1486 +  // --- Color swatches ---
+      1487 +  linkCtxColors.innerHTML = '';
+      1488 +  for (const c of LINK_COLORS) {
+      1489 +    const sw = document.createElement('div');
+      1490 +    sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
+      1491 +    sw.style.background = c.value;
+      1492 +    sw.title = c.label;
+      1493 +    sw.addEventListener('click', () => {
+      1494 +      lnk.stroke = c.value;
+      1495 +      renderLinks();
+      1496 +      scheduleSave();
+      1497 +      linkCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
+      1498 +      sw.classList.add('active');
+      1499 +      // refresh width/dash svgs with new color
+      1500 +      showLinkCtx(linkId, x, y);
+      1501 +    });
+      1502 +    linkCtxColors.appendChild(sw);
+      1503 +  }
+      1504 +
+      1505 +  // --- Width buttons ---
+      1506 +  linkCtxWidths.innerHTML = '';
+      1507 +  for (const w of LINK_WIDTHS) {
+      1508 +    const btn = document.createElement('button');
+      1509 +    btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
+      1510 +    btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
+      1511 +    btn.title = `${w.value}px`;
+      1512 +    btn.addEventListener('click', () => {
+      1513 +      lnk.strokeWidth = w.value;
+      1514 +      renderLinks();
+      1515 +      scheduleSave();
+      1516 +      linkCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
+      1517 +      btn.classList.add('active');
+      1518 +    });
+      1519 +    linkCtxWidths.appendChild(btn);
+      1520 +  }
+      1521 +
+      1522 +  // --- Dash buttons ---
+      1523 +  linkCtxDashes.innerHTML = '';
+      1524 +  for (const d of LINK_DASHES) {
+      1525 +    const btn = document.createElement('button');
+      1526 +    btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
+      1527 +    btn.innerHTML = makeDashSvg(d.value, curStroke);
+      1528 +    btn.title = d.title;
+      1529 +    btn.addEventListener('click', () => {
+      1530 +      lnk.dash = d.value;
+      1531 +      renderLinks();
+      1532 +      scheduleSave();
+      1533 +      linkCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
+      1534 +      btn.classList.add('active');
+      1535 +    });
+      1536 +    linkCtxDashes.appendChild(btn);
+      1537 +  }
+      1538 +
+      1539 +  // --- Delete ---
+      1540    linkCtxDel.onclick = () => {
+      1541      hideLinkCtx();
+      1542      removeLink(linkId);
+      1543    };
+      1544 +
+      1545 +  // Position (keep on screen)
+      1546 +  linkCtx.style.display = 'block';
+      1547 +  const cw = linkCtx.offsetWidth || 210;
+      1548 +  const ch = linkCtx.offsetHeight || 160;
+      1549 +  linkCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      1550 +  linkCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      1551  }
+      1552
+      1553  function hideLinkCtx() {
+
+⏺ Now I need to make sure the CSS .link-path rule doesn't override the inline stroke/color attributes. The CSS sets stroke: #388bfd which will compete
+  with inline stroke attributes. In SVG, inline attributes have lower priority than CSS stroke property. Let me fix the CSS to let inline attributes win:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ CSS stroke/stroke-width on .link-path will override SVG presentation attributes. I need to set them via inline style instead, and remove them from CSS:
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line, removed 1 line
+      248
+      249  /* ── SVG links ── */
+      250  .link-path {
+      251 -  fill: none; stroke: #388bfd; stroke-width: 1.5;
+      251 +  fill: none;
+      252    opacity: 0.65;
+      253  }
+      254  .link-hit {
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line, removed 1 line
+      256    cursor: context-menu; pointer-events: stroke;
+      257  }
+      258  .lk { pointer-events: none; }
+      259 -.lk:hover .link-path { opacity: 1; stroke-width: 2; }
+      259 +.lk:hover .link-path { opacity: 1; }
+      260  .link-preview {
+      261    fill: none; stroke: #388bfd; stroke-width: 1.5;
+      262    opacity: 0.35; stroke-dasharray: 6 4;
+
+⏺ Now update renderLinks to set stroke/width via inline style instead of attributes:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines, removed 6 lines
+      1386      const dash = lnk.dash || '';
+      1387
+      1388      const g = svgE('g', { class: 'lk' });
+      1389 -    const pathAttrs = {
+      1390 -      d, class: 'link-path', 'marker-end': 'url(#arrow)',
+      1391 -      stroke, 'stroke-width': strokeWidth,
+      1392 -    };
+      1393 -    if (dash) pathAttrs['stroke-dasharray'] = dash;
+      1394 -    g.appendChild(svgE('path', pathAttrs));
+      1389 +    const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+      1390 +    pathEl.style.stroke = stroke;
+      1391 +    pathEl.style.strokeWidth = strokeWidth + 'px';
+      1392 +    if (dash) pathEl.style.strokeDasharray = dash;
+      1393 +    g.appendChild(pathEl);
+      1394      const hit = svgE('path', { d, class: 'link-hit' });
+      1395      hit.addEventListener('contextmenu', e => {
+      1396        e.preventDefault();
+
+⏺ Now let me also check if the arrow marker color needs to match the link color. Let me look at the SVG defs:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ The arrow marker color is hardcoded. I can use context-stroke to make it inherit the path's stroke color:
+
+⏺ Update(canvas.html)
+  ⎿  Added 2 lines, removed 2 lines
+      45    <div id="marquee"></div>
+      46    <svg id="svg-links">
+      47      <defs>
+      48 -      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      49 -        <polygon points="0 0, 8 3, 0 6" fill="#388bfd" opacity="0.65"/>
+      48 +      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      49 +        <polygon points="0 0, 8 3, 0 6" fill="context-stroke" opacity="0.65"/>
+      50        </marker>
+      51        <marker id="arrow-preview" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      52          <polygon points="0 0, 8 3, 0 6" fill="#388bfd" opacity="0.35"/>
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line, removed 1 line
+      45    <div id="marquee"></div>
+      46    <svg id="svg-links">
+      47      <defs>
+      48 -      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      48 +      <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      49          <polygon points="0 0, 8 3, 0 6" fill="context-stroke" opacity="0.65"/>
+      50        </marker>
+      51        <marker id="arrow-preview" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+
+⏺ Now I need to also make the marker-end reference inherit context. Since we're using inline style.stroke, the context-stroke in the marker will pick it
+  up correctly. Let me also verify the showLinkCtx re-positioning after display works — currently I set display: block after calculating, but I need
+  dimensions first. Let me check the order:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Good — display: block is set before reading offsetWidth, so dimensions will be correct.
+
+  Now let me also check that existing saved canvases (which won't have stroke/strokeWidth/dash) degrade gracefully. The renderLinks already uses
+  lnk.stroke || '#388bfd' etc., so that's handled.
+
+  Let me do a quick review of the full changes:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ The implementation looks complete. Let me verify the HTML structure is correct:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Everything looks correct. Here's a summary of what was implemented:
+
+  Changes made:
+
+  - canvas.html: Expanded #link-ctx to include Color/Width/Style rows plus the existing Delete button. Arrow marker now uses fill="context-stroke" so it
+  inherits the path's stroke color.
+  - canvas.css: Removed hardcoded stroke/stroke-width from .link-path (now set via inline style in JS). Added styles for .link-ctx-row, .link-ctx-label,
+  .lk-color-swatch, .lk-width-btn, .lk-dash-btn, .link-ctx-sep.
+  - canvas.js:
+    - createLink() now stores stroke, strokeWidth, dash fields with defaults
+    - renderLinks() applies per-link color/width/dash via inline styles
+    - showLinkCtx() rebuilt to populate: 7 color swatches (blue/green/yellow/red/purple/gray/white), 4 width buttons (1/2/3.5/5px), 5 dash pattern
+  buttons (solid/dashed/dotted/long-dash/dash-dot)
+    - Active state highlighted on the currently selected option
+    - Menu stays on-screen (bounded to viewport edges)
+    - Existing saved data without these fields degrades gracefully to defaults
+
+✻ Brewed for 2m 52s
+```

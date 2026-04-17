@@ -254,6 +254,9 @@ const linkTipLink    = document.getElementById('link-tip-link');
 const linkTipNewBlock = document.getElementById('link-tip-newblock');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
+const linkCtxColors  = document.getElementById('link-ctx-colors');
+const linkCtxWidths  = document.getElementById('link-ctx-widths');
+const linkCtxDashes  = document.getElementById('link-ctx-dashes');
 const linkPreviewEl  = document.getElementById('link-preview');
 const statusEl    = document.getElementById('status');
 const marqueeEl   = document.getElementById('marquee');
@@ -1315,7 +1318,7 @@ function createLink(fromId, text, toId) {
     setStatus(`⚠ A link from "${text}" to this block already exists`);
     return;
   }
-  S.links.push({ id: S.lid++, fromId, text, toId });
+  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '' });
   renderNode(S.nodes.find(n => n.id === fromId));
   renderLinks();
   scheduleSave();
@@ -1378,10 +1381,16 @@ function renderLinks() {
     const dy = tp.y - fp.y;
     const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
 
+    const stroke = lnk.stroke || '#388bfd';
+    const strokeWidth = lnk.strokeWidth || 1.5;
+    const dash = lnk.dash || '';
+
     const g = svgE('g', { class: 'lk' });
-    g.appendChild(svgE('path', {
-      d, class: 'link-path', 'marker-end': 'url(#arrow)'
-    }));
+    const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+    pathEl.style.stroke = stroke;
+    pathEl.style.strokeWidth = strokeWidth + 'px';
+    if (dash) pathEl.style.strokeDasharray = dash;
+    g.appendChild(pathEl);
     const hit = svgE('path', { d, class: 'link-hit' });
     hit.addEventListener('contextmenu', e => {
       e.preventDefault();
@@ -1427,14 +1436,117 @@ function exitLinkMode() {
 // ═══════════════════════════════════════════════════════
 // LINK CONTEXT MENU
 // ═══════════════════════════════════════════════════════
+const LINK_COLORS = [
+  { label: 'Blue',   value: '#388bfd' },
+  { label: 'Green',  value: '#3fb950' },
+  { label: 'Yellow', value: '#d29922' },
+  { label: 'Red',    value: '#f85149' },
+  { label: 'Purple', value: '#bc8cff' },
+  { label: 'Gray',   value: '#8b949e' },
+  { label: 'White',  value: '#e6edf3' },
+];
+
+const LINK_WIDTHS = [
+  { label: '1',   value: 1   },
+  { label: '2',   value: 2   },
+  { label: '3',   value: 3.5 },
+  { label: '5',   value: 5   },
+];
+
+const LINK_DASHES = [
+  { label: 'solid',  value: '',       title: 'Solid' },
+  { label: 'dash',   value: '8 4',    title: 'Dashed' },
+  { label: 'dot',    value: '2 4',    title: 'Dotted' },
+  { label: 'ldash',  value: '16 6',   title: 'Long dash' },
+  { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+];
+
+function makeDashSvg(dash, color) {
+  const sw = 2;
+  const w = 36, h = 12;
+  const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+    (dash ? ` stroke-dasharray="${dash}"` : '');
+  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+}
+
+function makeWidthSvg(width, color) {
+  const w = 28, h = 16;
+  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="round"/></svg>`;
+}
+
 function showLinkCtx(linkId, x, y) {
-  linkCtx.style.left = x + 'px';
-  linkCtx.style.top  = y + 'px';
-  linkCtx.style.display = 'block';
+  const lnk = S.links.find(l => l.id === linkId);
+  if (!lnk) return;
+
+  const curStroke = lnk.stroke || '#388bfd';
+  const curWidth  = lnk.strokeWidth || 1.5;
+  const curDash   = lnk.dash || '';
+
+  // --- Color swatches ---
+  linkCtxColors.innerHTML = '';
+  for (const c of LINK_COLORS) {
+    const sw = document.createElement('div');
+    sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
+    sw.style.background = c.value;
+    sw.title = c.label;
+    sw.addEventListener('click', () => {
+      lnk.stroke = c.value;
+      renderLinks();
+      scheduleSave();
+      linkCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
+      sw.classList.add('active');
+      // refresh width/dash svgs with new color
+      showLinkCtx(linkId, x, y);
+    });
+    linkCtxColors.appendChild(sw);
+  }
+
+  // --- Width buttons ---
+  linkCtxWidths.innerHTML = '';
+  for (const w of LINK_WIDTHS) {
+    const btn = document.createElement('button');
+    btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
+    btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
+    btn.title = `${w.value}px`;
+    btn.addEventListener('click', () => {
+      lnk.strokeWidth = w.value;
+      renderLinks();
+      scheduleSave();
+      linkCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    linkCtxWidths.appendChild(btn);
+  }
+
+  // --- Dash buttons ---
+  linkCtxDashes.innerHTML = '';
+  for (const d of LINK_DASHES) {
+    const btn = document.createElement('button');
+    btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
+    btn.innerHTML = makeDashSvg(d.value, curStroke);
+    btn.title = d.title;
+    btn.addEventListener('click', () => {
+      lnk.dash = d.value;
+      renderLinks();
+      scheduleSave();
+      linkCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    });
+    linkCtxDashes.appendChild(btn);
+  }
+
+  // --- Delete ---
   linkCtxDel.onclick = () => {
     hideLinkCtx();
     removeLink(linkId);
   };
+
+  // Position (keep on screen)
+  linkCtx.style.display = 'block';
+  const cw = linkCtx.offsetWidth || 210;
+  const ch = linkCtx.offsetHeight || 160;
+  linkCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+  linkCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
 }
 
 function hideLinkCtx() {

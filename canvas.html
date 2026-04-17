@@ -46,7 +46,7 @@
   <svg id="svg-links">
     <defs>
       <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-        <polygon points="0 0, 8 3, 0 6" fill="#388bfd" opacity="0.65"/>
+        <polygon points="0 0, 8 3, 0 6" fill="context-stroke" opacity="0.65"/>
       </marker>
       <marker id="arrow-preview" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
         <polygon points="0 0, 8 3, 0 6" fill="#388bfd" opacity="0.35"/>
@@ -232,7 +232,22 @@
   <button id="link-tip-link">🔗 Create link from here</button>
   <button id="link-tip-newblock">📄 Create new block and link</button>
 </div>
-<div id="link-ctx"><button id="link-ctx-del">🗑 Delete link</button></div>
+<div id="link-ctx">
+  <div class="link-ctx-row">
+    <span class="link-ctx-label">Color</span>
+    <div id="link-ctx-colors"></div>
+  </div>
+  <div class="link-ctx-row">
+    <span class="link-ctx-label">Width</span>
+    <div id="link-ctx-widths"></div>
+  </div>
+  <div class="link-ctx-row">
+    <span class="link-ctx-label">Style</span>
+    <div id="link-ctx-dashes"></div>
+  </div>
+  <div class="link-ctx-sep"></div>
+  <button id="link-ctx-del">🗑 Delete link</button>
+</div>
 <div id="status">Ready</div>
 
 <script src="../ctags/build-wasm/ctags-wasm.js"></script>
