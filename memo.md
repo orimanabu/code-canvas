@@ -12228,3 +12228,56 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ✻ Brewed for 39s
 ```
+
+```
+❯ 今の実装は、localStorageに作業中のデータが保存されています。同じURLでホストされたcanvas.htmlを複数のブラウザタブで開いた場合、localStorageに保存される
+データはタブごとに異なりますか？
+
+⏺ いいえ、localStorageはオリジン（URL）単位で共有されます。
+
+  同じURLで開いた複数タブは全て同じ code-canvas-v1 キーを読み書きします。つまり：
+
+  - タブAで変更を加えて保存すると、タブBの saveState() が次に実行された時にタブAのデータを上書きしてしまう（またはその逆）
+  - タブBをリロードするとタブAの最新状態が読み込まれる
+  - タブごとに独立したキャンバスを持つことはできない（現状の実装では）
+
+  タブごとに独立したデータを持たせたい場合は、URLパラメータ（例：?canvas=project1）や別のキー命名戦略（例：code-canvas-v1-${tabId}）が必要になります。
+
+❯ タブごとに独立したデータをもたせるようにしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ シンプルな実装方針：sessionStorage にタブ固有IDを保持し、STORAGE_KEY
+  をそのIDで分けます。タブをリフレッシュしても同じデータが復元され、新しいタブは独立したキャンバスを持ちます。
+
+⏺ Update(canvas.js)
+  ⎿  Added 11 lines, removed 1 line
+      2500  // ═══════════════════════════════════════════════════════
+      2501  // PERSISTENCE
+      2502  // ═══════════════════════════════════════════════════════
+      2503 -const STORAGE_KEY = 'code-canvas-v1';
+      2503 +// Each browser tab gets its own localStorage key so tabs are fully independent.
+      2504 +// The tab ID is stored in sessionStorage (survives refresh, cleared on tab close).
+      2505 +const TAB_ID = (() => {
+      2506 +  let id = sessionStorage.getItem('canvas-tab-id');
+      2507 +  if (!id) {
+      2508 +    id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      2509 +    sessionStorage.setItem('canvas-tab-id', id);
+      2510 +  }
+      2511 +  return id;
+      2512 +})();
+      2513 +const STORAGE_KEY = `code-canvas-v1-${TAB_ID}`;
+      2514
+      2515  const canvasTitleEl = document.getElementById('canvas-title');
+      2516  function resizeCanvasTitleInput() {
+
+⏺ これだけで完結します。変更点：
+
+  - STORAGE_KEY が code-canvas-v1-{tabId} の形式になる
+  - tabId は sessionStorage に保存されるため、リフレッシュしても同じIDが使われ、データが復元される
+  - 新しいタブを開くと新しいIDが生成され、独立した空のキャンバスになる
+  - タブを閉じると sessionStorage が消えるため、次回そのURLを開くとまた新しいIDになる
+  - saveState, loadState, localStorage.removeItem（Clearボタン）、エクスポート等はすべて STORAGE_KEY を参照しているため、追加変更不要
+
+✻ Sautéed for 30s
+```

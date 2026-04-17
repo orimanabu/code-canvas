@@ -2500,7 +2500,17 @@ function undo() {
 // ═══════════════════════════════════════════════════════
 // PERSISTENCE
 // ═══════════════════════════════════════════════════════
-const STORAGE_KEY = 'code-canvas-v1';
+// Each browser tab gets its own localStorage key so tabs are fully independent.
+// The tab ID is stored in sessionStorage (survives refresh, cleared on tab close).
+const TAB_ID = (() => {
+  let id = sessionStorage.getItem('canvas-tab-id');
+  if (!id) {
+    id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    sessionStorage.setItem('canvas-tab-id', id);
+  }
+  return id;
+})();
+const STORAGE_KEY = `code-canvas-v1-${TAB_ID}`;
 
 const canvasTitleEl = document.getElementById('canvas-title');
 function resizeCanvasTitleInput() {
