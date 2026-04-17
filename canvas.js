@@ -2527,6 +2527,7 @@ canvasTitleEl.addEventListener('input', () => {
 function saveState() {
   const data = {
     dataVersion: DATA_VERSION,
+    savedAt: Date.now(),
     canvasTitle: canvasTitleEl.value,
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {
@@ -2628,6 +2629,25 @@ function loadState(data) {
   renderLinks();
   renderFreeLines();
   applyVP();
+}
+
+// Remove localStorage entries older than STALE_DAYS that belong to closed tabs.
+const STALE_DAYS = 30;
+const STORAGE_PREFIX = 'code-canvas-v1-';
+function purgeStaleEntries() {
+  const cutoff = Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000;
+  const keysToDelete = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith(STORAGE_PREFIX) || key === STORAGE_KEY) continue;
+    try {
+      const entry = JSON.parse(localStorage.getItem(key));
+      if (!entry.savedAt || entry.savedAt < cutoff) keysToDelete.push(key);
+    } catch {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(k => localStorage.removeItem(k));
 }
 
 function restoreFromStorage() {
@@ -3459,6 +3479,7 @@ function describeFetchError(e, targetUrl) {
 // INIT
 // ═══════════════════════════════════════════════════════
 (async () => {
+  purgeStaleEntries();
   const dataUrl = new URLSearchParams(location.search).get('data');
   if (dataUrl) {
     setStatus('Loading data from URL…');

@@ -12313,3 +12313,100 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
   - canvas.js の先頭（'use strict'; の直後）に const DATA_VERSION = '1.0'; を追加
   - saveState() の出力オブジェクトの先頭に dataVersion: DATA_VERSION を追加
 ```
+
+```
+❯
+今の実装だと、新規タブでcanvas.htmlを読むたびにlocalStorageのKeyが増えていくと思います(cade-canvas-v1-{tabId})。これが削除されるタイミングはありますか？
+
+⏺ 現状、自動削除されるタイミングはありません。
+
+  - sessionStorage の canvas-tab-id はタブを閉じると消えますが、対応する localStorage のキー (code-canvas-v1-{tabId}) は残り続けます
+  - 削除されるのは以下のケースのみ：
+    - ユーザーが「Clear」ボタンを押す（現在のタブのキーのみ）
+    - ブラウザのストレージを手動でクリアする
+
+  つまり、タブを開くたびにエントリが積み上がっていきます。
+
+  ---
+  対策として考えられるアプローチ：
+
+  1. 起動時に孤立エントリを掃除する — localStorage の全キーを走査し、code-canvas-v1- プレフィックスを持つが現在の TAB_ID
+  と一致しないものを削除する。ただし、他の生きているタブのデータも消してしまう問題があります。
+  2. 最終保存時刻を記録し、古いエントリを削除する —
+  各エントリに保存タイムスタンプを持たせ、例えば「30日以上アクセスされていないエントリ」を起動時に削除する。
+  3. sessionStorage ではなく URL パラメータを使う — ?tab=xxx
+  をURLに含め、タブを閉じて開き直すと新しいIDになる。URLを共有すれば同じキャンバスを開ける。Clearボタンで明示的に削除。
+  4. タブ数に上限を設けて古いものをLRU削除する — 例えば最大10エントリを保持し、超えたら最も古いものを削除する。
+
+  ---
+  どのアプローチを採用しますか？最もシンプルな実装は 2番（タイムスタンプ付き + 古いエントリ削除） だと思います。
+
+❯ 2番でお願いします
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 2つの変更を加えます。
+
+  1. saveState() に savedAt タイムスタンプを追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2527  function saveState() {
+      2528    const data = {
+      2529      dataVersion: DATA_VERSION,
+      2530 +    savedAt: Date.now(),
+      2531      canvasTitle: canvasTitleEl.value,
+      2532      nodes: S.nodes.map(n => {
+      2533        if (n.type === 'bubble') {
+
+⏺ 2. restoreFromStorage() の直前に古いエントリを削除する関数を追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 19 lines
+      2631    applyVP();
+      2632  }
+      2633
+      2634 +// Remove localStorage entries older than STALE_DAYS that belong to closed tabs.
+      2635 +const STALE_DAYS = 30;
+      2636 +const STORAGE_PREFIX = 'code-canvas-v1-';
+      2637 +function purgeStaleEntries() {
+      2638 +  const cutoff = Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000;
+      2639 +  const keysToDelete = [];
+      2640 +  for (let i = 0; i < localStorage.length; i++) {
+      2641 +    const key = localStorage.key(i);
+      2642 +    if (!key.startsWith(STORAGE_PREFIX) || key === STORAGE_KEY) continue;
+      2643 +    try {
+      2644 +      const entry = JSON.parse(localStorage.getItem(key));
+      2645 +      if (!entry.savedAt || entry.savedAt < cutoff) keysToDelete.push(key);
+      2646 +    } catch {
+      2647 +      keysToDelete.push(key);
+      2648 +    }
+      2649 +  }
+      2650 +  keysToDelete.forEach(k => localStorage.removeItem(k));
+      2651 +}
+      2652 +
+      2653  function restoreFromStorage() {
+      2654    const raw = localStorage.getItem(STORAGE_KEY);
+      2655    if (!raw) return false;
+
+⏺ 次に、初期化時に purgeStaleEntries() を呼び出している箇所を確認して追加します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      3479  // INIT
+      3480  // ═══════════════════════════════════════════════════════
+      3481  (async () => {
+      3482 +  purgeStaleEntries();
+      3483    const dataUrl = new URLSearchParams(location.search).get('data');
+      3484    if (dataUrl) {
+      3485      setStatus('Loading data from URL…');
+
+⏺ 完了です。動作まとめ：
+
+  - saveState() が呼ばれるたびに savedAt: Date.now() を保存
+  - 起動時（purgeStaleEntries()）に code-canvas-v1- プレフィックスを持つ全エントリを走査し、最終保存から30日以上経過したものを削除
+  - 現在のタブのキー（STORAGE_KEY）は対象外なので、起動直後に自分のデータを消してしまうことはない
+  - savedAt が存在しない古いエントリ（フォーマット変更前のデータ）も削除対象にしています
+```
