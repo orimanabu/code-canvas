@@ -12919,3 +12919,1486 @@ access control checks. というエラーが出て/pipe APIでcodesnippetdと通
 
 ✻ Brewed for 1m 53s
 ```
+
+```
+❯ ツールバーの"Git Config"を"Global Config"に変えてください。canvas.jsの関連する変数名等もそれに準じた名前にして
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now let me see the full git dialog section in canvas.html:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have a clear picture. Let me make all the changes:
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line, removed 1 line
+      23    <button class="tb-btn" id="btn-group">⬜ Frame</button>
+      24    <button class="tb-btn" id="btn-add-line">― Line</button>
+      25    <div class="sep"></div>
+      26 -  <button class="tb-btn" id="btn-git-config">⎇ Git Config</button>
+      26 +  <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
+      27    <div class="sep"></div>
+      28    <div class="zoom-ctrl">
+      29      <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#8722;</button>
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line, removed 1 line
+      58    </svg>
+      59  </div>
+      60
+      61 -<!-- Git Config Dialog -->
+      61 +<!-- Global Config Dialog -->
+      62  <div id="git-dialog-overlay" style="display:none;">
+      63    <div class="git-dialog">
+      64      <div class="git-dialog-title">⎇ Git Repository Settings</div>
+
+⏺ Now update canvas.js — S.gitConfig → S.globalConfig, btn-git-config → btn-global-config, and the user-facing message:
+
+⏺ Update(canvas.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 10 lines
+      2562      lid: S.lid,
+      2563      flid: S.flid,
+      2564      vp: { ...S.vp },
+      2565 -    gitConfig: { ...S.gitConfig },
+      2565 +    gitConfig: { ...S.globalConfig },
+      2566    };
+      2567    try {
+      2568      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+     ...
+      2596    S.lid = data.lid ?? 1;
+      2597    S.flid = data.flid ?? 1;
+      2598    if (data.vp) Object.assign(S.vp, data.vp);
+      2599 -  if (data.gitConfig) Object.assign(S.gitConfig, data.gitConfig);
+      2599 +  if (data.gitConfig) Object.assign(S.globalConfig, data.gitConfig);
+      2600    canvasTitleEl.value = data.canvasTitle ?? '';
+      2601    document.title = data.canvasTitle || '∞ Code Canvas';
+      2602    resizeCanvasTitleInput();
+     ...
+      2719    const cancelBtn = document.getElementById('git-cancel');
+      2720
+      2721    function openDialog() {
+      2722 -    urlEl.value    = S.gitConfig.url;
+      2723 -    branchEl.value = S.gitConfig.branch;
+      2724 -    tagEl.value    = S.gitConfig.tag;
+      2725 -    commitEl.value = S.gitConfig.commitHash;
+      2722 +    urlEl.value    = S.globalConfig.url;
+      2723 +    branchEl.value = S.globalConfig.branch;
+      2724 +    tagEl.value    = S.globalConfig.tag;
+      2725 +    commitEl.value = S.globalConfig.commitHash;
+      2726      setNote('', '');
+      2727      overlay.style.display = 'flex';
+      2728      urlEl.focus();
+     ...
+      2811    });
+      2812
+      2813    function applyAndSave(url, branch, tag, commitHash) {
+      2814 -    S.gitConfig = { url, branch, tag, commitHash };
+      2814 +    S.globalConfig = { url, branch, tag, commitHash };
+      2815      saveState();
+      2816      closeDialog();
+      2817      setStatus('Git settings saved');
+     ...
+      2938      endEl.value   = '';
+      2939      setNote('', '');
+      2940
+      2941 -    const gc = S.gitConfig;
+      2941 +    const gc = S.globalConfig;
+      2942      if (gc.url) {
+      2943        const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+      2944                  : gc.branch     ? `branch: ${gc.branch}`
+     ...
+      2956    };
+      2957
+      2958    okBtn.addEventListener('click', async () => {
+      2959 -    const gc = S.gitConfig;
+      2959 +    const gc = S.globalConfig;
+      2960      if (!gc.url) { setNote('⚠ Please set a repository URL in Git Config.', 'err'); return; }
+      2961      const gh = parseGitHubUrl(gc.url);
+      2962      if (!gh) { setNote('⚠ Only GitHub URLs are supported.', 'err'); return; }
+     ...
+      3108    S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1;
+      3109    S.sel = null; S.selLine = null; S.editing = null;
+      3110    S.multiSel.clear(); S.clipboard = [];
+      3111 -  S.gitConfig = { url: '', branch: '', tag: '', commitHash: '' };
+      3111 +  S.globalConfig = { url: '', branch: '', tag: '', commitHash: '' };
+      3112    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      3113    const _cl = document.getElementById('free-lines-layer');
+      3114    if (_cl) while (_cl.firstChild) _cl.removeChild(_cl.firstChild);
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      248    linkMode: false,
+      249    clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
+      250    pending: null,    // { fromId, text }
+      251 -  gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
+      251 +  globalConfig: { url: '', branch: '', tag: '', commitHash: '' },
+      252    tailDrag: null,   // { id, otailX, otailY } — bubble tail being dragged
+      253    marquee: null,    // { sx, sy, ex, ey } — rubber-band selection in screen coords
+      254    freeLines: [],    // standalone line objects
+     ...
+      2562      lid: S.lid,
+      2563      flid: S.flid,
+      2564      vp: { ...S.vp },
+      2565 -    gitConfig: { ...S.globalConfig },
+      2565 +    globalConfig: { ...S.globalConfig },
+      2566    };
+      2567    try {
+      2568      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2939      setNote('', '');
+      2940
+      2941      const gc = S.globalConfig;
+      2942 -    if (gc.url) {
+      2942 +    if (gc.url) {  // eslint-disable-line no-use-before-define
+      2943        const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+      2944                  : gc.branch     ? `branch: ${gc.branch}`
+      2945                  : gc.tag        ? `tag: ${gc.tag}`
+
+⏺ That was an accidental extra change — let me revert it:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2939      setNote('', '');
+      2940
+      2941      const gc = S.globalConfig;
+      2942 -    if (gc.url) {  // eslint-disable-line no-use-before-define
+      2942 +    if (gc.url) {
+      2943        const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+      2944                  : gc.branch     ? `branch: ${gc.branch}`
+      2945                  : gc.tag        ? `tag: ${gc.tag}`
+
+⏺ Now update the button ID reference and the user-facing message:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2829    addBubble(p.x - 100, p.y - 50);
+      2830  });
+      2831
+      2832 -document.getElementById('btn-git-config').addEventListener('click', openDialog);
+      2832 +document.getElementById('btn-global-config').addEventListener('click', openDialog);
+      2833  })();
+      2834
+      2835  // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2947        infoEl.textContent = `${gc.url}  /  ${ref}`;
+      2948        infoEl.className = 'git-form-note ok';
+      2949      } else {
+      2950 -      infoEl.textContent = '⚠ Git settings not configured. Please set them via "⎇ Git Config" in the toolbar first.';
+      2950 +      infoEl.textContent = '⚠ Git settings not configured. Please set them via "⎇ Global Config" in the toolbar first.';
+      2951        infoEl.className = 'git-form-note warn';
+      2952      }
+      2953
+
+⏺ Now update the fetch error messages that reference "Git Config":
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      2957
+      2958    okBtn.addEventListener('click', async () => {
+      2959      const gc = S.globalConfig;
+      2960 -    if (!gc.url) { setNote('⚠ Please set a repository URL in Git Config.', 'err'); return; }
+      2960 +    if (!gc.url) { setNote('⚠ Please set a repository URL in Global Config.', 'err'); return; }
+      2961      const gh = parseGitHubUrl(gc.url);
+      2962      if (!gh) { setNote('⚠ Only GitHub URLs are supported.', 'err'); return; }
+      2963      const ref = gc.commitHash || gc.branch || gc.tag;
+      2964 -    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash in Git Config.', 'err'); return; }
+      2964 +    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash in Global Config.', 'err'); return; }
+      2965
+      2966      const filePath  = pathEl.value.trim();
+      2967      const startLine = parseInt(startEl.value, 10);
+
+⏺ Now update the test setup file:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line, removed 1 line
+      38        <button id="btn-add"></button>
+      39        <button id="btn-add-bubble"></button>
+      40        <button id="btn-group"></button>
+      41 -      <button id="btn-git-config"></button>
+      41 +      <button id="btn-global-config"></button>
+      42        <button id="btn-export"></button>
+      43        <input type="file" id="btn-import">
+      44        <button id="btn-clear"></button>
+
+⏺ Also check if there are any remaining references in the test setup to gitConfig or git-dialog:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ The data.gitConfig on line 2599 is intentional — it reads the old key from saved localStorage data for backwards compatibility. That's fine to
+  leave. Let me update the two comments:
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line, removed 1 line
+      68      <div id="link-ctx"><button id="link-ctx-del"></button></div>
+      69      <div id="status"></div>
+      70
+      71 -    <!-- Git Config Dialog -->
+      71 +    <!-- Global Config Dialog -->
+      72      <div id="git-dialog-overlay" style="display:none;">
+      73        <input id="git-url"><input id="git-branch"><input id="git-tag">
+      74        <input id="git-commit"><div id="git-resolve-note"></div>
+
+⏺ Update(canvas.css)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line, removed 1 line
+      628  .color-swatch:hover { transform: scale(1.3); }
+      629  .color-swatch.active { border-color: #fff; }
+      630
+      631 -/* ── Git Config Dialog ── */
+      631 +/* ── Global Config Dialog ── */
+      632  #git-dialog-overlay,
+      633  #fetch-dialog-overlay,
+      634  #codesnippetd-dialog-overlay,
+
+⏺ 完了です。変更内容：
+
+  - canvas.html: ツールバーボタンのラベル ⎇ Git Config → ⎇ Global Config、ボタンID btn-git-config → btn-global-config、コメント更新
+  - canvas.js: S.gitConfig → S.globalConfig（全箇所）、btn-git-config → btn-global-config、ユーザー向けメッセージ内の "Git Config" → "Global
+  Config"（3箇所）。なお data.gitConfig の読み込み（localStorage後方互換）はそのまま残しています
+  - canvas.css: セクションコメント更新
+  - tests/setup-dom.js: ボタンIDとコメント更新
+
+✻ Worked for 1m 22s
+
+❯ dataVersionを2.0に変更し、読み込んだデータのdataVersionが2.0よりも前の場合は、「データバージョンが変わったので新しいフォーマットに移行します」と
+いうalertを出して、gitConfigのデータをglobalConfigに移してください。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  'use strict';
+      2
+      3 -const DATA_VERSION = '1.0';
+      3 +const DATA_VERSION = '2.0';
+      4
+      5  // ═══════════════════════════════════════════════════════
+      6  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 7 lines, removed 1 line
+      2596    S.lid = data.lid ?? 1;
+      2597    S.flid = data.flid ?? 1;
+      2598    if (data.vp) Object.assign(S.vp, data.vp);
+      2599 -  if (data.gitConfig) Object.assign(S.globalConfig, data.gitConfig);
+      2599 +  if (!data.dataVersion || data.dataVersion < '2.0') {
+      2600 +    // migrate pre-2.0: gitConfig → globalConfig
+      2601 +    if (data.gitConfig) Object.assign(S.globalConfig, data.gitConfig);
+      2602 +    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2603 +  } else {
+      2604 +    if (data.globalConfig) Object.assign(S.globalConfig, data.globalConfig);
+      2605 +  }
+      2606    canvasTitleEl.value = data.canvasTitle ?? '';
+      2607    document.title = data.canvasTitle || '∞ Code Canvas';
+      2608    resizeCanvasTitleInput();
+
+⏺ 変更内容：
+
+  - DATA_VERSION を '1.0' → '2.0' に変更
+  - loadState() でバージョン判定を追加:
+    - dataVersion が存在しない、または '2.0' より前 → gitConfig を globalConfig へ移行し、alertを表示
+    - '2.0' 以降 → globalConfig をそのまま読み込む
+
+❯ canvasTitleが空の場合は、"Untitled canvas"という文字列を設定してください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ タイトルが空になり得る箇所が複数あるか確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 3箇所に対応します。
+
+  1. loadState() — ロード時
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2603    } else {
+      2604      if (data.globalConfig) Object.assign(S.globalConfig, data.globalConfig);
+      2605    }
+      2606 -  canvasTitleEl.value = data.canvasTitle ?? '';
+      2606 +  canvasTitleEl.value = data.canvasTitle || 'Untitled canvas';
+      2607    document.title = data.canvasTitle || '∞ Code Canvas';
+      2608    resizeCanvasTitleInput();
+      2609
+
+⏺ 2. input イベント — ユーザーがタイトルを消したとき
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 入力中は空にできないと不便なので、blur 時（フォーカスを外したとき）に空ならフォールバックする方が自然です。
+
+⏺ Update(canvas.js)
+  ⎿  Added 7 lines
+      2536    resizeCanvasTitleInput();
+      2537    scheduleSave();
+      2538  });
+      2539 +canvasTitleEl.addEventListener('blur', () => {
+      2540 +  if (!canvasTitleEl.value) {
+      2541 +    canvasTitleEl.value = 'Untitled canvas';
+      2542 +    resizeCanvasTitleInput();
+      2543 +    scheduleSave();
+      2544 +  }
+      2545 +});
+      2546
+      2547  function saveState() {
+      2548    const data = {
+
+⏺ 完了です。変更箇所：
+
+  - loadState(): data.canvasTitle が空なら 'Untitled canvas' をセット
+  - blur イベント追加: ユーザーがタイトルを削除してフォーカスを外したとき、空なら 'Untitled canvas' に戻す（入力中は自由に編集できるよう input
+  イベントでは変えない）
+
+✻ Cogitated for 32s
+
+❯ ツールバーの「Global Config」をクリックしたときの設定画面を大幅に変えます。設定項目は以下のようにしてください。不明な点があれば聞いてください
+- Canvas Title : 1行のテキストボックス
+- Description : 複数行のテキストボックス
+- Repositories : 「Add」というボタンがあって、これを押すと今の"Git Repository Settings"の設定ダイアログを開きます。ダイアログのSaveを押すと、Reposi
+toriesの下に表ができて、ダイアログで設定した値を1つの行として表示します。再度Addを押して別のGitリポジトリを設定すると、表に行が追加されます
+
+⏺ いくつか確認させてください。
+
+  1. Canvas Title の同期: Global Config 内の Canvas Title は、ツールバーのタイトル入力欄と連動させますか？（どちらを編集しても同じ値が反映される）
+  2. Repositories テーブルの列: URL・Branch・Tag・Commit Hash の4列でよいですか？
+  3. 行の操作: 追加した行の編集・削除ボタンは必要ですか？
+  4. Fetch との連携: 現在の「Fetch Code Snippet from Git」ダイアログは
+  S.globalConfig（シングルリポジトリ）を参照しています。複数リポジトリになった場合、Fetch ダイアログでどのリポジトリを使うか（例:
+  ドロップダウンで選択）も変更が必要そうですが、今回の範囲に含めますか？
+
+❯ 1. はい
+2. Nicnameも加えた5列にします (Nicnameは後述)
+3. はい
+4. Fetchする際に、リポジトリのNicnameを選択するようにし(Nicknameは後述)、選択したNicnameのリポジトリからfetchするようにします
+追加変更として、Git Repository Settingsダイアログにおいて、リポジトリのNicnameも入力するようにします。デフォルト値はRepository
+URLのパスのスラッシュで区切った一番右の要素名にしてください
+
+⏺ 把握しました。実装前に現状のコードを詳しく読みます。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 全体のgit/fetch関連コードを読みます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ CSS の git ダイアログ部分も確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全体像が把握できました。実装します。変更範囲が広いので、HTML → CSS → JS の順に進めます。
+
+  1. canvas.html
+
+  まず git-dialog-overlay を2つに分割し、fetch-dialog に select を追加します。
+
+⏺ Update(canvas.html)
+  ⎿  Added 45 lines, removed 12 lines
+       59  </div>
+       60
+       61  <!-- Global Config Dialog -->
+       62 -<div id="git-dialog-overlay" style="display:none;">
+       62 +<div id="global-config-overlay" style="display:none;">
+       63 +  <div class="git-dialog global-config-dialog">
+       64 +    <div class="git-dialog-title">⎇ Global Config</div>
+       65 +
+       66 +    <div class="git-form-row">
+       67 +      <label class="git-form-label" for="gc-canvas-title">Canvas Title</label>
+       68 +      <input class="git-form-input" id="gc-canvas-title" type="text" spellcheck="false" autocomplete="off">
+       69 +    </div>
+       70 +
+       71 +    <div class="git-form-row">
+       72 +      <label class="git-form-label" for="gc-description">Description</label>
+       73 +      <textarea class="git-form-input gc-textarea" id="gc-description" rows="3" spellcheck="false"></textarea>
+       74 +    </div>
+       75 +
+       76 +    <div class="gc-section-label">Repositories</div>
+       77 +    <div id="gc-repos-wrap"></div>
+       78 +    <div style="margin-top:8px;">
+       79 +      <button class="tb-btn" id="gc-add-repo">+ Add</button>
+       80 +    </div>
+       81 +
+       82 +    <div class="git-form-buttons">
+       83 +      <button class="tb-btn" id="gc-cancel">Cancel</button>
+       84 +      <button class="git-btn-save" id="gc-save">Save</button>
+       85 +    </div>
+       86 +  </div>
+       87 +</div>
+       88 +
+       89 +<!-- Git Repository Settings Sub-Dialog -->
+       90 +<div id="repo-dialog-overlay" style="display:none;">
+       91    <div class="git-dialog">
+       92      <div class="git-dialog-title">⎇ Git Repository Settings</div>
+       93
+       94      <div class="git-form-row">
+       67 -      <label class="git-form-label" for="git-url">Repository URL</label>
+       68 -      <input class="git-form-input" id="git-url" type="url" placeholder="https://github.com/owner/repo" spellcheck="false" autocom
+          -plete="off">
+       95 +      <label class="git-form-label" for="repo-nickname">Nickname</label>
+       96 +      <input class="git-form-input" id="repo-nickname" type="text" placeholder="my-repo" spellcheck="false" autocomplete="off">
+       97      </div>
+       98
+       99      <div class="git-form-row">
+       72 -      <label class="git-form-label" for="git-branch">Branch name</label>
+       73 -      <input class="git-form-input" id="git-branch" type="text" placeholder="main" spellcheck="false" autocomplete="off">
+      100 +      <label class="git-form-label" for="repo-url">Repository URL</label>
+      101 +      <input class="git-form-input" id="repo-url" type="url" placeholder="https://github.com/owner/repo" spellcheck="false" autoco
+          +mplete="off">
+      102      </div>
+      103
+      104 +    <div class="git-form-row">
+      105 +      <label class="git-form-label" for="repo-branch">Branch name</label>
+      106 +      <input class="git-form-input" id="repo-branch" type="text" placeholder="main" spellcheck="false" autocomplete="off">
+      107 +    </div>
+      108 +
+      109      <div class="git-form-divider">or</div>
+      110
+      111      <div class="git-form-row">
+       79 -      <label class="git-form-label" for="git-tag">Tag name</label>
+       80 -      <input class="git-form-input" id="git-tag" type="text" placeholder="v1.0.0" spellcheck="false" autocomplete="off">
+      112 +      <label class="git-form-label" for="repo-tag">Tag name</label>
+      113 +      <input class="git-form-input" id="repo-tag" type="text" placeholder="v1.0.0" spellcheck="false" autocomplete="off">
+      114      </div>
+      115
+      116      <div class="git-form-row">
+       84 -      <label class="git-form-label" for="git-commit">Commit Hash <span style="color:#484f58;font-weight:400;">(optional — auto-res
+          -olved from branch/tag)</span></label>
+       85 -      <input class="git-form-input" id="git-commit" type="text" placeholder="auto-resolved" spellcheck="false" autocomplete="off">
+      117 +      <label class="git-form-label" for="repo-commit">Commit Hash <span style="color:#484f58;font-weight:400;">(optional — auto-re
+          +solved from branch/tag)</span></label>
+      118 +      <input class="git-form-input" id="repo-commit" type="text" placeholder="auto-resolved" spellcheck="false" autocomplete="off"
+          +>
+      119      </div>
+      120
+       88 -    <div class="git-form-note" id="git-resolve-note"></div>
+      121 +    <div class="git-form-note" id="repo-resolve-note"></div>
+      122
+      123      <div class="git-form-buttons">
+       91 -      <button class="tb-btn" id="git-cancel">Cancel</button>
+       92 -      <button class="git-btn-save" id="git-save">Save</button>
+      124 +      <button class="tb-btn" id="repo-cancel">Cancel</button>
+      125 +      <button class="git-btn-save" id="repo-save">Save</button>
+      126      </div>
+      127    </div>
+      128  </div>
+
+⏺ fetch ダイアログに Repository 選択 select を追加します。
+
+⏺ Update(canvas.html)
+  ⎿  Added 5 lines
+      131  <div id="fetch-dialog-overlay" style="display:none;">
+      132    <div class="git-dialog">
+      133      <div class="git-dialog-title">⬇ Fetch Code Snippet from Git</div>
+      134 +
+      135 +    <div class="git-form-row">
+      136 +      <label class="git-form-label" for="fetch-repo-select">Repository</label>
+      137 +      <select class="git-form-input git-form-select" id="fetch-repo-select"></select>
+      138 +    </div>
+      139      <div class="git-form-note" id="fetch-git-info" style="margin-bottom:16px;"></div>
+      140
+      141      <div class="git-form-row">
+
+⏺ 2. canvas.css
+
+  オーバーレイリストの更新と新スタイル追加。
+
+⏺ Update(canvas.css)
+  ⎿  Added 51 lines, removed 1 line
+      629  .color-swatch.active { border-color: #fff; }
+      630
+      631  /* ── Global Config Dialog ── */
+      632 -#git-dialog-overlay,
+      632 +#global-config-overlay,
+      633 +#repo-dialog-overlay,
+      634  #fetch-dialog-overlay,
+      635  #codesnippetd-dialog-overlay,
+      636  #help-dialog-overlay,
+     ...
+      644    padding: 24px 28px; width: 480px; max-width: 92vw;
+      645    box-shadow: 0 12px 40px rgba(0,0,0,0.75);
+      646  }
+      647 +.global-config-dialog {
+      648 +  width: 680px;
+      649 +  max-height: 88vh;
+      650 +  overflow-y: auto;
+      651 +}
+      652 +.gc-textarea {
+      653 +  resize: vertical; min-height: 64px;
+      654 +  font-family: inherit; line-height: 1.5;
+      655 +}
+      656 +.gc-section-label {
+      657 +  font-size: 11px; font-weight: 600; color: #8b949e;
+      658 +  text-transform: uppercase; letter-spacing: 0.4px;
+      659 +  margin: 18px 0 8px;
+      660 +}
+      661 +.gc-repos-table {
+      662 +  width: 100%; border-collapse: collapse;
+      663 +  font-size: 12px;
+      664 +  font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', mono
+          +space;
+      665 +  border: 1px solid #30363d; border-radius: 6px; overflow: hidden;
+      666 +}
+      667 +.gc-repos-table thead th {
+      668 +  background: #21262d; color: #8b949e; padding: 6px 10px;
+      669 +  text-align: left; font-weight: 600; font-size: 11px;
+      670 +  text-transform: uppercase; letter-spacing: 0.4px;
+      671 +}
+      672 +.gc-repos-table tbody tr { border-top: 1px solid #21262d; }
+      673 +.gc-repos-table tbody td {
+      674 +  padding: 6px 10px; color: #e6edf3;
+      675 +  max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      676 +}
+      677 +.gc-repos-table tbody td.gc-repo-actions {
+      678 +  white-space: nowrap; max-width: none; width: 1%;
+      679 +}
+      680 +.gc-repos-empty {
+      681 +  font-size: 12px; color: #484f58; padding: 10px 0;
+      682 +}
+      683 +.gc-repo-btn {
+      684 +  background: none; border: 1px solid #30363d; border-radius: 4px;
+      685 +  color: #8b949e; font-size: 11px; padding: 2px 8px; cursor: pointer;
+      686 +  margin-left: 4px;
+      687 +}
+      688 +.gc-repo-btn:hover { color: #e6edf3; border-color: #8b949e; }
+      689 +.gc-repo-btn.del:hover { color: #f85149; border-color: #f85149; }
+      690 +.git-form-select {
+      691 +  appearance: none; cursor: pointer;
+      692 +  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6
+          +5-6z' fill='%238b949e'/%3E%3C/svg%3E");
+      693 +  background-repeat: no-repeat; background-position: right 10px center;
+      694 +  padding-right: 28px;
+      695 +}
+      696  .git-dialog-title {
+      697    font-size: 15px; font-weight: 700; color: #e6edf3;
+      698    margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+
+⏺ 3. canvas.js
+
+  3-1. STATE / globalConfig の構造変更
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  'use strict';
+      2
+      3 -const DATA_VERSION = '2.0';
+      3 +const DATA_VERSION = '3.0';
+      4
+      5  // ═══════════════════════════════════════════════════════
+      6  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      248    linkMode: false,
+      249    clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
+      250    pending: null,    // { fromId, text }
+      251 -  globalConfig: { url: '', branch: '', tag: '', commitHash: '' },
+      251 +  globalConfig: { description: '', repositories: [] },
+      252    tailDrag: null,   // { id, otailX, otailY } — bubble tail being dragged
+      253    marquee: null,    // { sx, sy, ex, ey } — rubber-band selection in screen coords
+      254    freeLines: [],    // standalone line objects
+
+⏺ 3-2. saveState — globalConfig の深いコピー
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2569      lid: S.lid,
+      2570      flid: S.flid,
+      2571      vp: { ...S.vp },
+      2572 -    globalConfig: { ...S.globalConfig },
+      2572 +    globalConfig: { description: S.globalConfig.description, repositories: S.globalConfig.repositories.map(r => ({ ...r })) },
+      2573    };
+      2574    try {
+      2575      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+⏺ 3-3. loadState — マイグレーション更新
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 21 lines, removed 3 lines
+      2604    S.flid = data.flid ?? 1;
+      2605    if (data.vp) Object.assign(S.vp, data.vp);
+      2606    if (!data.dataVersion || data.dataVersion < '2.0') {
+      2607 -    // migrate pre-2.0: gitConfig → globalConfig
+      2608 -    if (data.gitConfig) Object.assign(S.globalConfig, data.gitConfig);
+      2607 +    // migrate pre-2.0: gitConfig (single repo) → repositories array
+      2608 +    const old = data.gitConfig;
+      2609 +    if (old && old.url) {
+      2610 +      const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      2611 +      S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.comm
+           +itHash || '' }];
+      2612 +    }
+      2613      alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2614 +  } else if (data.dataVersion < '3.0') {
+      2615 +    // migrate 2.0: globalConfig was single-repo object → repositories array
+      2616 +    const old = data.globalConfig;
+      2617 +    if (old) {
+      2618 +      S.globalConfig.description = old.description || '';
+      2619 +      if (old.url) {
+      2620 +        const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      2621 +        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.co
+           +mmitHash || '' }];
+      2622 +      }
+      2623 +    }
+      2624 +    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2625    } else {
+      2611 -    if (data.globalConfig) Object.assign(S.globalConfig, data.globalConfig);
+      2626 +    if (data.globalConfig) {
+      2627 +      S.globalConfig.description = data.globalConfig.description || '';
+      2628 +      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+      2629 +    }
+      2630    }
+      2631    canvasTitleEl.value = data.canvasTitle || 'Untitled canvas';
+      2632    document.title = data.canvasTitle || '∞ Code Canvas';
+
+⏺ 3-4. clear 関数の globalConfig リセット
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      3139    S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1;
+      3140    S.sel = null; S.selLine = null; S.editing = null;
+      3141    S.multiSel.clear(); S.clipboard = [];
+      3142 -  S.globalConfig = { url: '', branch: '', tag: '', commitHash: '' };
+      3142 +  S.globalConfig = { description: '', repositories: [] };
+      3143    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      3144    const _cl = document.getElementById('free-lines-layer');
+      3145    if (_cl) while (_cl.firstChild) _cl.removeChild(_cl.firstChild);
+
+⏺ 3-5. GIT CONFIG DIALOG セクションを丸ごと置き換え
+
+  現在のセクションの範囲を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ GIT CONFIG DIALOG セクション全体を置き換えます（resolveBranch/resolveTag は共有関数として外に出し、GLOBAL CONFIG + REPO SUB-DIALOG の2つの IIFE
+  に分割）。
+
+⏺ Update(canvas.js)
+  ⎿  Added 177 lines, removed 71 lines
+      2737  }
+      2738
+      2739  // ═══════════════════════════════════════════════════════
+      2740 -// GIT CONFIG DIALOG
+      2740 +// GIT RESOLVE HELPERS (shared)
+      2741  // ═══════════════════════════════════════════════════════
+      2742 -(function () {
+      2743 -  const overlay   = document.getElementById('git-dialog-overlay');
+      2744 -  const urlEl     = document.getElementById('git-url');
+      2745 -  const branchEl  = document.getElementById('git-branch');
+      2746 -  const tagEl     = document.getElementById('git-tag');
+      2747 -  const commitEl  = document.getElementById('git-commit');
+      2748 -  const noteEl    = document.getElementById('git-resolve-note');
+      2749 -  const saveBtn   = document.getElementById('git-save');
+      2750 -  const cancelBtn = document.getElementById('git-cancel');
+      2742 +async function resolveBranch(owner, repo, branch) {
+      2743 +  const res = await fetch(
+      2744 +    `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`
+      2745 +  );
+      2746 +  if (!res.ok) throw new Error(`branch not found (HTTP ${res.status})`);
+      2747 +  const data = await res.json();
+      2748 +  return data.commit?.sha ?? null;
+      2749 +}
+      2750
+      2752 -  function openDialog() {
+      2753 -    urlEl.value    = S.globalConfig.url;
+      2754 -    branchEl.value = S.globalConfig.branch;
+      2755 -    tagEl.value    = S.globalConfig.tag;
+      2756 -    commitEl.value = S.globalConfig.commitHash;
+      2757 -    setNote('', '');
+      2758 -    overlay.style.display = 'flex';
+      2759 -    urlEl.focus();
+      2751 +async function resolveTag(owner, repo, tag) {
+      2752 +  const res = await fetch(
+      2753 +    `https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`
+      2754 +  );
+      2755 +  if (!res.ok) throw new Error(`tag not found (HTTP ${res.status})`);
+      2756 +  const data = await res.json();
+      2757 +  if (!data.object) throw new Error('unexpected API response');
+      2758 +  if (data.object.type === 'commit') return data.object.sha;
+      2759 +  if (data.object.type === 'tag') {
+      2760 +    const res2 = await fetch(
+      2761 +      `https://api.github.com/repos/${owner}/${repo}/git/tags/${data.object.sha}`
+      2762 +    );
+      2763 +    if (!res2.ok) throw new Error(`tag object not found (HTTP ${res2.status})`);
+      2764 +    const data2 = await res2.json();
+      2765 +    return data2.object?.sha ?? null;
+      2766    }
+      2767 +  return null;
+      2768 +}
+      2769
+      2762 -  function closeDialog() {
+      2763 -    overlay.style.display = 'none';
+      2764 -  }
+      2770 +// ═══════════════════════════════════════════════════════
+      2771 +// REPO SUB-DIALOG
+      2772 +// ═══════════════════════════════════════════════════════
+      2773 +(function () {
+      2774 +  const overlay    = document.getElementById('repo-dialog-overlay');
+      2775 +  const nicknameEl = document.getElementById('repo-nickname');
+      2776 +  const urlEl      = document.getElementById('repo-url');
+      2777 +  const branchEl   = document.getElementById('repo-branch');
+      2778 +  const tagEl      = document.getElementById('repo-tag');
+      2779 +  const commitEl   = document.getElementById('repo-commit');
+      2780 +  const noteEl     = document.getElementById('repo-resolve-note');
+      2781 +  const saveBtn    = document.getElementById('repo-save');
+      2782 +  const cancelBtn  = document.getElementById('repo-cancel');
+      2783
+      2784 +  let _onSave = null;
+      2785 +
+      2786    function setNote(msg, type) {
+      2787      noteEl.textContent = msg;
+      2788      noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      2789    }
+      2790
+      2771 -  // Resolve branch HEAD commit hash via GitHub API
+      2772 -  async function resolveBranch(owner, repo, branch) {
+      2773 -    const res = await fetch(
+      2774 -      `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`
+      2775 -    );
+      2776 -    if (!res.ok) throw new Error(`branch not found (HTTP ${res.status})`);
+      2777 -    const data = await res.json();
+      2778 -    return data.commit?.sha ?? null;
+      2779 -  }
+      2791 +  // Auto-fill nickname from URL last path segment (only when not manually edited)
+      2792 +  urlEl.addEventListener('input', () => {
+      2793 +    if (nicknameEl.dataset.manuallyEdited) return;
+      2794 +    const parts = urlEl.value.trim().replace(/\/$/, '').split('/').filter(Boolean);
+      2795 +    nicknameEl.value = parts[parts.length - 1] || '';
+      2796 +  });
+      2797 +  nicknameEl.addEventListener('input', () => {
+      2798 +    nicknameEl.dataset.manuallyEdited = '1';
+      2799 +  });
+      2800
+      2781 -  // Resolve tag → commit hash via GitHub API (handles annotated tags)
+      2782 -  async function resolveTag(owner, repo, tag) {
+      2783 -    const res = await fetch(
+      2784 -      `https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`
+      2785 -    );
+      2786 -    if (!res.ok) throw new Error(`tag not found (HTTP ${res.status})`);
+      2787 -    const data = await res.json();
+      2788 -    if (!data.object) throw new Error('unexpected API response');
+      2789 -    if (data.object.type === 'commit') return data.object.sha;
+      2790 -    // annotated tag → dereference the tag object
+      2791 -    if (data.object.type === 'tag') {
+      2792 -      const res2 = await fetch(
+      2793 -        `https://api.github.com/repos/${owner}/${repo}/git/tags/${data.object.sha}`
+      2794 -      );
+      2795 -      if (!res2.ok) throw new Error(`tag object not found (HTTP ${res2.status})`);
+      2796 -      const data2 = await res2.json();
+      2797 -      return data2.object?.sha ?? null;
+      2798 -    }
+      2799 -    return null;
+      2800 -  }
+      2801 +  function close() { overlay.style.display = 'none'; }
+      2802
+      2803 +  window.openRepoDialog = function (existingRepo, onSave) {
+      2804 +    _onSave = onSave;
+      2805 +    nicknameEl.dataset.manuallyEdited = existingRepo ? '1' : '';
+      2806 +    nicknameEl.value = existingRepo?.nickname ?? '';
+      2807 +    urlEl.value      = existingRepo?.url      ?? '';
+      2808 +    branchEl.value   = existingRepo?.branch   ?? '';
+      2809 +    tagEl.value      = existingRepo?.tag      ?? '';
+      2810 +    commitEl.value   = existingRepo?.commitHash ?? '';
+      2811 +    setNote('', '');
+      2812 +    overlay.style.display = 'flex';
+      2813 +    urlEl.focus();
+      2814 +  };
+      2815 +
+      2816    saveBtn.addEventListener('click', async () => {
+      2803 -    const url    = urlEl.value.trim();
+      2804 -    const branch = branchEl.value.trim();
+      2805 -    const tag    = tagEl.value.trim();
+      2806 -    let   commit = commitEl.value.trim();
+      2817 +    const nickname = nicknameEl.value.trim();
+      2818 +    const url      = urlEl.value.trim();
+      2819 +    const branch   = branchEl.value.trim();
+      2820 +    const tag      = tagEl.value.trim();
+      2821 +    let   commit   = commitEl.value.trim();
+      2822
+      2808 -    // Warn if both branch and tag are filled
+      2823 +    if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
+      2824 +    if (!url)      { setNote('⚠ Please enter a repository URL.', 'warn'); return; }
+      2825 +
+      2826      if (branch && tag) {
+      2827        setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
+      2828        return;
+     ...
+      2832      if (needResolve) {
+      2833        const gh = parseGitHubUrl(url);
+      2834        if (!gh) {
+      2818 -        // Not a GitHub URL — save without hash
+      2835          setNote('Not a GitHub URL — skipping commit hash auto-resolution.', 'warn');
+      2820 -        applyAndSave(url, branch, tag, '');
+      2836 +        finish(nickname, url, branch, tag, '');
+      2837          return;
+      2838        }
+      2839        saveBtn.disabled = true;
+     ...
+      2854        saveBtn.disabled = false;
+      2855      }
+      2856
+      2841 -    applyAndSave(url, branch, tag, commit);
+      2857 +    finish(nickname, url, branch, tag, commit);
+      2858    });
+      2859
+      2844 -  function applyAndSave(url, branch, tag, commitHash) {
+      2845 -    S.globalConfig = { url, branch, tag, commitHash };
+      2846 -    saveState();
+      2847 -    closeDialog();
+      2848 -    setStatus('Git settings saved');
+      2860 +  function finish(nickname, url, branch, tag, commitHash) {
+      2861 +    if (_onSave) _onSave({ nickname, url, branch, tag, commitHash });
+      2862 +    close();
+      2863    }
+      2864
+      2851 -  cancelBtn.addEventListener('click', closeDialog);
+      2852 -  overlay.addEventListener('click', e => { if (e.target === overlay) closeDialog(); });
+      2865 +  cancelBtn.addEventListener('click', close);
+      2866 +  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      2867    document.addEventListener('keydown', e => {
+      2854 -    if (e.key === 'Escape' && overlay.style.display !== 'none') closeDialog();
+      2868 +    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+      2869    });
+      2870 +})();
+      2871
+      2872 +// ═══════════════════════════════════════════════════════
+      2873 +// GLOBAL CONFIG DIALOG
+      2874 +// ═══════════════════════════════════════════════════════
+      2875 +(function () {
+      2876 +  const overlay   = document.getElementById('global-config-overlay');
+      2877 +  const titleEl   = document.getElementById('gc-canvas-title');
+      2878 +  const descEl    = document.getElementById('gc-description');
+      2879 +  const reposWrap = document.getElementById('gc-repos-wrap');
+      2880 +  const addBtn    = document.getElementById('gc-add-repo');
+      2881 +  const saveBtn   = document.getElementById('gc-save');
+      2882 +  const cancelBtn = document.getElementById('gc-cancel');
+      2883 +
+      2884 +  let editingRepos = [];
+      2885 +
+      2886 +  function renderReposTable() {
+      2887 +    if (editingRepos.length === 0) {
+      2888 +      reposWrap.innerHTML = '<div class="gc-repos-empty">No repositories configured.</div>';
+      2889 +      return;
+      2890 +    }
+      2891 +    const rows = editingRepos.map((r, i) => {
+      2892 +      const hash = r.commitHash ? r.commitHash.slice(0, 12) + '…' : '—';
+      2893 +      return `<tr>
+      2894 +        <td title="${esc(r.nickname)}">${esc(r.nickname)}</td>
+      2895 +        <td title="${esc(r.url)}">${esc(r.url)}</td>
+      2896 +        <td>${esc(r.branch || '—')}</td>
+      2897 +        <td>${esc(r.tag || '—')}</td>
+      2898 +        <td>${esc(hash)}</td>
+      2899 +        <td class="gc-repo-actions">
+      2900 +          <button class="gc-repo-btn" data-action="edit" data-i="${i}">Edit</button>
+      2901 +          <button class="gc-repo-btn del" data-action="del" data-i="${i}">Delete</button>
+      2902 +        </td>
+      2903 +      </tr>`;
+      2904 +    }).join('');
+      2905 +    reposWrap.innerHTML = `<table class="gc-repos-table">
+      2906 +      <thead><tr>
+      2907 +        <th>Nickname</th><th>URL</th><th>Branch</th><th>Tag</th><th>Commit Hash</th><th></th>
+      2908 +      </tr></thead>
+      2909 +      <tbody>${rows}</tbody>
+      2910 +    </table>`;
+      2911 +    reposWrap.querySelectorAll('[data-action]').forEach(btn => {
+      2912 +      btn.addEventListener('click', () => {
+      2913 +        const i = parseInt(btn.dataset.i, 10);
+      2914 +        if (btn.dataset.action === 'del') {
+      2915 +          editingRepos.splice(i, 1);
+      2916 +          renderReposTable();
+      2917 +        } else {
+      2918 +          openRepoDialog(editingRepos[i], updated => {
+      2919 +            editingRepos[i] = updated;
+      2920 +            renderReposTable();
+      2921 +          });
+      2922 +        }
+      2923 +      });
+      2924 +    });
+      2925 +  }
+      2926 +
+      2927 +  function open() {
+      2928 +    titleEl.value = canvasTitleEl.value;
+      2929 +    descEl.value  = S.globalConfig.description || '';
+      2930 +    editingRepos  = (S.globalConfig.repositories || []).map(r => ({ ...r }));
+      2931 +    renderReposTable();
+      2932 +    overlay.style.display = 'flex';
+      2933 +    titleEl.focus();
+      2934 +  }
+      2935 +
+      2936 +  function close() { overlay.style.display = 'none'; }
+      2937 +
+      2938 +  addBtn.addEventListener('click', () => {
+      2939 +    openRepoDialog(null, repo => {
+      2940 +      editingRepos.push(repo);
+      2941 +      renderReposTable();
+      2942 +    });
+      2943 +  });
+      2944 +
+      2945 +  saveBtn.addEventListener('click', () => {
+      2946 +    const newTitle = titleEl.value.trim() || 'Untitled canvas';
+      2947 +    canvasTitleEl.value = newTitle;
+      2948 +    document.title = newTitle;
+      2949 +    resizeCanvasTitleInput();
+      2950 +    S.globalConfig.description  = descEl.value;
+      2951 +    S.globalConfig.repositories = editingRepos.map(r => ({ ...r }));
+      2952 +    saveState();
+      2953 +    close();
+      2954 +    setStatus('Global config saved');
+      2955 +  });
+      2956 +
+      2957 +  cancelBtn.addEventListener('click', close);
+      2958 +  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      2959 +  document.addEventListener('keydown', e => {
+      2960 +    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+      2961 +  });
+      2962 +
+      2963    document.getElementById('btn-add-bubble').addEventListener('click', () => {
+      2858 -  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+      2859 -  const p = s2c(vw / 2, vh / 2);
+      2860 -  addBubble(p.x - 100, p.y - 50);
+      2861 -});
+      2964 +    const vw = wrap.clientWidth, vh = wrap.clientHeight;
+      2965 +    const p = s2c(vw / 2, vh / 2);
+      2966 +    addBubble(p.x - 100, p.y - 50);
+      2967 +  });
+      2968
+      2863 -document.getElementById('btn-global-config').addEventListener('click', openDialog);
+      2969 +  document.getElementById('btn-global-config').addEventListener('click', open);
+      2970  })();
+      2971
+      2972  // ═══════════════════════════════════════════════════════
+
+⏺ 3-6. FETCH DIALOG の更新
+
+⏺ Reading 1 file… (ctrl+o to expand)
+  ⎿  canvas.js
+
+⏺ Update(canvas.js)
+  ⎿  Added 39 lines, removed 25 lines
+      3050  // GIT SNIPPET FETCH DIALOG
+      3051  // ═══════════════════════════════════════════════════════
+      3052  (function () {
+      3053 -  const overlay   = document.getElementById('fetch-dialog-overlay');
+      3054 -  const infoEl    = document.getElementById('fetch-git-info');
+      3055 -  const pathEl    = document.getElementById('fetch-path');
+      3056 -  const startEl   = document.getElementById('fetch-start');
+      3057 -  const endEl     = document.getElementById('fetch-end');
+      3058 -  const noteEl    = document.getElementById('fetch-note');
+      3059 -  const okBtn     = document.getElementById('fetch-ok');
+      3060 -  const cancelBtn = document.getElementById('fetch-cancel');
+      3053 +  const overlay    = document.getElementById('fetch-dialog-overlay');
+      3054 +  const repoSelect = document.getElementById('fetch-repo-select');
+      3055 +  const infoEl     = document.getElementById('fetch-git-info');
+      3056 +  const pathEl     = document.getElementById('fetch-path');
+      3057 +  const startEl    = document.getElementById('fetch-start');
+      3058 +  const endEl      = document.getElementById('fetch-end');
+      3059 +  const noteEl     = document.getElementById('fetch-note');
+      3060 +  const okBtn      = document.getElementById('fetch-ok');
+      3061 +  const cancelBtn  = document.getElementById('fetch-cancel');
+      3062    let targetNodeId = null;
+      3063
+      3064    function setNote(msg, type) {
+     ...
+      3066      noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      3067    }
+      3068
+      3069 +  function updateInfo() {
+      3070 +    const repos = S.globalConfig.repositories || [];
+      3071 +    if (repos.length === 0) {
+      3072 +      infoEl.textContent = '⚠ No repositories configured. Please add one via "⎇ Global Config".';
+      3073 +      infoEl.className = 'git-form-note warn';
+      3074 +      return;
+      3075 +    }
+      3076 +    const gc = repos[repoSelect.selectedIndex] ?? repos[0];
+      3077 +    if (!gc) return;
+      3078 +    const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+      3079 +              : gc.branch     ? `branch: ${gc.branch}`
+      3080 +              : gc.tag        ? `tag: ${gc.tag}`
+      3081 +              : '(no ref set)';
+      3082 +    infoEl.textContent = `${gc.url}  /  ${ref}`;
+      3083 +    infoEl.className = 'git-form-note ok';
+      3084 +  }
+      3085 +
+      3086 +  repoSelect.addEventListener('change', updateInfo);
+      3087 +
+      3088    function close() { overlay.style.display = 'none'; }
+      3089
+      3090    window.openFetchDialog = function (nodeId) {
+     ...
+      3095      endEl.value   = '';
+      3096      setNote('', '');
+      3097
+      3078 -    const gc = S.globalConfig;
+      3079 -    if (gc.url) {
+      3080 -      const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+      3081 -                : gc.branch     ? `branch: ${gc.branch}`
+      3082 -                : gc.tag        ? `tag: ${gc.tag}`
+      3083 -                : '(no ref set)';
+      3084 -      infoEl.textContent = `${gc.url}  /  ${ref}`;
+      3085 -      infoEl.className = 'git-form-note ok';
+      3086 -    } else {
+      3087 -      infoEl.textContent = '⚠ Git settings not configured. Please set them via "⎇ Global Config" in the toolbar first.';
+      3088 -      infoEl.className = 'git-form-note warn';
+      3089 -    }
+      3098 +    // Populate repo select
+      3099 +    const repos = S.globalConfig.repositories || [];
+      3100 +    repoSelect.innerHTML = repos.map(r => `<option>${esc(r.nickname)}</option>`).join('');
+      3101 +    updateInfo();
+      3102
+      3103      overlay.style.display = 'flex';
+      3104      pathEl.focus();
+      3105    };
+      3106
+      3107    okBtn.addEventListener('click', async () => {
+      3096 -    const gc = S.globalConfig;
+      3097 -    if (!gc.url) { setNote('⚠ Please set a repository URL in Global Config.', 'err'); return; }
+      3108 +    const repos = S.globalConfig.repositories || [];
+      3109 +    if (repos.length === 0) { setNote('⚠ No repositories configured. Please add one via Global Config.', 'err'); return; }
+      3110 +    const gc = repos[repoSelect.selectedIndex] ?? repos[0];
+      3111 +    if (!gc || !gc.url) { setNote('⚠ Selected repository has no URL.', 'err'); return; }
+      3112      const gh = parseGitHubUrl(gc.url);
+      3113      if (!gh) { setNote('⚠ Only GitHub URLs are supported.', 'err'); return; }
+      3114      const ref = gc.commitHash || gc.branch || gc.tag;
+      3101 -    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash in Global Config.', 'err'); return; }
+      3115 +    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash for this repository in Global Config.', 'err'); return; }
+      3116
+      3117      const filePath  = pathEl.value.trim();
+      3118      const startLine = parseInt(startEl.value, 10);
+      3119      const endLine   = parseInt(endEl.value, 10);
+      3106 -    if (!filePath)                          { setNote('⚠ Please enter a relative path.', 'err'); return; }
+      3107 -    if (isNaN(startLine) || startLine < 1)  { setNote('⚠ Please enter a valid start line number.', 'err'); return; }
+      3120 +    if (!filePath)                             { setNote('⚠ Please enter a relative path.', 'err'); return; }
+      3121 +    if (isNaN(startLine) || startLine < 1)     { setNote('⚠ Please enter a valid start line number.', 'err'); return; }
+      3122      if (isNaN(endLine) || endLine < startLine) { setNote('⚠ End line must be ≥ start line.', 'err'); return; }
+      3123
+      3124      okBtn.disabled = true;
+
+⏺ 最後に tests/setup-dom.js も更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 13 lines, removed 4 lines
+      69      <div id="status"></div>
+      70
+      71      <!-- Global Config Dialog -->
+      72 -    <div id="git-dialog-overlay" style="display:none;">
+      73 -      <input id="git-url"><input id="git-branch"><input id="git-tag">
+      74 -      <input id="git-commit"><div id="git-resolve-note"></div>
+      75 -      <button id="git-save"></button><button id="git-cancel"></button>
+      72 +    <div id="global-config-overlay" style="display:none;">
+      73 +      <input id="gc-canvas-title"><textarea id="gc-description"></textarea>
+      74 +      <div id="gc-repos-wrap"></div>
+      75 +      <button id="gc-add-repo"></button>
+      76 +      <button id="gc-save"></button><button id="gc-cancel"></button>
+      77      </div>
+      78
+      79 +    <!-- Repo Sub-Dialog -->
+      80 +    <div id="repo-dialog-overlay" style="display:none;">
+      81 +      <input id="repo-nickname"><input id="repo-url"><input id="repo-branch">
+      82 +      <input id="repo-tag"><input id="repo-commit">
+      83 +      <div id="repo-resolve-note"></div>
+      84 +      <button id="repo-save"></button><button id="repo-cancel"></button>
+      85 +    </div>
+      86 +
+      87      <!-- Group Frame Dialog -->
+      88      <div id="group-dialog-overlay" style="display:none;">
+      89        <input id="group-label-input">
+
+⏺ fetch dialog の select も setup-dom に追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line
+      93
+      94      <!-- Git Fetch Dialog -->
+      95      <div id="fetch-dialog-overlay" style="display:none;">
+      96 +      <select id="fetch-repo-select"></select>
+      97        <div id="fetch-git-info"></div>
+      98        <input id="fetch-path"><input id="fetch-start"><input id="fetch-end">
+      99        <div id="fetch-note"></div>
+
+⏺ テストを走らせて確認します。
+
+⏺ Bash(npm test 2>&1 | tail -40)
+  ⎿  stderr | tests/canvas-integration.test.js > Link lifecycle > removeLink removes the SVG element
+     Not implemented: Window's alert() method
+     … +30 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。alert() の stderr は JSDOM 環境の既知の無害な警告です。
+
+  ---
+  変更内容まとめ：
+
+  HTML (canvas.html)
+  - git-dialog-overlay を2つに分割：
+    - global-config-overlay — Canvas Title・Description・Repositories テーブルの新 Global Config ダイアログ
+    - repo-dialog-overlay — Nickname フィールドを追加した Git Repository Settings サブダイアログ
+  - fetch-dialog-overlay に <select id="fetch-repo-select"> を追加
+
+  CSS (canvas.css)
+  - オーバーレイリストを新 ID に対応
+  - .global-config-dialog（幅 680px・スクロール対応）
+  - .gc-textarea・.gc-section-label・.gc-repos-table・.gc-repo-btn・.git-form-select を追加
+
+  JS (canvas.js)
+  - DATA_VERSION → '3.0'
+  - S.globalConfig → { description: '', repositories: [] }
+  - loadState() に 2.0→3.0 マイグレーションを追加（単一リポジトリ → repositories 配列化、alert 表示）
+  - resolveBranch/resolveTag をトップレベルの共有関数に昇格
+  - REPO SUB-DIALOG IIFE 新設：URL 入力時に Nickname 自動補完（パスの末尾要素）、手動編集したら自動補完を止める、window.openRepoDialog(existingRepo,
+   callback) を公開
+  - GLOBAL CONFIG DIALOG IIFE 新設：Canvas Title 同期・Description・リポジトリテーブル（Edit/Delete ボタン付き）・Add ボタン
+  - FETCH DIALOG 更新：fetch-repo-select から選択したリポジトリを使って fetch
+
+✻ Worked for 5m 20s
+
+❯ 「Git Repository Settings」のダイアログにおいて、今のフォームの下に「Local source tree」「Universal Ctags Tags
+file」の2つの入力行を追加してください。tags fileのデフォルト値は、「Local source tree」に入力したパスの末尾に"/tags"を追加したものにしてください
+
+⏺ HTMLとJSを更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 12 lines
+      120
+      121      <div class="git-form-note" id="repo-resolve-note"></div>
+      122
+      123 +    <div class="git-form-divider"></div>
+      124 +
+      125 +    <div class="git-form-row">
+      126 +      <label class="git-form-label" for="repo-local-tree">Local source tree</label>
+      127 +      <input class="git-form-input" id="repo-local-tree" type="text" placeholder="/path/to/source" spellcheck="false" autocomplete
+          +="off">
+      128 +    </div>
+      129 +
+      130 +    <div class="git-form-row">
+      131 +      <label class="git-form-label" for="repo-tags-file">Universal Ctags Tags file</label>
+      132 +      <input class="git-form-input" id="repo-tags-file" type="text" placeholder="/path/to/source/tags" spellcheck="false" autocomp
+          +lete="off">
+      133 +    </div>
+      134 +
+      135      <div class="git-form-buttons">
+      136        <button class="tb-btn" id="repo-cancel">Cancel</button>
+      137        <button class="git-btn-save" id="repo-save">Save</button>
+
+⏺ 次に canvas.js の REPO SUB-DIALOG を更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 41 lines, removed 24 lines
+      2771  // REPO SUB-DIALOG
+      2772  // ═══════════════════════════════════════════════════════
+      2773  (function () {
+      2774 -  const overlay    = document.getElementById('repo-dialog-overlay');
+      2775 -  const nicknameEl = document.getElementById('repo-nickname');
+      2776 -  const urlEl      = document.getElementById('repo-url');
+      2777 -  const branchEl   = document.getElementById('repo-branch');
+      2778 -  const tagEl      = document.getElementById('repo-tag');
+      2779 -  const commitEl   = document.getElementById('repo-commit');
+      2780 -  const noteEl     = document.getElementById('repo-resolve-note');
+      2781 -  const saveBtn    = document.getElementById('repo-save');
+      2782 -  const cancelBtn  = document.getElementById('repo-cancel');
+      2774 +  const overlay      = document.getElementById('repo-dialog-overlay');
+      2775 +  const nicknameEl   = document.getElementById('repo-nickname');
+      2776 +  const urlEl        = document.getElementById('repo-url');
+      2777 +  const branchEl     = document.getElementById('repo-branch');
+      2778 +  const tagEl        = document.getElementById('repo-tag');
+      2779 +  const commitEl     = document.getElementById('repo-commit');
+      2780 +  const noteEl       = document.getElementById('repo-resolve-note');
+      2781 +  const localTreeEl  = document.getElementById('repo-local-tree');
+      2782 +  const tagsFileEl   = document.getElementById('repo-tags-file');
+      2783 +  const saveBtn      = document.getElementById('repo-save');
+      2784 +  const cancelBtn    = document.getElementById('repo-cancel');
+      2785
+      2786    let _onSave = null;
+      2787
+     ...
+      2800      nicknameEl.dataset.manuallyEdited = '1';
+      2801    });
+      2802
+      2803 +  // Auto-fill tags file from local source tree (only when not manually edited)
+      2804 +  localTreeEl.addEventListener('input', () => {
+      2805 +    if (tagsFileEl.dataset.manuallyEdited) return;
+      2806 +    const tree = localTreeEl.value.trim().replace(/\/$/, '');
+      2807 +    tagsFileEl.value = tree ? tree + '/tags' : '';
+      2808 +  });
+      2809 +  tagsFileEl.addEventListener('input', () => {
+      2810 +    tagsFileEl.dataset.manuallyEdited = '1';
+      2811 +  });
+      2812 +
+      2813    function close() { overlay.style.display = 'none'; }
+      2814
+      2815    window.openRepoDialog = function (existingRepo, onSave) {
+      2816      _onSave = onSave;
+      2805 -    nicknameEl.dataset.manuallyEdited = existingRepo ? '1' : '';
+      2806 -    nicknameEl.value = existingRepo?.nickname ?? '';
+      2807 -    urlEl.value      = existingRepo?.url      ?? '';
+      2808 -    branchEl.value   = existingRepo?.branch   ?? '';
+      2809 -    tagEl.value      = existingRepo?.tag      ?? '';
+      2810 -    commitEl.value   = existingRepo?.commitHash ?? '';
+      2817 +    nicknameEl.dataset.manuallyEdited  = existingRepo ? '1' : '';
+      2818 +    tagsFileEl.dataset.manuallyEdited  = existingRepo ? '1' : '';
+      2819 +    nicknameEl.value  = existingRepo?.nickname   ?? '';
+      2820 +    urlEl.value       = existingRepo?.url        ?? '';
+      2821 +    branchEl.value    = existingRepo?.branch     ?? '';
+      2822 +    tagEl.value       = existingRepo?.tag        ?? '';
+      2823 +    commitEl.value    = existingRepo?.commitHash ?? '';
+      2824 +    localTreeEl.value = existingRepo?.localTree  ?? '';
+      2825 +    tagsFileEl.value  = existingRepo?.tagsFile   ?? '';
+      2826      setNote('', '');
+      2827      overlay.style.display = 'flex';
+      2828      urlEl.focus();
+      2829    };
+      2830
+      2831    saveBtn.addEventListener('click', async () => {
+      2817 -    const nickname = nicknameEl.value.trim();
+      2818 -    const url      = urlEl.value.trim();
+      2819 -    const branch   = branchEl.value.trim();
+      2820 -    const tag      = tagEl.value.trim();
+      2821 -    let   commit   = commitEl.value.trim();
+      2832 +    const nickname  = nicknameEl.value.trim();
+      2833 +    const url       = urlEl.value.trim();
+      2834 +    const branch    = branchEl.value.trim();
+      2835 +    const tag       = tagEl.value.trim();
+      2836 +    let   commit    = commitEl.value.trim();
+      2837 +    const localTree = localTreeEl.value.trim();
+      2838 +    const tagsFile  = tagsFileEl.value.trim();
+      2839
+      2840      if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
+      2841      if (!url)      { setNote('⚠ Please enter a repository URL.', 'warn'); return; }
+     ...
+      2850        const gh = parseGitHubUrl(url);
+      2851        if (!gh) {
+      2852          setNote('Not a GitHub URL — skipping commit hash auto-resolution.', 'warn');
+      2836 -        finish(nickname, url, branch, tag, '');
+      2853 +        finish(nickname, url, branch, tag, '', localTree, tagsFile);
+      2854          return;
+      2855        }
+      2856        saveBtn.disabled = true;
+     ...
+      2871        saveBtn.disabled = false;
+      2872      }
+      2873
+      2857 -    finish(nickname, url, branch, tag, commit);
+      2874 +    finish(nickname, url, branch, tag, commit, localTree, tagsFile);
+      2875    });
+      2876
+      2860 -  function finish(nickname, url, branch, tag, commitHash) {
+      2861 -    if (_onSave) _onSave({ nickname, url, branch, tag, commitHash });
+      2877 +  function finish(nickname, url, branch, tag, commitHash, localTree, tagsFile) {
+      2878 +    if (_onSave) _onSave({ nickname, url, branch, tag, commitHash, localTree, tagsFile });
+      2879      close();
+      2880    }
+      2881
+
+⏺ tests/setup-dom.js の repo sub-dialog にも2フィールドを追加します。
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line
+      81        <input id="repo-nickname"><input id="repo-url"><input id="repo-branch">
+      82        <input id="repo-tag"><input id="repo-commit">
+      83        <div id="repo-resolve-note"></div>
+      84 +      <input id="repo-local-tree"><input id="repo-tags-file">
+      85        <button id="repo-save"></button><button id="repo-cancel"></button>
+      86      </div>
+      87
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿  stderr | tests/canvas-integration.test.js > Node deletion cascades to links > SVG arrows are cleared when a linked node is deleted
+     Not implemented: Window's alert() method
+     … +6 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容：
+
+  canvas.html — repo-dialog-overlay の末尾に区切り線と2行を追加：
+  - repo-local-tree: Local source tree の入力欄
+  - repo-tags-file: Universal Ctags Tags file の入力欄
+
+  canvas.js — REPO SUB-DIALOG：
+  - localTreeEl / tagsFileEl の参照を追加
+  - localTreeEl に入力すると tagsFileEl に <パス>/tags を自動補完（手動編集済みなら補完しない）
+  - openRepoDialog() で既存リポジトリの localTree / tagsFile を復元
+  - finish() / コールバックにこれら2フィールドを含める
+
+✻ Crunched for 1m 14s
+
+❯ localTreeElに値が入ったら、tagsFileElに<パス>/tagsを自動で入力してください
+
+⏺ その機能は前の実装時にすでに組み込んであります。canvas.js の REPO SUB-DIALOG を確認してください：
+
+  // Auto-fill tags file from local source tree (only when not manually edited)
+  localTreeEl.addEventListener('input', () => {
+    if (tagsFileEl.dataset.manuallyEdited) return;
+    const tree = localTreeEl.value.trim().replace(/\/$/, '');
+    tagsFileEl.value = tree ? tree + '/tags' : '';
+  });
+  tagsFileEl.addEventListener('input', () => {
+    tagsFileEl.dataset.manuallyEdited = '1';
+  });
+
+  動作：
+  - Local source tree を入力 → Tags file に <パス>/tags を自動補完
+  - Tags file を手動で編集した場合は自動補完を上書きしない
+  - 新規追加時のみ動作（既存リポジトリ編集時は手動編集済みフラグが立つ）
+
+  ブラウザで動かないなど具体的な問題があれば教えてください。
+
+❯ id="repo-local-tree"に値が入ったら、id="repo-tags-file"に<パス>/tagsを自動で入力してください
+
+⏺ 現在の実装を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ manuallyEdited
+  ガードのせいで、既存リポジトリ編集時や一度手入力した後は自動補完が効かなくなっています。シンプルに「常に上書き」する動作に変えます。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 5 lines
+      2800      nicknameEl.dataset.manuallyEdited = '1';
+      2801    });
+      2802
+      2803 -  // Auto-fill tags file from local source tree (only when not manually edited)
+      2803 +  // Auto-fill tags file from local source tree
+      2804    localTreeEl.addEventListener('input', () => {
+      2805 -    if (tagsFileEl.dataset.manuallyEdited) return;
+      2805      const tree = localTreeEl.value.trim().replace(/\/$/, '');
+      2806      tagsFileEl.value = tree ? tree + '/tags' : '';
+      2807    });
+      2809 -  tagsFileEl.addEventListener('input', () => {
+      2810 -    tagsFileEl.dataset.manuallyEdited = '1';
+      2811 -  });
+      2808
+      2809    function close() { overlay.style.display = 'none'; }
+      2810
+
+⏺ あわせて openRepoDialog 内の tagsFileEl.dataset.manuallyEdited 行も不要になったので削除します。
+
+⏺ Update(canvas.js)
+  ⎿  Removed 1 line
+      2811    window.openRepoDialog = function (existingRepo, onSave) {
+      2812      _onSave = onSave;
+      2813      nicknameEl.dataset.manuallyEdited  = existingRepo ? '1' : '';
+      2814 -    tagsFileEl.dataset.manuallyEdited  = existingRepo ? '1' : '';
+      2814      nicknameEl.value  = existingRepo?.nickname   ?? '';
+      2815      urlEl.value       = existingRepo?.url        ?? '';
+      2816      branchEl.value    = existingRepo?.branch     ?? '';
+
+⏺ これで Local source tree に入力するたびに、Tags file が常に <パス>/tags で上書きされます。Tags file を手動編集したい場合は、Local source tree
+  の入力が終わった後に上書きしてください。
+
+❯ dataVersionは2.0のままで大丈夫です(まだ公開していなかったので)。2.0に戻してください
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  'use strict';
+      2
+      3 -const DATA_VERSION = '3.0';
+      3 +const DATA_VERSION = '2.0';
+      4
+      5  // ═══════════════════════════════════════════════════════
+      6  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Removed 11 lines
+      2611        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.comm
+            itHash || '' }];
+      2612      }
+      2613      alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2614 -  } else if (data.dataVersion < '3.0') {
+      2615 -    // migrate 2.0: globalConfig was single-repo object → repositories array
+      2616 -    const old = data.globalConfig;
+      2617 -    if (old) {
+      2618 -      S.globalConfig.description = old.description || '';
+      2619 -      if (old.url) {
+      2620 -        const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      2621 -        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.co
+           -mmitHash || '' }];
+      2622 -      }
+      2623 -    }
+      2624 -    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2614    } else {
+      2615      if (data.globalConfig) {
+      2616        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ Bash(npm test 2>&1 | tail -8)
+  ⎿   ✓ tests/canvas-integration.test.js (21 tests) 269ms
+
+      Test Files  2 passed (2)
+     … +3 lines (ctrl+o to expand)
+
+⏺ DATA_VERSION を '2.0' に戻し、2.0→3.0 のマイグレーション分岐を削除しました。
+
+✻ Crunched for 56s
+
+❯ すみませんやはり考えを変えました。先ほどの変更を戻してください。データバージョンは3.0にします
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  'use strict';
+      2
+      3 -const DATA_VERSION = '2.0';
+      3 +const DATA_VERSION = '3.0';
+      4
+      5  // ═══════════════════════════════════════════════════════
+      6  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 11 lines
+      2611        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.comm
+            itHash || '' }];
+      2612      }
+      2613      alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2614 +  } else if (data.dataVersion < '3.0') {
+      2615 +    // migrate 2.0: globalConfig was single-repo object → repositories array
+      2616 +    const old = data.globalConfig;
+      2617 +    if (old) {
+      2618 +      S.globalConfig.description = old.description || '';
+      2619 +      if (old.url) {
+      2620 +        const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      2621 +        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.co
+           +mmitHash || '' }];
+      2622 +      }
+      2623 +    }
+      2624 +    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2625    } else {
+      2626      if (data.globalConfig) {
+      2627        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ Bash(npm test 2>&1 | tail -8)
+  ⎿   ✓ tests/canvas-integration.test.js (21 tests) 314ms
+
+      Test Files  2 passed (2)
+     … +3 lines (ctrl+o to expand)
+
+⏺ DATA_VERSION = '3.0' に戻し、2.0→3.0 のマイグレーション分岐も復元しました。
+```

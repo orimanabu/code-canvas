@@ -38,7 +38,7 @@ if (typeof document === 'undefined') {
       <button id="btn-add"></button>
       <button id="btn-add-bubble"></button>
       <button id="btn-group"></button>
-      <button id="btn-git-config"></button>
+      <button id="btn-global-config"></button>
       <button id="btn-export"></button>
       <input type="file" id="btn-import">
       <button id="btn-clear"></button>
@@ -68,11 +68,21 @@ if (typeof document === 'undefined') {
     <div id="link-ctx"><button id="link-ctx-del"></button></div>
     <div id="status"></div>
 
-    <!-- Git Config Dialog -->
-    <div id="git-dialog-overlay" style="display:none;">
-      <input id="git-url"><input id="git-branch"><input id="git-tag">
-      <input id="git-commit"><div id="git-resolve-note"></div>
-      <button id="git-save"></button><button id="git-cancel"></button>
+    <!-- Global Config Dialog -->
+    <div id="global-config-overlay" style="display:none;">
+      <input id="gc-canvas-title"><textarea id="gc-description"></textarea>
+      <div id="gc-repos-wrap"></div>
+      <button id="gc-add-repo"></button>
+      <button id="gc-save"></button><button id="gc-cancel"></button>
+    </div>
+
+    <!-- Repo Sub-Dialog -->
+    <div id="repo-dialog-overlay" style="display:none;">
+      <input id="repo-nickname"><input id="repo-url"><input id="repo-branch">
+      <input id="repo-tag"><input id="repo-commit">
+      <div id="repo-resolve-note"></div>
+      <input id="repo-local-tree"><input id="repo-tags-file">
+      <button id="repo-save"></button><button id="repo-cancel"></button>
     </div>
 
     <!-- Group Frame Dialog -->
@@ -84,6 +94,7 @@ if (typeof document === 'undefined') {
 
     <!-- Git Fetch Dialog -->
     <div id="fetch-dialog-overlay" style="display:none;">
+      <select id="fetch-repo-select"></select>
       <div id="fetch-git-info"></div>
       <input id="fetch-path"><input id="fetch-start"><input id="fetch-end">
       <div id="fetch-note"></div>

@@ -628,8 +628,9 @@ body.link-mode .node:hover {
 .color-swatch:hover { transform: scale(1.3); }
 .color-swatch.active { border-color: #fff; }
 
-/* ── Git Config Dialog ── */
-#git-dialog-overlay,
+/* ── Global Config Dialog ── */
+#global-config-overlay,
+#repo-dialog-overlay,
 #fetch-dialog-overlay,
 #codesnippetd-dialog-overlay,
 #help-dialog-overlay,
@@ -642,6 +643,55 @@ body.link-mode .node:hover {
   background: #161b22; border: 1px solid #30363d; border-radius: 12px;
   padding: 24px 28px; width: 480px; max-width: 92vw;
   box-shadow: 0 12px 40px rgba(0,0,0,0.75);
+}
+.global-config-dialog {
+  width: 680px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.gc-textarea {
+  resize: vertical; min-height: 64px;
+  font-family: inherit; line-height: 1.5;
+}
+.gc-section-label {
+  font-size: 11px; font-weight: 600; color: #8b949e;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  margin: 18px 0 8px;
+}
+.gc-repos-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px;
+  font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace;
+  border: 1px solid #30363d; border-radius: 6px; overflow: hidden;
+}
+.gc-repos-table thead th {
+  background: #21262d; color: #8b949e; padding: 6px 10px;
+  text-align: left; font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.gc-repos-table tbody tr { border-top: 1px solid #21262d; }
+.gc-repos-table tbody td {
+  padding: 6px 10px; color: #e6edf3;
+  max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gc-repos-table tbody td.gc-repo-actions {
+  white-space: nowrap; max-width: none; width: 1%;
+}
+.gc-repos-empty {
+  font-size: 12px; color: #484f58; padding: 10px 0;
+}
+.gc-repo-btn {
+  background: none; border: 1px solid #30363d; border-radius: 4px;
+  color: #8b949e; font-size: 11px; padding: 2px 8px; cursor: pointer;
+  margin-left: 4px;
+}
+.gc-repo-btn:hover { color: #e6edf3; border-color: #8b949e; }
+.gc-repo-btn.del:hover { color: #f85149; border-color: #f85149; }
+.git-form-select {
+  appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b949e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px;
 }
 .git-dialog-title {
   font-size: 15px; font-weight: 700; color: #e6edf3;

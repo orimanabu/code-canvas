@@ -23,7 +23,7 @@
   <button class="tb-btn" id="btn-group">⬜ Frame</button>
   <button class="tb-btn" id="btn-add-line">― Line</button>
   <div class="sep"></div>
-  <button class="tb-btn" id="btn-git-config">⎇ Git Config</button>
+  <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
   <div class="sep"></div>
   <div class="zoom-ctrl">
     <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#8722;</button>
@@ -58,38 +58,83 @@
   </svg>
 </div>
 
-<!-- Git Config Dialog -->
-<div id="git-dialog-overlay" style="display:none;">
+<!-- Global Config Dialog -->
+<div id="global-config-overlay" style="display:none;">
+  <div class="git-dialog global-config-dialog">
+    <div class="git-dialog-title">⎇ Global Config</div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="gc-canvas-title">Canvas Title</label>
+      <input class="git-form-input" id="gc-canvas-title" type="text" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="gc-description">Description</label>
+      <textarea class="git-form-input gc-textarea" id="gc-description" rows="3" spellcheck="false"></textarea>
+    </div>
+
+    <div class="gc-section-label">Repositories</div>
+    <div id="gc-repos-wrap"></div>
+    <div style="margin-top:8px;">
+      <button class="tb-btn" id="gc-add-repo">+ Add</button>
+    </div>
+
+    <div class="git-form-buttons">
+      <button class="tb-btn" id="gc-cancel">Cancel</button>
+      <button class="git-btn-save" id="gc-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Git Repository Settings Sub-Dialog -->
+<div id="repo-dialog-overlay" style="display:none;">
   <div class="git-dialog">
     <div class="git-dialog-title">⎇ Git Repository Settings</div>
 
     <div class="git-form-row">
-      <label class="git-form-label" for="git-url">Repository URL</label>
-      <input class="git-form-input" id="git-url" type="url" placeholder="https://github.com/owner/repo" spellcheck="false" autocomplete="off">
+      <label class="git-form-label" for="repo-nickname">Nickname</label>
+      <input class="git-form-input" id="repo-nickname" type="text" placeholder="my-repo" spellcheck="false" autocomplete="off">
     </div>
 
     <div class="git-form-row">
-      <label class="git-form-label" for="git-branch">Branch name</label>
-      <input class="git-form-input" id="git-branch" type="text" placeholder="main" spellcheck="false" autocomplete="off">
+      <label class="git-form-label" for="repo-url">Repository URL</label>
+      <input class="git-form-input" id="repo-url" type="url" placeholder="https://github.com/owner/repo" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="repo-branch">Branch name</label>
+      <input class="git-form-input" id="repo-branch" type="text" placeholder="main" spellcheck="false" autocomplete="off">
     </div>
 
     <div class="git-form-divider">or</div>
 
     <div class="git-form-row">
-      <label class="git-form-label" for="git-tag">Tag name</label>
-      <input class="git-form-input" id="git-tag" type="text" placeholder="v1.0.0" spellcheck="false" autocomplete="off">
+      <label class="git-form-label" for="repo-tag">Tag name</label>
+      <input class="git-form-input" id="repo-tag" type="text" placeholder="v1.0.0" spellcheck="false" autocomplete="off">
     </div>
 
     <div class="git-form-row">
-      <label class="git-form-label" for="git-commit">Commit Hash <span style="color:#484f58;font-weight:400;">(optional — auto-resolved from branch/tag)</span></label>
-      <input class="git-form-input" id="git-commit" type="text" placeholder="auto-resolved" spellcheck="false" autocomplete="off">
+      <label class="git-form-label" for="repo-commit">Commit Hash <span style="color:#484f58;font-weight:400;">(optional — auto-resolved from branch/tag)</span></label>
+      <input class="git-form-input" id="repo-commit" type="text" placeholder="auto-resolved" spellcheck="false" autocomplete="off">
     </div>
 
-    <div class="git-form-note" id="git-resolve-note"></div>
+    <div class="git-form-note" id="repo-resolve-note"></div>
+
+    <div class="git-form-divider"></div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="repo-local-tree">Local source tree</label>
+      <input class="git-form-input" id="repo-local-tree" type="text" placeholder="/path/to/source" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="repo-tags-file">Universal Ctags Tags file</label>
+      <input class="git-form-input" id="repo-tags-file" type="text" placeholder="/path/to/source/tags" spellcheck="false" autocomplete="off">
+    </div>
 
     <div class="git-form-buttons">
-      <button class="tb-btn" id="git-cancel">Cancel</button>
-      <button class="git-btn-save" id="git-save">Save</button>
+      <button class="tb-btn" id="repo-cancel">Cancel</button>
+      <button class="git-btn-save" id="repo-save">Save</button>
     </div>
   </div>
 </div>
@@ -98,6 +143,11 @@
 <div id="fetch-dialog-overlay" style="display:none;">
   <div class="git-dialog">
     <div class="git-dialog-title">⬇ Fetch Code Snippet from Git</div>
+
+    <div class="git-form-row">
+      <label class="git-form-label" for="fetch-repo-select">Repository</label>
+      <select class="git-form-input git-form-select" id="fetch-repo-select"></select>
+    </div>
     <div class="git-form-note" id="fetch-git-info" style="margin-bottom:16px;"></div>
 
     <div class="git-form-row">

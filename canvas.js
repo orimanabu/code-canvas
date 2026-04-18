@@ -1,6 +1,6 @@
 'use strict';
 
-const DATA_VERSION = '1.0';
+const DATA_VERSION = '3.0';
 
 // ═══════════════════════════════════════════════════════
 // UTILS
@@ -248,7 +248,7 @@ const S = {
   linkMode: false,
   clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
   pending: null,    // { fromId, text }
-  gitConfig: { url: '', branch: '', tag: '', commitHash: '' },
+  globalConfig: { description: '', repositories: [] },
   tailDrag: null,   // { id, otailX, otailY } — bubble tail being dragged
   marquee: null,    // { sx, sy, ex, ey } — rubber-band selection in screen coords
   freeLines: [],    // standalone line objects
@@ -2536,6 +2536,13 @@ canvasTitleEl.addEventListener('input', () => {
   resizeCanvasTitleInput();
   scheduleSave();
 });
+canvasTitleEl.addEventListener('blur', () => {
+  if (!canvasTitleEl.value) {
+    canvasTitleEl.value = 'Untitled canvas';
+    resizeCanvasTitleInput();
+    scheduleSave();
+  }
+});
 
 function saveState() {
   const data = {
@@ -2562,7 +2569,7 @@ function saveState() {
     lid: S.lid,
     flid: S.flid,
     vp: { ...S.vp },
-    gitConfig: { ...S.gitConfig },
+    globalConfig: { description: S.globalConfig.description, repositories: S.globalConfig.repositories.map(r => ({ ...r })) },
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -2596,8 +2603,32 @@ function loadState(data) {
   S.lid = data.lid ?? 1;
   S.flid = data.flid ?? 1;
   if (data.vp) Object.assign(S.vp, data.vp);
-  if (data.gitConfig) Object.assign(S.gitConfig, data.gitConfig);
-  canvasTitleEl.value = data.canvasTitle ?? '';
+  if (!data.dataVersion || data.dataVersion < '2.0') {
+    // migrate pre-2.0: gitConfig (single repo) → repositories array
+    const old = data.gitConfig;
+    if (old && old.url) {
+      const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.commitHash || '' }];
+    }
+    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+  } else if (data.dataVersion < '3.0') {
+    // migrate 2.0: globalConfig was single-repo object → repositories array
+    const old = data.globalConfig;
+    if (old) {
+      S.globalConfig.description = old.description || '';
+      if (old.url) {
+        const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.commitHash || '' }];
+      }
+    }
+    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+  } else {
+    if (data.globalConfig) {
+      S.globalConfig.description = data.globalConfig.description || '';
+      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+    }
+  }
+  canvasTitleEl.value = data.canvasTitle || 'Untitled canvas';
   document.title = data.canvasTitle || '∞ Code Canvas';
   resizeCanvasTitleInput();
 
@@ -2706,75 +2737,104 @@ function parseGitHubUrl(url) {
 }
 
 // ═══════════════════════════════════════════════════════
-// GIT CONFIG DIALOG
+// GIT RESOLVE HELPERS (shared)
+// ═══════════════════════════════════════════════════════
+async function resolveBranch(owner, repo, branch) {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`
+  );
+  if (!res.ok) throw new Error(`branch not found (HTTP ${res.status})`);
+  const data = await res.json();
+  return data.commit?.sha ?? null;
+}
+
+async function resolveTag(owner, repo, tag) {
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`
+  );
+  if (!res.ok) throw new Error(`tag not found (HTTP ${res.status})`);
+  const data = await res.json();
+  if (!data.object) throw new Error('unexpected API response');
+  if (data.object.type === 'commit') return data.object.sha;
+  if (data.object.type === 'tag') {
+    const res2 = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/tags/${data.object.sha}`
+    );
+    if (!res2.ok) throw new Error(`tag object not found (HTTP ${res2.status})`);
+    const data2 = await res2.json();
+    return data2.object?.sha ?? null;
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════
+// REPO SUB-DIALOG
 // ═══════════════════════════════════════════════════════
 (function () {
-  const overlay   = document.getElementById('git-dialog-overlay');
-  const urlEl     = document.getElementById('git-url');
-  const branchEl  = document.getElementById('git-branch');
-  const tagEl     = document.getElementById('git-tag');
-  const commitEl  = document.getElementById('git-commit');
-  const noteEl    = document.getElementById('git-resolve-note');
-  const saveBtn   = document.getElementById('git-save');
-  const cancelBtn = document.getElementById('git-cancel');
+  const overlay      = document.getElementById('repo-dialog-overlay');
+  const nicknameEl   = document.getElementById('repo-nickname');
+  const urlEl        = document.getElementById('repo-url');
+  const branchEl     = document.getElementById('repo-branch');
+  const tagEl        = document.getElementById('repo-tag');
+  const commitEl     = document.getElementById('repo-commit');
+  const noteEl       = document.getElementById('repo-resolve-note');
+  const localTreeEl  = document.getElementById('repo-local-tree');
+  const tagsFileEl   = document.getElementById('repo-tags-file');
+  const saveBtn      = document.getElementById('repo-save');
+  const cancelBtn    = document.getElementById('repo-cancel');
 
-  function openDialog() {
-    urlEl.value    = S.gitConfig.url;
-    branchEl.value = S.gitConfig.branch;
-    tagEl.value    = S.gitConfig.tag;
-    commitEl.value = S.gitConfig.commitHash;
-    setNote('', '');
-    overlay.style.display = 'flex';
-    urlEl.focus();
-  }
-
-  function closeDialog() {
-    overlay.style.display = 'none';
-  }
+  let _onSave = null;
 
   function setNote(msg, type) {
     noteEl.textContent = msg;
     noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
   }
 
-  // Resolve branch HEAD commit hash via GitHub API
-  async function resolveBranch(owner, repo, branch) {
-    const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`
-    );
-    if (!res.ok) throw new Error(`branch not found (HTTP ${res.status})`);
-    const data = await res.json();
-    return data.commit?.sha ?? null;
-  }
+  // Auto-fill nickname from URL last path segment (only when not manually edited)
+  urlEl.addEventListener('input', () => {
+    if (nicknameEl.dataset.manuallyEdited) return;
+    const parts = urlEl.value.trim().replace(/\/$/, '').split('/').filter(Boolean);
+    nicknameEl.value = parts[parts.length - 1] || '';
+  });
+  nicknameEl.addEventListener('input', () => {
+    nicknameEl.dataset.manuallyEdited = '1';
+  });
 
-  // Resolve tag → commit hash via GitHub API (handles annotated tags)
-  async function resolveTag(owner, repo, tag) {
-    const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`
-    );
-    if (!res.ok) throw new Error(`tag not found (HTTP ${res.status})`);
-    const data = await res.json();
-    if (!data.object) throw new Error('unexpected API response');
-    if (data.object.type === 'commit') return data.object.sha;
-    // annotated tag → dereference the tag object
-    if (data.object.type === 'tag') {
-      const res2 = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/tags/${data.object.sha}`
-      );
-      if (!res2.ok) throw new Error(`tag object not found (HTTP ${res2.status})`);
-      const data2 = await res2.json();
-      return data2.object?.sha ?? null;
-    }
-    return null;
-  }
+  // Auto-fill tags file from local source tree
+  localTreeEl.addEventListener('input', () => {
+    const tree = localTreeEl.value.trim().replace(/\/$/, '');
+    tagsFileEl.value = tree ? tree + '/tags' : '';
+  });
+
+  function close() { overlay.style.display = 'none'; }
+
+  window.openRepoDialog = function (existingRepo, onSave) {
+    _onSave = onSave;
+    nicknameEl.dataset.manuallyEdited  = existingRepo ? '1' : '';
+    nicknameEl.value  = existingRepo?.nickname   ?? '';
+    urlEl.value       = existingRepo?.url        ?? '';
+    branchEl.value    = existingRepo?.branch     ?? '';
+    tagEl.value       = existingRepo?.tag        ?? '';
+    commitEl.value    = existingRepo?.commitHash ?? '';
+    localTreeEl.value = existingRepo?.localTree  ?? '';
+    tagsFileEl.value  = existingRepo?.tagsFile   ?? '';
+    setNote('', '');
+    overlay.style.display = 'flex';
+    urlEl.focus();
+  };
 
   saveBtn.addEventListener('click', async () => {
-    const url    = urlEl.value.trim();
-    const branch = branchEl.value.trim();
-    const tag    = tagEl.value.trim();
-    let   commit = commitEl.value.trim();
+    const nickname  = nicknameEl.value.trim();
+    const url       = urlEl.value.trim();
+    const branch    = branchEl.value.trim();
+    const tag       = tagEl.value.trim();
+    let   commit    = commitEl.value.trim();
+    const localTree = localTreeEl.value.trim();
+    const tagsFile  = tagsFileEl.value.trim();
 
-    // Warn if both branch and tag are filled
+    if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
+    if (!url)      { setNote('⚠ Please enter a repository URL.', 'warn'); return; }
+
     if (branch && tag) {
       setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
       return;
@@ -2784,9 +2844,8 @@ function parseGitHubUrl(url) {
     if (needResolve) {
       const gh = parseGitHubUrl(url);
       if (!gh) {
-        // Not a GitHub URL — save without hash
         setNote('Not a GitHub URL — skipping commit hash auto-resolution.', 'warn');
-        applyAndSave(url, branch, tag, '');
+        finish(nickname, url, branch, tag, '', localTree, tagsFile);
         return;
       }
       saveBtn.disabled = true;
@@ -2807,29 +2866,119 @@ function parseGitHubUrl(url) {
       saveBtn.disabled = false;
     }
 
-    applyAndSave(url, branch, tag, commit);
+    finish(nickname, url, branch, tag, commit, localTree, tagsFile);
   });
 
-  function applyAndSave(url, branch, tag, commitHash) {
-    S.gitConfig = { url, branch, tag, commitHash };
-    saveState();
-    closeDialog();
-    setStatus('Git settings saved');
+  function finish(nickname, url, branch, tag, commitHash, localTree, tagsFile) {
+    if (_onSave) _onSave({ nickname, url, branch, tag, commitHash, localTree, tagsFile });
+    close();
   }
 
-  cancelBtn.addEventListener('click', closeDialog);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeDialog(); });
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') closeDialog();
+    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+  });
+})();
+
+// ═══════════════════════════════════════════════════════
+// GLOBAL CONFIG DIALOG
+// ═══════════════════════════════════════════════════════
+(function () {
+  const overlay   = document.getElementById('global-config-overlay');
+  const titleEl   = document.getElementById('gc-canvas-title');
+  const descEl    = document.getElementById('gc-description');
+  const reposWrap = document.getElementById('gc-repos-wrap');
+  const addBtn    = document.getElementById('gc-add-repo');
+  const saveBtn   = document.getElementById('gc-save');
+  const cancelBtn = document.getElementById('gc-cancel');
+
+  let editingRepos = [];
+
+  function renderReposTable() {
+    if (editingRepos.length === 0) {
+      reposWrap.innerHTML = '<div class="gc-repos-empty">No repositories configured.</div>';
+      return;
+    }
+    const rows = editingRepos.map((r, i) => {
+      const hash = r.commitHash ? r.commitHash.slice(0, 12) + '…' : '—';
+      return `<tr>
+        <td title="${esc(r.nickname)}">${esc(r.nickname)}</td>
+        <td title="${esc(r.url)}">${esc(r.url)}</td>
+        <td>${esc(r.branch || '—')}</td>
+        <td>${esc(r.tag || '—')}</td>
+        <td>${esc(hash)}</td>
+        <td class="gc-repo-actions">
+          <button class="gc-repo-btn" data-action="edit" data-i="${i}">Edit</button>
+          <button class="gc-repo-btn del" data-action="del" data-i="${i}">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+    reposWrap.innerHTML = `<table class="gc-repos-table">
+      <thead><tr>
+        <th>Nickname</th><th>URL</th><th>Branch</th><th>Tag</th><th>Commit Hash</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    reposWrap.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.i, 10);
+        if (btn.dataset.action === 'del') {
+          editingRepos.splice(i, 1);
+          renderReposTable();
+        } else {
+          openRepoDialog(editingRepos[i], updated => {
+            editingRepos[i] = updated;
+            renderReposTable();
+          });
+        }
+      });
+    });
+  }
+
+  function open() {
+    titleEl.value = canvasTitleEl.value;
+    descEl.value  = S.globalConfig.description || '';
+    editingRepos  = (S.globalConfig.repositories || []).map(r => ({ ...r }));
+    renderReposTable();
+    overlay.style.display = 'flex';
+    titleEl.focus();
+  }
+
+  function close() { overlay.style.display = 'none'; }
+
+  addBtn.addEventListener('click', () => {
+    openRepoDialog(null, repo => {
+      editingRepos.push(repo);
+      renderReposTable();
+    });
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const newTitle = titleEl.value.trim() || 'Untitled canvas';
+    canvasTitleEl.value = newTitle;
+    document.title = newTitle;
+    resizeCanvasTitleInput();
+    S.globalConfig.description  = descEl.value;
+    S.globalConfig.repositories = editingRepos.map(r => ({ ...r }));
+    saveState();
+    close();
+    setStatus('Global config saved');
+  });
+
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
   });
 
   document.getElementById('btn-add-bubble').addEventListener('click', () => {
-  const vw = wrap.clientWidth, vh = wrap.clientHeight;
-  const p = s2c(vw / 2, vh / 2);
-  addBubble(p.x - 100, p.y - 50);
-});
+    const vw = wrap.clientWidth, vh = wrap.clientHeight;
+    const p = s2c(vw / 2, vh / 2);
+    addBubble(p.x - 100, p.y - 50);
+  });
 
-document.getElementById('btn-git-config').addEventListener('click', openDialog);
+  document.getElementById('btn-global-config').addEventListener('click', open);
 })();
 
 // ═══════════════════════════════════════════════════════
@@ -2913,20 +3062,40 @@ document.getElementById('btn-git-config').addEventListener('click', openDialog);
 // GIT SNIPPET FETCH DIALOG
 // ═══════════════════════════════════════════════════════
 (function () {
-  const overlay   = document.getElementById('fetch-dialog-overlay');
-  const infoEl    = document.getElementById('fetch-git-info');
-  const pathEl    = document.getElementById('fetch-path');
-  const startEl   = document.getElementById('fetch-start');
-  const endEl     = document.getElementById('fetch-end');
-  const noteEl    = document.getElementById('fetch-note');
-  const okBtn     = document.getElementById('fetch-ok');
-  const cancelBtn = document.getElementById('fetch-cancel');
+  const overlay    = document.getElementById('fetch-dialog-overlay');
+  const repoSelect = document.getElementById('fetch-repo-select');
+  const infoEl     = document.getElementById('fetch-git-info');
+  const pathEl     = document.getElementById('fetch-path');
+  const startEl    = document.getElementById('fetch-start');
+  const endEl      = document.getElementById('fetch-end');
+  const noteEl     = document.getElementById('fetch-note');
+  const okBtn      = document.getElementById('fetch-ok');
+  const cancelBtn  = document.getElementById('fetch-cancel');
   let targetNodeId = null;
 
   function setNote(msg, type) {
     noteEl.textContent = msg;
     noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
   }
+
+  function updateInfo() {
+    const repos = S.globalConfig.repositories || [];
+    if (repos.length === 0) {
+      infoEl.textContent = '⚠ No repositories configured. Please add one via "⎇ Global Config".';
+      infoEl.className = 'git-form-note warn';
+      return;
+    }
+    const gc = repos[repoSelect.selectedIndex] ?? repos[0];
+    if (!gc) return;
+    const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
+              : gc.branch     ? `branch: ${gc.branch}`
+              : gc.tag        ? `tag: ${gc.tag}`
+              : '(no ref set)';
+    infoEl.textContent = `${gc.url}  /  ${ref}`;
+    infoEl.className = 'git-form-note ok';
+  }
+
+  repoSelect.addEventListener('change', updateInfo);
 
   function close() { overlay.style.display = 'none'; }
 
@@ -2938,36 +3107,30 @@ document.getElementById('btn-git-config').addEventListener('click', openDialog);
     endEl.value   = '';
     setNote('', '');
 
-    const gc = S.gitConfig;
-    if (gc.url) {
-      const ref = gc.commitHash ? gc.commitHash.slice(0, 12) + '…'
-                : gc.branch     ? `branch: ${gc.branch}`
-                : gc.tag        ? `tag: ${gc.tag}`
-                : '(no ref set)';
-      infoEl.textContent = `${gc.url}  /  ${ref}`;
-      infoEl.className = 'git-form-note ok';
-    } else {
-      infoEl.textContent = '⚠ Git settings not configured. Please set them via "⎇ Git Config" in the toolbar first.';
-      infoEl.className = 'git-form-note warn';
-    }
+    // Populate repo select
+    const repos = S.globalConfig.repositories || [];
+    repoSelect.innerHTML = repos.map(r => `<option>${esc(r.nickname)}</option>`).join('');
+    updateInfo();
 
     overlay.style.display = 'flex';
     pathEl.focus();
   };
 
   okBtn.addEventListener('click', async () => {
-    const gc = S.gitConfig;
-    if (!gc.url) { setNote('⚠ Please set a repository URL in Git Config.', 'err'); return; }
+    const repos = S.globalConfig.repositories || [];
+    if (repos.length === 0) { setNote('⚠ No repositories configured. Please add one via Global Config.', 'err'); return; }
+    const gc = repos[repoSelect.selectedIndex] ?? repos[0];
+    if (!gc || !gc.url) { setNote('⚠ Selected repository has no URL.', 'err'); return; }
     const gh = parseGitHubUrl(gc.url);
     if (!gh) { setNote('⚠ Only GitHub URLs are supported.', 'err'); return; }
     const ref = gc.commitHash || gc.branch || gc.tag;
-    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash in Git Config.', 'err'); return; }
+    if (!ref) { setNote('⚠ Please set a branch, tag, or commit hash for this repository in Global Config.', 'err'); return; }
 
     const filePath  = pathEl.value.trim();
     const startLine = parseInt(startEl.value, 10);
     const endLine   = parseInt(endEl.value, 10);
-    if (!filePath)                          { setNote('⚠ Please enter a relative path.', 'err'); return; }
-    if (isNaN(startLine) || startLine < 1)  { setNote('⚠ Please enter a valid start line number.', 'err'); return; }
+    if (!filePath)                             { setNote('⚠ Please enter a relative path.', 'err'); return; }
+    if (isNaN(startLine) || startLine < 1)     { setNote('⚠ Please enter a valid start line number.', 'err'); return; }
     if (isNaN(endLine) || endLine < startLine) { setNote('⚠ End line must be ≥ start line.', 'err'); return; }
 
     okBtn.disabled = true;
@@ -3108,7 +3271,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1;
   S.sel = null; S.selLine = null; S.editing = null;
   S.multiSel.clear(); S.clipboard = [];
-  S.gitConfig = { url: '', branch: '', tag: '', commitHash: '' };
+  S.globalConfig = { description: '', repositories: [] };
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
   const _cl = document.getElementById('free-lines-layer');
   if (_cl) while (_cl.firstChild) _cl.removeChild(_cl.firstChild);
