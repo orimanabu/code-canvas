@@ -20,6 +20,7 @@ export function initDialogs(deps) {
   initFetchDialog();
   initCodeSnippetdDialog();
   initHelpDialog();
+  initAlertDialog();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -842,4 +843,28 @@ function initHelpDialog() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && overlay.style.display !== 'none') overlay.style.display = 'none';
   });
+}
+
+// ═══════════════════════════════════════════════════════
+// ALERT DIALOG
+// ═══════════════════════════════════════════════════════
+let _alertOverlay, _alertMsgEl;
+
+function initAlertDialog() {
+  _alertOverlay = document.getElementById('alert-dialog-overlay');
+  _alertMsgEl   = document.getElementById('alert-dialog-message');
+  const okBtn   = document.getElementById('alert-dialog-ok');
+
+  function close() { _alertOverlay.style.display = 'none'; }
+  okBtn.addEventListener('click', close);
+  _alertOverlay.addEventListener('click', e => { if (e.target === _alertOverlay) close(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && _alertOverlay.style.display !== 'none') close();
+  });
+}
+
+export function showAlert(message, type) {
+  _alertMsgEl.textContent = message;
+  _alertMsgEl.className = 'git-form-note' + (type ? ' ' + type : '');
+  _alertOverlay.style.display = 'flex';
 }

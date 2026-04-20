@@ -144,5 +144,11 @@ if (typeof document === 'undefined') {
     <div id="help-dialog-overlay" style="display:none;">
       <button id="help-close"></button>
     </div>
+
+    <!-- Alert Dialog -->
+    <div id="alert-dialog-overlay" style="display:none;">
+      <div id="alert-dialog-message" class="git-form-note"></div>
+      <button id="alert-dialog-ok"></button>
+    </div>
   `;
 }

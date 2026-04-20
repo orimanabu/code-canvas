@@ -17745,3 +17745,262 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ✻ Cooked for 19m 47s
 ```
+
+```
+❯ alert()を使っている箇所を、モーダルダイアログに変えることはできますか
+
+⏺ Explore(Find alert() usage and modal dialog patterns)
+  ⎿  Done (23 tool uses · 60.1k tokens · 1m 5s)
+  (ctrl+o to expand)
+
+⏺ Now let me read the relevant sections of canvas.js and canvas-dialogs.js to understand the exact patterns.
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ Now I have everything I need. Let me write the plan.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/humming-zooming-candy.md · /plan to edit
+     Plan: Replace alert() with Modal Dialogs
+
+     Context
+
+     Three alert() calls exist in canvas.js:
+     1. Line 2389 — data migration notification (pre-2.0 → current format)
+     2. Line 2400 — data migration notification (2.0 → 3.0 format)
+     3. Line 2591 — JSON import error
+
+     Native alert() is visually inconsistent with the app's existing modal dialog system. All three should be replaced with a lightweight info/error
+      modal that reuses the existing .git-dialog CSS classes, requiring no new styles.
+
+     Approach
+
+     1. canvas.html — add alert dialog HTML
+
+     Insert a new #alert-dialog-overlay element after the help dialog (before <div id="status">):
+
+     <!-- Alert / Notification Dialog -->
+     <div id="alert-dialog-overlay" style="display:none;">
+       <div class="git-dialog">
+         <div id="alert-dialog-message" class="git-form-note"></div>
+         <div class="git-form-buttons">
+           <button id="alert-dialog-ok">OK</button>
+         </div>
+       </div>
+     </div>
+
+     2. canvas-dialogs.js — add initAlertDialog() and export showAlert()
+
+     Add at the bottom of the file:
+
+     // Module-level reference for showAlert() use after init
+     let _alertOverlay, _alertMsgEl;
+
+     function initAlertDialog() {
+       _alertOverlay = document.getElementById('alert-dialog-overlay');
+       _alertMsgEl   = document.getElementById('alert-dialog-message');
+       const okBtn   = document.getElementById('alert-dialog-ok');
+
+       function close() { _alertOverlay.style.display = 'none'; }
+       okBtn.addEventListener('click', close);
+       _alertOverlay.addEventListener('click', e => { if (e.target === _alertOverlay) close(); });
+       document.addEventListener('keydown', e => {
+         if (e.key === 'Escape' && _alertOverlay.style.display !== 'none') close();
+       });
+     }
+
+     export function showAlert(message, type) {
+       _alertMsgEl.textContent = message;
+       _alertMsgEl.className = 'git-form-note' + (type ? ' ' + type : '');
+       _alertOverlay.style.display = 'flex';
+     }
+
+     Call initAlertDialog() inside initDialogs() (line 22, after initHelpDialog()).
+
+     3. canvas.js — import showAlert and replace alert() calls
+
+     Update import line 4:
+     import { initDialogs, showAlert } from './canvas-dialogs.js';
+
+     Replace:
+     - Line 2389: alert('The data format...') → showAlert('The data format...')
+     - Line 2400: alert('The data format...') → showAlert('The data format...')
+     - Line 2591: alert('Failed to load JSON: ' + err.message) → showAlert('Failed to load JSON: ' + err.message, 'err')
+
+     Critical files
+
+     - canvas.html — add dialog HTML (near line 324, before <div id="status">)
+     - canvas-dialogs.js — add initAlertDialog(), export showAlert()
+     - canvas.js — update import, replace 3 alert() calls (lines 2389, 2400, 2591)
+
+     No CSS changes needed
+
+     The dialog uses existing classes: .git-dialog, .git-form-note, .git-form-buttons. The type parameter maps to existing modifier classes (err =
+     red, warn = orange, ok = green, none = gray).
+
+     Verification
+
+     1. Open canvas.html via a local HTTP server
+     2. Import a broken JSON file → error modal should appear (red styling) instead of native alert
+     3. Import a legacy-format JSON file (pre-2.0) → migration info modal should appear
+     4. Press Escape or click OK/outside to dismiss
+     5. Run npm test — existing tests should still pass (no logic changes)
+
+⏺ では実装します。3ファイルを順に変更します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 10 lines
+      321    <div class="link-ctx-sep"></div>
+      322    <button id="link-ctx-del">🗑 Delete link</button>
+      323  </div>
+      324 +<!-- Alert / Notification Dialog -->
+      325 +<div id="alert-dialog-overlay" style="display:none;">
+      326 +  <div class="git-dialog">
+      327 +    <div id="alert-dialog-message" class="git-form-note"></div>
+      328 +    <div class="git-form-buttons">
+      329 +      <button id="alert-dialog-ok">OK</button>
+      330 +    </div>
+      331 +  </div>
+      332 +</div>
+      333 +
+      334  <div id="status">Ready</div>
+      335
+      336  <script src="../ctags/build-wasm/ctags-wasm.js"></script>
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line
+      20    initFetchDialog();
+      21    initCodeSnippetdDialog();
+      22    initHelpDialog();
+      23 +  initAlertDialog();
+      24  }
+      25
+      26  // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 24 lines
+      844      if (e.key === 'Escape' && overlay.style.display !== 'none') overlay.style.display = 'none';
+      845    });
+      846  }
+      847 +
+      848 +// ═══════════════════════════════════════════════════════
+      849 +// ALERT DIALOG
+      850 +// ═══════════════════════════════════════════════════════
+      851 +let _alertOverlay, _alertMsgEl;
+      852 +
+      853 +function initAlertDialog() {
+      854 +  _alertOverlay = document.getElementById('alert-dialog-overlay');
+      855 +  _alertMsgEl   = document.getElementById('alert-dialog-message');
+      856 +  const okBtn   = document.getElementById('alert-dialog-ok');
+      857 +
+      858 +  function close() { _alertOverlay.style.display = 'none'; }
+      859 +  okBtn.addEventListener('click', close);
+      860 +  _alertOverlay.addEventListener('click', e => { if (e.target === _alertOverlay) close(); });
+      861 +  document.addEventListener('keydown', e => {
+      862 +    if (e.key === 'Escape' && _alertOverlay.style.display !== 'none') close();
+      863 +  });
+      864 +}
+      865 +
+      866 +export function showAlert(message, type) {
+      867 +  _alertMsgEl.textContent = message;
+      868 +  _alertMsgEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      869 +  _alertOverlay.style.display = 'flex';
+      870 +}
+
+⏺ Now update canvas.js:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS,
+      2           injectAnchor, splitHtmlLines, addLineNumbers,
+      3           roundedRectRayHit, anchorFpFromSide, edgePoint } from './canvas-utils.js';
+      4 -import { initDialogs } from './canvas-dialogs.js';
+      4 +import { initDialogs, showAlert } from './canvas-dialogs.js';
+      5
+      6  // ═══════════════════════════════════════════════════════
+      7  // STATE
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      2386        const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
+      2387        S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.comm
+            itHash || '' }];
+      2388      }
+      2389 -    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2389 +    showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2390    } else if (data.dataVersion < '3.0') {
+      2391      // migrate 2.0: globalConfig was single-repo object → repositories array
+      2392      const old = data.globalConfig;
+     ...
+      2397          S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.co
+            mmitHash || '' }];
+      2398        }
+      2399      }
+      2400 -    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2400 +    showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      2401    } else {
+      2402      if (data.globalConfig) {
+      2403        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2588        localStorage.setItem(STORAGE_KEY, ev.target.result);
+      2589        setStatus('Imported');
+      2590      } catch (err) {
+      2591 -      alert('Failed to load JSON: ' + err.message);
+      2591 +      showAlert('Failed to load JSON: ' + err.message, 'err');
+      2592      }
+      2593      e.target.value = '';
+      2594    };
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿   FAIL  tests/canvas-interactions.test.js [ tests/canvas-interactions.test.js ]
+     TypeError: Cannot read properties of null (reading 'addEventListener')
+      ❯ initAlertDialog canvas-dialogs.js:859:9
+     … +16 lines (ctrl+o to expand)
+
+⏺ The test environment (jsdom) doesn't have the new HTML elements. Let me check the test setup.
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 6 lines
+      144      <div id="help-dialog-overlay" style="display:none;">
+      145        <button id="help-close"></button>
+      146      </div>
+      147 +
+      148 +    <!-- Alert Dialog -->
+      149 +    <div id="alert-dialog-overlay" style="display:none;">
+      150 +      <div id="alert-dialog-message" class="git-form-note"></div>
+      151 +      <button id="alert-dialog-ok"></button>
+      152 +    </div>
+      153    `;
+      154  }
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿   ✓ tests/canvas-dom.test.js (48 tests) 1859ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 1899ms
+        ✓ Delete key > removes the selected node from state and DOM 564ms
+     … +6 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容のまとめ：
+
+  - canvas.html — #alert-dialog-overlay を追加（既存の .git-dialog CSS クラスを再利用）
+  - canvas-dialogs.js — initAlertDialog() と export function showAlert(message, type) を追加
+  - canvas.js — showAlert をインポートし、3箇所の alert() を置き換え
+    - 移行通知 (行 2389, 2400) → showAlert(...) （グレー）
+    - JSON インポートエラー (行 2591) → showAlert(..., 'err') （赤）
+  - tests/setup-dom.js — テスト用 DOM に新しいダイアログ要素を追加
+  - 新しい CSS は不要（既存クラスをそのまま活用）
+
+✻ Baked for 6m 40s
+```

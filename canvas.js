@@ -1,7 +1,7 @@
 import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS,
          injectAnchor, splitHtmlLines, addLineNumbers,
          roundedRectRayHit, anchorFpFromSide, edgePoint } from './canvas-utils.js';
-import { initDialogs } from './canvas-dialogs.js';
+import { initDialogs, showAlert } from './canvas-dialogs.js';
 
 // ═══════════════════════════════════════════════════════
 // STATE
@@ -2386,7 +2386,7 @@ function loadState(data) {
       const nickname = old.url.split('/').filter(Boolean).pop() || 'repo';
       S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.commitHash || '' }];
     }
-    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+    showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
   } else if (data.dataVersion < '3.0') {
     // migrate 2.0: globalConfig was single-repo object → repositories array
     const old = data.globalConfig;
@@ -2397,7 +2397,7 @@ function loadState(data) {
         S.globalConfig.repositories = [{ nickname, url: old.url, branch: old.branch || '', tag: old.tag || '', commitHash: old.commitHash || '' }];
       }
     }
-    alert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+    showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
   } else {
     if (data.globalConfig) {
       S.globalConfig.description = data.globalConfig.description || '';
@@ -2588,7 +2588,7 @@ document.getElementById('btn-import').addEventListener('change', e => {
       localStorage.setItem(STORAGE_KEY, ev.target.result);
       setStatus('Imported');
     } catch (err) {
-      alert('Failed to load JSON: ' + err.message);
+      showAlert('Failed to load JSON: ' + err.message, 'err');
     }
     e.target.value = '';
   };
