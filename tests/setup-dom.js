@@ -65,7 +65,19 @@ if (typeof document === 'undefined') {
       <button id="link-tip-link"></button>
       <button id="link-tip-newblock"></button>
     </div>
-    <div id="link-ctx"><button id="link-ctx-del"></button></div>
+    <div id="link-ctx">
+      <button id="link-ctx-del"></button>
+      <div id="link-ctx-colors"></div>
+      <div id="link-ctx-widths"></div>
+      <div id="link-ctx-dashes"></div>
+    </div>
+    <div id="line-ctx" style="display:none;">
+      <button id="line-ctx-del"></button>
+      <div id="line-ctx-colors"></div>
+      <div id="line-ctx-widths"></div>
+      <div id="line-ctx-dashes"></div>
+      <div id="line-ctx-shapes"></div>
+    </div>
     <div id="status"></div>
 
     <!-- Global Config Dialog -->

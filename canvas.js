@@ -2240,9 +2240,9 @@ let _suppressUndo = false;
 
 function snapshotForUndo() {
   return {
-    nodes: S.nodes.map(n => ({ ...n })),
-    links: S.links.map(l => ({ ...l })),
-    freeLines: S.freeLines.map(l => ({ ...l, points: l.points.map(p => ({ ...p })) })),
+    nodes: structuredClone(S.nodes),
+    links: structuredClone(S.links),
+    freeLines: structuredClone(S.freeLines),
     nid: S.nid, lid: S.lid, flid: S.flid,
   };
 }
@@ -2658,5 +2658,6 @@ if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
     copyNodes, cutNodes, pasteNodes, toggleMultiSel,
     addFreeLine, removeFreeLine,
     pushUndo, undo,
+    startEdit, stopEdit,
     s2c, zoom };
 }

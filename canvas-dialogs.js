@@ -821,6 +821,13 @@ function initCodeSnippetdDialog() {
 }
 
 // ═══════════════════════════════════════════════════════
+// TEST EXPORTS (Node.js / Vitest only — not used in browser)
+// ═══════════════════════════════════════════════════════
+if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
+  globalThis.__canvasDialogs = { resolveBranch, resolveTag, parseGitHubUrl, describeFetchError };
+}
+
+// ═══════════════════════════════════════════════════════
 // HELP DIALOG
 // ═══════════════════════════════════════════════════════
 function initHelpDialog() {

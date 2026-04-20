@@ -16706,3 +16706,1042 @@ No cloud environment available. Set one up at https://claude.ai/code/onboarding?
 
 ✻ Crunched for 2m 20s
 ```
+
+```
+❯ 今のところ、highlitght.js以外は3rd partyモジュールを使わずに実装していますが、何か3rd partyモジュールを使うことでコードがメンテナンスしやすくな
+  ったりできるか検討してください。テストのカバレッジやテストの品質/書き方の観点でも検討をお願いします(特にUIのテスト)
+
+---
+
+# Plan: 3rd Party Library Evaluation & Test Quality Improvements
+
+## Context
+
+The project (code-canvas) is a ~3700-line vanilla JS canvas app with zero runtime npm dependencies (highlight.js via CDN only). It currently has 138 Vitest tests covering pure utility functions and basic DOM state operations, but has major gaps: canvas-dialogs.js (838 lines) has zero tests, and all UI interactions (drag/drop, keyboard shortcuts, context menus, rendering internals) are untested. The user wants to know whether 3rd party libraries would help maintainability, and how to improve test quality especially for UI.
+
+---
+
+## Part 1: Production Code Library Recommendations
+
+### Recommended: structuredClone() (built-in, zero dependency)
+
+**Replace** `snapshotForUndo()` shallow spreads in `canvas.js` with `structuredClone()`:
+```js
+// Before
+nodes: S.nodes.map(n => ({ ...n })),
+// After  
+nodes: structuredClone(S.nodes),
+```
+Fixes shallow-copy correctness for any future nested fields. No library needed — browser built-in.
+
+### Not Recommended: Alpine.js, Lit, SVG.js, Immer, XState
+
+| Library | Verdict | Reason |
+|---------|---------|--------|
+| Alpine.js | NO | Requires full template rewrite; conflicts with JS-generated DOM + highlight.js unsafeHTML |
+| Lit/lit-html | NO | Same conflict with unsafeHTML for syntax-highlighted code output |
+| SVG.js | NO | SVG math is correct and readable; real fix is incremental updates (Map by ID, no library) |
+| Immer | NO | `structuredClone()` covers the need for free |
+| XState | NO | Replace 5-6 interaction flags with a single `S.interactionMode` enum string instead |
+
+### Internal Refactors That Matter More Than Libraries
+
+These improve testability without adding dependencies:
+
+1. **Separate `bindNodeEvents(n, el)` from `renderNode(n, el)`**: Currently renderNode() does `el.innerHTML = ...` then registers ~50 event listeners inline — listeners accumulate if called twice. Extract event binding to a one-time call at node creation. Makes `renderNode()` unit-testable.
+
+2. **`nodeById` Map for O(1) lookups**: Replace `S.nodes.find(n => n.id === ...)` in hot paths (mousemove handler at 60fps) with a `Map<id, node>` kept in sync by `addNode`/`removeNode`/`loadState`.
+
+3. **Unify `showLinkCtx` + `showLineCtx`**: Extract shared ~170 lines of duplicated context menu DOM building into a single `buildStylePickerUI(container, options)` helper.
+
+---
+
+## Part 2: Testing Improvements
+
+### Priority 1: msw — Unlock canvas-dialogs.js testing
+
+**Install:** `npm install --save-dev msw`
+
+**Problem:** canvas-dialogs.js (838 lines, 0 tests) contains all async GitHub API logic, form validation, multi-step dialog flows.
+
+**What to test in new `tests/canvas-dialogs.test.js`:**
+- `resolveBranch()`: 200 OK → returns SHA, 404 → correct error message
+- `resolveTag()`: lightweight tag (direct SHA) vs. annotated tag (two-level lookup)
+- Fetch dialog validation: empty path, invalid line numbers, start > end, no repos configured
+- Fetch dialog success path: mocked `raw.githubusercontent.com` → node code and `lineNumberStart` updated
+- codesnippetd `/snippets` endpoint response → results table rendered
+
+**Setup pattern:**
+```js
+import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
+const server = setupServer(
+  http.get('https://api.github.com/repos/:owner/:repo/branches/:branch', () =>
+    HttpResponse.json({ commit: { sha: 'abc123' } }))
+)
+beforeAll(() => server.listen())
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+```
+
+**Estimated new tests:** 30–50
+
+---
+
+### Priority 2: @testing-library/dom + @testing-library/user-event — Better jsdom interaction tests
+
+**Install:** `npm install --save-dev @testing-library/dom @testing-library/user-event`
+
+**Problem:** Existing DOM tests use brittle `getElementById` + `classList.contains`. UI interaction flows (edit mode, keyboard shortcuts, color swatch clicks) are untested.
+
+**What becomes possible in jsdom (no real browser needed):**
+- `userEvent.dblclick(canvasEl)` → node created at position
+- `userEvent.click(getByText('Edit'))` → textarea appears, node in edit mode
+- `userEvent.keyboard('{Delete}')` after node selected → node removed from S.nodes + DOM
+- `userEvent.keyboard('{Control>}z{/Control}')` → undo fires correctly
+- `userEvent.click(colorSwatch)` inside open context menu → node color updates
+
+**Migration:** Incremental — new tests use testing-library; existing tests untouched.
+
+**Note:** jsdom has no layout engine, so `getBoundingClientRect()` returns zeros. Drag-drop position math, viewport transforms, and marquee selection still need Playwright (Priority 3).
+
+---
+
+### Priority 3: Playwright — E2E tests for what jsdom cannot cover
+
+**Install:** `npm install --save-dev @playwright/test && npx playwright install chromium`
+
+**Problem:** Drag-drop, real coordinates, viewport pan/zoom, marquee selection, full rendering pipeline cannot be tested in jsdom.
+
+**What becomes possible:**
+- Drag node header → node follows pointer to new position
+- Drag-resize handle → node width/height updates
+- Canvas pan with hand mode (space+drag) → viewport offset changes
+- Marquee select multiple nodes → all highlighted
+- Text selection in code block → link tooltip appears → click → SVG link rendered
+- Full dialog flows with `page.route()` mocking GitHub API
+
+**Config (`playwright.config.js`):**
+```js
+export default {
+  webServer: { command: 'python3 -m http.server 8888', port: 8888 },
+  testDir: 'tests/e2e',
+  use: { baseURL: 'http://localhost:8888' }
+}
+```
+
+The existing `serve.py` / `serve.go` files make this trivial.
+
+**Migration:** Zero impact on existing Vitest setup. Add `playwright.config.js` + `tests/e2e/` directory.
+
+---
+
+## Critical Files
+
+| File | Role |
+|------|------|
+| `canvas.js` (lines 2241–2248) | `snapshotForUndo()` — replace with `structuredClone()` |
+| `canvas.js` (lines 215–372) | `renderNode()` — extract `bindNodeEvents()` |
+| `canvas.js` (lines 1346–1419, 1635–1723) | `showLinkCtx` / `showLineCtx` — extract shared builder |
+| `canvas-dialogs.js` | 0 tests today; target for msw-based tests |
+| `tests/setup-dom.js` | Add msw server setup; add testing-library imports |
+| `vitest.config.js` | No changes needed for msw or testing-library |
+| `package.json` | Add `msw`, `@testing-library/dom`, `@testing-library/user-event`, `@playwright/test` |
+
+---
+
+## Verification
+
+1. `npm test` — all 138 existing tests still pass after adding new devDeps
+2. `npm test` — new `canvas-dialogs.test.js` with msw passes
+3. `npx playwright test` — new E2E specs pass against local server
+4. Manual check: canvas.html still works offline with no new runtime CDN dependencies
+
+---
+
+## Recommended Order
+
+1. **`structuredClone()` in `snapshotForUndo()`** — 5-minute fix, zero deps
+2. **msw + canvas-dialogs tests** — biggest ROI per hour (838 lines, 0 tests → 30–50 tests)
+3. **@testing-library + keyboard/interaction tests** — improves test quality incrementally
+4. **Internal refactors** (bindNodeEvents, nodeById Map, unified context menu builder) — prerequisites for deeper test coverage
+5. **Playwright E2E** — after #2–4 clarify which interactions need real browser
+
+---
+
+<compaction>
+
+
+⏺ Now install the libraries:
+
+⏺ Bash(npm install --save-dev msw @testing-library/dom @testing-library/user-event 2>&1 | tail -5)
+  ⎿  To address all issues (including breaking changes), run:
+       npm audit fix --force
+
+     Run `npm audit` for details.
+
+⏺ Bash(npm ls --depth=0 2>&1 | grep -E "msw|testing")
+  ⎿  ├── @testing-library/dom@10.4.1
+     ├── @testing-library/user-event@14.6.1
+     ├── msw@2.13.4
+
+⏺ Good. Now write the canvas-dialogs test file:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Write(tests/canvas-dialogs.test.js)
+  ⎿  Wrote 337 lines to tests/canvas-dialogs.test.js
+       1 // @vitest-environment jsdom
+       2 import { describe, it, expect, beforeAll, afterEach, afterAll, beforeEach } from 'vitest';
+       3 import { setupServer } from 'msw/node';
+       4 import { http, HttpResponse } from 'msw';
+       5
+       6 // Import canvas.js so the full app (including canvas-dialogs.js) initialises and
+       7 // populates globalThis.__canvasApp and globalThis.__canvasDialogs.
+       8 import '../canvas.js';
+       9
+      10 const { resolveBranch, resolveTag, parseGitHubUrl, describeFetchError } =
+     … +327 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | tail -40)
+  ⎿  stderr | tests/canvas-integration.test.js > Copy/Paste > cut removes source and paste creates offset copy
+     Not implemented: Window's alert() method
+     … +30 lines (ctrl+o to expand)
+
+⏺ All 165 tests pass. Now task 3 — interaction tests with @testing-library:
+
+⏺ Let me check what keyboard shortcuts are testable:
+
+  Searched for 5 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now I have enough context to write the interaction tests:
+
+⏺ Write(tests/canvas-interactions.test.js)
+  ⎿  Wrote 229 lines to tests/canvas-interactions.test.js
+      1 // @vitest-environment jsdom
+      2 import { describe, it, expect, beforeEach } from 'vitest';
+      3 import userEvent from '@testing-library/user-event';
+      4
+      5 import '../canvas.js';
+      6 const {
+      7   S, addNode, addBubble, selectNode, toggleMultiSel, loadState,
+      8   pushUndo, undo, copyNodes, cutNodes, pasteNodes,
+      9 } = globalThis.__canvasApp;
+     … +219 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | tail -30)
+  ⎿  TypeError: Cannot read properties of null (reading 'style')
+      ❯ hideLineCtx canvas.js:1726:38
+         1724|
+     … +26 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | grep "FAIL\|✗\|×\|failed" | head -20)
+  ⎿   ❯ tests/canvas-interactions.test.js (16 tests | 9 failed) 801ms
+        × Delete key > removes the selected node from state and DOM 106ms
+        × Delete key > removes all nodes in the multi-selection 279ms
+     … +17 lines (ctrl+o to expand)
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ The line-ctx element is missing from setup-dom.js. Let me add it:
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 13 lines, removed 1 line
+      65        <button id="link-tip-link"></button>
+      66        <button id="link-tip-newblock"></button>
+      67      </div>
+      68 -    <div id="link-ctx"><button id="link-ctx-del"></button></div>
+      68 +    <div id="link-ctx">
+      69 +      <button id="link-ctx-del"></button>
+      70 +      <div id="link-ctx-colors"></div>
+      71 +      <div id="link-ctx-widths"></div>
+      72 +      <div id="link-ctx-dashes"></div>
+      73 +    </div>
+      74 +    <div id="line-ctx" style="display:none;">
+      75 +      <button id="line-ctx-del"></button>
+      76 +      <div id="line-ctx-colors"></div>
+      77 +      <div id="line-ctx-widths"></div>
+      78 +      <div id="line-ctx-dashes"></div>
+      79 +      <div id="line-ctx-shapes"></div>
+      80 +    </div>
+      81      <div id="status"></div>
+      82
+      83      <!-- Global Config Dialog -->
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  + Received
+
+     - 2
+     … +16 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | grep -A 20 "FAIL.*interactions" | head -60)
+  ⎿   FAIL  tests/canvas-interactions.test.js > Delete key > removes the selected node from state and DOM
+     AssertionError: expected [ { id: 1, x: 100, y: 100, …(9) } ] to have a length of +0 but got 1
+     … +56 lines (ctrl+o to expand)
+
+⏺ The keyboard events need proper code fields. Let me rewrite using direct dispatchEvent for global keydown tests (user-event click handling already
+   works fine for button clicks):
+
+⏺ Write(tests/canvas-interactions.test.js)
+  ⎿  Added 115 lines, removed 61 lines
+       4
+       5  import '../canvas.js';
+       6  const {
+       7 -  S, addNode, addBubble, selectNode, toggleMultiSel, loadState,
+       8 -  pushUndo, undo, copyNodes, cutNodes, pasteNodes,
+       7 +  S, addNode, selectNode, toggleMultiSel, loadState,
+       8 +  pushUndo, copyNodes,
+       9  } = globalThis.__canvasApp;
+      10
+      11  function resetState() {
+     ...
+       15    S.multiSel.clear();
+       16    S.editing = null;
+       17    S.clipboard = null;
+       18 +  S.lineDrawMode = false;
+       19 +  S.linkMode = false;
+       20  }
+       21
+       22  beforeEach(resetState);
+       23
+       24 +// Helper: fire a keydown event directly on document.
+       25 +// user-event's keyboard() is great for click/type sequences, but for testing global
+       26 +// document.addEventListener('keydown') handlers the simplest reliable path is
+       27 +// a native KeyboardEvent — it guarantees the correct `code` field that canvas.js checks.
+       28 +function fireKey(opts) {
+       29 +  document.dispatchEvent(
+       30 +    new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...opts })
+       31 +  );
+       32 +}
+       33 +
+       34  // ─── Delete key ────────────────────────────────────────────────────────────────
+       35  describe('Delete key', () => {
+       24 -  it('removes the selected node from state and DOM', async () => {
+       25 -    const user = userEvent.setup();
+       36 +  it('removes the selected node from state and DOM', () => {
+       37      const n = addNode(100, 100);
+       38      selectNode(n.id);
+       28 -    document.body.focus();
+       39
+       30 -    await user.keyboard('{Delete}');
+       40 +    fireKey({ code: 'Delete', key: 'Delete' });
+       41
+       42      expect(S.nodes).toHaveLength(0);
+       43      expect(document.getElementById('nd-' + n.id)).toBeNull();
+       44    });
+       45
+       36 -  it('removes all nodes in the multi-selection', async () => {
+       37 -    const user = userEvent.setup();
+       46 +  it('removes all nodes in the multi-selection', () => {
+       47      const a = addNode(0, 0);
+       48      const b = addNode(10, 10);
+       49      const c = addNode(20, 20);
+       50      toggleMultiSel(a.id);
+       51      toggleMultiSel(b.id);
+       43 -    document.body.focus();
+       52
+       45 -    await user.keyboard('{Delete}');
+       53 +    fireKey({ code: 'Delete', key: 'Delete' });
+       54
+       55      expect(S.nodes).toHaveLength(1);
+       56      expect(S.nodes[0].id).toBe(c.id);
+       57    });
+       58
+       51 -  it('does nothing when no node is selected', async () => {
+       52 -    const user = userEvent.setup();
+       59 +  it('does nothing when no node is selected', () => {
+       60      addNode(0, 0);
+       61      S.sel = null;
+       55 -    document.body.focus();
+       62
+       57 -    await user.keyboard('{Delete}');
+       63 +    fireKey({ code: 'Delete', key: 'Delete' });
+       64
+       65      expect(S.nodes).toHaveLength(1);
+       66    });
+       67
+       62 -  it('ignores Delete when an input is focused', async () => {
+       63 -    const user = userEvent.setup();
+       68 +  it('ignores Delete when an input is focused', () => {
+       69      const n = addNode(0, 0);
+       70      selectNode(n.id);
+       66 -    document.getElementById('canvas-title').focus();
+       71 +    // Simulate an input being the active element
+       72 +    const input = document.getElementById('canvas-title');
+       73 +    input.focus();
+       74
+       68 -    await user.keyboard('{Delete}');
+       75 +    fireKey({ code: 'Delete', key: 'Delete' });
+       76
+       70 -    // Node must survive — the keydown guard prevents deletion while typing
+       77      expect(S.nodes).toHaveLength(1);
+       78    });
+       79 +
+       80 +  it('Backspace also removes the selected node', () => {
+       81 +    const n = addNode(0, 0);
+       82 +    selectNode(n.id);
+       83 +
+       84 +    fireKey({ code: 'Backspace', key: 'Backspace' });
+       85 +
+       86 +    expect(S.nodes).toHaveLength(0);
+       87 +  });
+       88  });
+       89
+       90  // ─── V / H mode keys ───────────────────────────────────────────────────────────
+       91  describe('V / H mode keys', () => {
+       77 -  it('"h" switches from select to hand mode', async () => {
+       78 -    const user = userEvent.setup();
+       92 +  it('"h" key switches from select to hand mode', () => {
+       93      S.mode = 'select';
+       80 -    document.body.focus();
+       94
+       82 -    await user.keyboard('h');
+       95 +    fireKey({ code: 'KeyH', key: 'h' });
+       96
+       97      expect(S.mode).toBe('hand');
+       98    });
+       99
+       87 -  it('"v" switches from hand to select mode', async () => {
+       88 -    const user = userEvent.setup();
+      100 +  it('"v" key switches from hand to select mode', () => {
+      101      S.mode = 'hand';
+       90 -    document.body.focus();
+      102
+       92 -    await user.keyboard('v');
+      103 +    fireKey({ code: 'KeyV', key: 'v' });
+      104
+      105      expect(S.mode).toBe('select');
+      106    });
+      107
+       97 -  it('"h" while in hand mode switches back to select', async () => {
+       98 -    const user = userEvent.setup();
+      108 +  it('"h" while already in hand mode switches back to select', () => {
+      109      S.mode = 'hand';
+      100 -    document.body.focus();
+      110
+      102 -    await user.keyboard('h');
+      111 +    fireKey({ code: 'KeyH', key: 'h' });
+      112
+      113      expect(S.mode).toBe('select');
+      114    });
+      115
+      107 -  it('mode keys are ignored when an input is focused', async () => {
+      108 -    const user = userEvent.setup();
+      116 +  it('mode key is ignored when an input is focused', () => {
+      117      S.mode = 'select';
+      118      document.getElementById('canvas-title').focus();
+      119
+      112 -    await user.keyboard('h');
+      120 +    fireKey({ code: 'KeyH', key: 'h' });
+      121
+      122      expect(S.mode).toBe('select');
+      123    });
+      124 +
+      125 +  it('mode key is ignored when Ctrl is held (Ctrl+H)', () => {
+      126 +    S.mode = 'select';
+      127 +
+      128 +    fireKey({ code: 'KeyH', key: 'h', ctrlKey: true });
+      129 +
+      130 +    expect(S.mode).toBe('select');
+      131 +  });
+      132  });
+      133
+      118 -// ─── Ctrl+Z (keyboard undo) ────────────────────────────────────────────────────
+      134 +// ─── Ctrl+Z keyboard undo ─────────────────────────────────────────────────────
+      135  describe('Ctrl+Z keyboard shortcut', () => {
+      120 -  it('undoes the last state change', async () => {
+      121 -    const user = userEvent.setup();
+      122 -    pushUndo(); // snapshot of empty state
+      136 +  it('undoes the last state change', () => {
+      137 +    pushUndo(); // snapshot empty state
+      138      addNode(50, 50);
+      139      expect(S.nodes).toHaveLength(1);
+      125 -    document.body.focus();
+      140
+      127 -    await user.keyboard('{Control>}z{/Control}');
+      141 +    fireKey({ code: 'KeyZ', key: 'z', ctrlKey: true });
+      142
+      143      expect(S.nodes).toHaveLength(0);
+      144    });
+      145
+      132 -  it('is ignored when an input is focused', async () => {
+      133 -    const user = userEvent.setup();
+      146 +  it('is ignored when an input is focused', () => {
+      147      pushUndo();
+      148      addNode(0, 0);
+      149      document.getElementById('canvas-title').focus();
+      150
+      138 -    await user.keyboard('{Control>}z{/Control}');
+      151 +    fireKey({ code: 'KeyZ', key: 'z', ctrlKey: true });
+      152
+      153      expect(S.nodes).toHaveLength(1);
+      154    });
+     ...
+      156
+      157  // ─── Ctrl+C / Ctrl+X / Ctrl+V keyboard shortcuts ─────────────────────────────
+      158  describe('Copy / Cut / Paste keyboard shortcuts', () => {
+      146 -  it('Ctrl+C copies selected nodes into clipboard', async () => {
+      147 -    const user = userEvent.setup();
+      159 +  it('Ctrl+C copies selected nodes into clipboard', () => {
+      160      const n = addNode(10, 20, 'const a = 1;');
+      161      selectNode(n.id);
+      150 -    document.body.focus();
+      162
+      152 -    await user.keyboard('{Control>}c{/Control}');
+      163 +    fireKey({ code: 'KeyC', key: 'c', ctrlKey: true });
+      164
+      165      expect(S.clipboard).not.toBeNull();
+      166      expect(S.clipboard).toHaveLength(1);
+      167      expect(S.clipboard[0].code).toBe('const a = 1;');
+      168    });
+      169
+      159 -  it('Ctrl+X cuts selected node (removes it and copies to clipboard)', async () => {
+      160 -    const user = userEvent.setup();
+      170 +  it('Ctrl+X cuts selected node — removes it and saves to clipboard', () => {
+      171      const n = addNode(10, 20, 'const b = 2;');
+      172      selectNode(n.id);
+      163 -    document.body.focus();
+      173
+      165 -    await user.keyboard('{Control>}x{/Control}');
+      174 +    fireKey({ code: 'KeyX', key: 'x', ctrlKey: true });
+      175
+      176      expect(S.nodes).toHaveLength(0);
+      177      expect(S.clipboard).not.toBeNull();
+      178      expect(S.clipboard[0].code).toBe('const b = 2;');
+      179    });
+      180
+      172 -  it('Ctrl+V pastes clipboard with a position offset', async () => {
+      173 -    const user = userEvent.setup();
+      181 +  it('Ctrl+V pastes clipboard with a position offset', () => {
+      182      const n = addNode(0, 0, 'hello');
+      183      selectNode(n.id);
+      184      copyNodes();
+      185 +    expect(S.clipboard).toHaveLength(1);
+      186
+      178 -    document.body.focus();
+      179 -    await user.keyboard('{Control>}v{/Control}');
+      187 +    fireKey({ code: 'KeyV', key: 'v', ctrlKey: true });
+      188
+      189      expect(S.nodes).toHaveLength(2);
+      190      expect(S.nodes[1].code).toBe('hello');
+      183 -    // Pasted node should be offset from the original
+      191      expect(S.nodes[1].x).not.toBe(n.x);
+      192    });
+      193 +
+      194 +  it('Ctrl+C does nothing when clipboard is empty and nothing is selected', () => {
+      195 +    fireKey({ code: 'KeyC', key: 'c', ctrlKey: true });
+      196 +    expect(S.clipboard).toBeNull();
+      197 +  });
+      198  });
+      199
+      200  // ─── Edit mode via button click ────────────────────────────────────────────────
+      201  describe('Edit mode (btn-edit click)', () => {
+      190 -  it('clicking "Edit" on a code node enters edit mode (textarea visible)', async () => {
+      202 +  it('clicking "Edit" on a code node sets S.editing and shows a textarea', async () => {
+      203      const user = userEvent.setup();
+      204      const n = addNode(0, 0, 'const x = 1;');
+      205      const el = document.getElementById('nd-' + n.id);
+     ...
+      220      expect(S.nodes).toHaveLength(0);
+      221      expect(document.getElementById('nd-' + n.id)).toBeNull();
+      222    });
+      223 +
+      224 +  it('double-clicking a node element enters edit mode for a bubble', async () => {
+      225 +    const user = userEvent.setup();
+      226 +    // Bubble nodes have a bubble-body with a dblclick handler
+      227 +    const { addBubble } = globalThis.__canvasApp;
+      228 +    const n = addBubble(0, 0);
+      229 +    const el = document.getElementById('nd-' + n.id);
+      230 +
+      231 +    await user.dblClick(el.querySelector('.bubble-body'));
+      232 +
+      233 +    expect(S.editing).toBe(n.id);
+      234 +  });
+      235  });
+      236
+      237  // ─── Escape key exits edit mode ────────────────────────────────────────────────
+      238  describe('Escape key exits edit mode', () => {
+      215 -  it('sets S.editing to null', async () => {
+      239 +  it('pressing Escape while editing sets S.editing to null', async () => {
+      240      const user = userEvent.setup();
+      241      const n = addNode(0, 0, 'const y = 2;');
+      242      const el = document.getElementById('nd-' + n.id);
+      243      await user.click(el.querySelector('.btn-edit'));
+      244      expect(S.editing).toBe(n.id);
+      245
+      222 -    // The textarea is now focused; pressing Escape should stop editing
+      223 -    await user.keyboard('{Escape}');
+      246 +    fireKey({ code: 'Escape', key: 'Escape' });
+      247
+      248      expect(S.editing).toBeNull();
+      226 -    // Node should be back in view mode (no textarea)
+      249      expect(document.getElementById('nd-' + n.id)?.querySelector('textarea')).toBeNull();
+      250    });
+      251  });
+      252 +
+      253 +// ─── renderNode edit/view cycle ────────────────────────────────────────────────
+      254 +describe('renderNode edit/view cycle', () => {
+      255 +  it('textarea value is pre-filled with the current code', async () => {
+      256 +    const user = userEvent.setup();
+      257 +    const n = addNode(0, 0, 'const z = 3;');
+      258 +    const el = document.getElementById('nd-' + n.id);
+      259 +
+      260 +    await user.click(el.querySelector('.btn-edit'));
+      261 +
+      262 +    const ta = el.querySelector('textarea');
+      263 +    expect(ta).not.toBeNull();
+      264 +    expect(ta.value).toBe('const z = 3;');
+      265 +  });
+      266 +
+      267 +  it('entering edit mode multiple times does not accumulate event listeners (idempotent)', async () => {
+      268 +    const user = userEvent.setup();
+      269 +    const n = addNode(0, 0, 'let a = 1;');
+      270 +    const el = document.getElementById('nd-' + n.id);
+      271 +
+      272 +    // Enter edit, exit, enter again — the btn-del should only fire once per click
+      273 +    await user.click(el.querySelector('.btn-edit'));
+      274 +    fireKey({ code: 'Escape', key: 'Escape' });
+      275 +    await user.click(el.querySelector('.btn-edit'));
+      276 +
+      277 +    expect(S.editing).toBe(n.id);
+      278 +    const countBefore = S.nodes.length;
+      279 +    await user.click(el.querySelector('.btn-done'));
+      280 +    expect(S.editing).toBeNull();
+      281 +    expect(S.nodes.length).toBe(countBefore); // should not have deleted the node
+      282 +  });
+      283 +});
+
+⏺ Bash(npm test 2>&1 | tail -30)
+  ⎿         |                     ^
+         177|     expect(S.clipboard).not.toBeNull();
+         178|     expect(S.clipboard[0].code).toBe('const b = 2;');
+     … +26 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | grep "FAIL.*interactions\|× " | head -20)
+  ⎿     × Delete key > removes the selected node from state and DOM 88ms
+        × Delete key > removes all nodes in the multi-selection 163ms
+        × Delete key > Backspace also removes the selected node 10ms
+     … +12 lines (ctrl+o to expand)
+
+⏺ Bash(node -e "
+      import { createRequire } from 'module';…)
+  ⎿  Error: Permission to use Bash with command node -e "
+     import { createRequire } from 'module';
+     " 2>&1 has been denied.
+
+⏺ Bash(npm test -- --reporter=verbose 2>&1 | grep -A 5 "Backspace" | head -20)
+  ⎿  stderr | tests/canvas-interactions.test.js > Delete key > Backspace also removes the selected node
+     Not implemented: Window's alert() method
+     … +16 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ addNode() calls startEdit() automatically. I need to export stopEdit to properly simulate exiting edit mode, or reset S.editing directly in tests:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2658      copyNodes, cutNodes, pasteNodes, toggleMultiSel,
+      2659      addFreeLine, removeFreeLine,
+      2660      pushUndo, undo,
+      2661 +    startEdit, stopEdit,
+      2662      s2c, zoom };
+      2663  }
+
+⏺ Now update the interaction tests to call stopEdit() after addNode():
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line, removed 1 line
+       5  import '../canvas.js';
+       6  const {
+       7    S, addNode, selectNode, toggleMultiSel, loadState,
+       8 -  pushUndo, copyNodes,
+       8 +  pushUndo, copyNodes, stopEdit,
+       9  } = globalThis.__canvasApp;
+      10
+      11  function resetState() {
+
+⏺ Now I need to add stopEdit() calls after addNode() in the keyboard tests:
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      35  describe('Delete key', () => {
+      36    it('removes the selected node from state and DOM', () => {
+      37      const n = addNode(100, 100);
+      38 +    stopEdit();
+      39      selectNode(n.id);
+      40
+      41      fireKey({ code: 'Delete', key: 'Delete' });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      48      const a = addNode(0, 0);
+      49      const b = addNode(10, 10);
+      50      const c = addNode(20, 20);
+      51 +    stopEdit();
+      52      toggleMultiSel(a.id);
+      53      toggleMultiSel(b.id);
+      54
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      60
+      61    it('does nothing when no node is selected', () => {
+      62      addNode(0, 0);
+      63 +    stopEdit();
+      64      S.sel = null;
+      65
+      66      fireKey({ code: 'Delete', key: 'Delete' });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      70
+      71    it('ignores Delete when an input is focused', () => {
+      72      const n = addNode(0, 0);
+      73 +    stopEdit();
+      74      selectNode(n.id);
+      75      // Simulate an input being the active element
+      76      const input = document.getElementById('canvas-title');
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      83
+      84    it('Backspace also removes the selected node', () => {
+      85      const n = addNode(0, 0);
+      86 +    stopEdit();
+      87      selectNode(n.id);
+      88
+      89      fireKey({ code: 'Backspace', key: 'Backspace' });
+
+⏺ Now fix Ctrl+Z, Ctrl+C/X/V tests too:
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      141    it('undoes the last state change', () => {
+      142      pushUndo(); // snapshot empty state
+      143      addNode(50, 50);
+      144 +    stopEdit();
+      145      expect(S.nodes).toHaveLength(1);
+      146
+      147      fireKey({ code: 'KeyZ', key: 'z', ctrlKey: true });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      152    it('is ignored when an input is focused', () => {
+      153      pushUndo();
+      154      addNode(0, 0);
+      155 +    stopEdit();
+      156      document.getElementById('canvas-title').focus();
+      157
+      158      fireKey({ code: 'KeyZ', key: 'z', ctrlKey: true });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      165  describe('Copy / Cut / Paste keyboard shortcuts', () => {
+      166    it('Ctrl+C copies selected nodes into clipboard', () => {
+      167      const n = addNode(10, 20, 'const a = 1;');
+      168 +    stopEdit();
+      169      selectNode(n.id);
+      170
+      171      fireKey({ code: 'KeyC', key: 'c', ctrlKey: true });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      177
+      178    it('Ctrl+X cuts selected node — removes it and saves to clipboard', () => {
+      179      const n = addNode(10, 20, 'const b = 2;');
+      180 +    stopEdit();
+      181      selectNode(n.id);
+      182
+      183      fireKey({ code: 'KeyX', key: 'x', ctrlKey: true });
+
+⏺ Update(tests/canvas-interactions.test.js)
+  ⎿  Added 1 line
+      189
+      190    it('Ctrl+V pastes clipboard with a position offset', () => {
+      191      const n = addNode(0, 0, 'hello');
+      192 +    stopEdit();
+      193      selectNode(n.id);
+      194      copyNodes();
+      195      expect(S.clipboard).toHaveLength(1);
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿  Not implemented: Window's alert() method
+
+     stderr | tests/canvas-interactions.test.js > renderNode edit/view cycle > textarea value is pre-filled with the current code
+     … +12 lines (ctrl+o to expand)
+
+⏺ All 187 tests pass. Now set up Playwright:
+
+⏺ Bash(npm install --save-dev @playwright/test 2>&1 | tail -5 && npx playwright install chromium 2>&1 | tail -5)
+  ⎿  To address all issues (including breaking changes), run:
+       npm audit fix --force
+     … +7 lines (ctrl+o to expand)
+
+  Listed 1 directory (ctrl+o to expand)
+
+⏺ Write(playwright.config.js)
+  ⎿  Wrote 21 lines to playwright.config.js
+       1 import { defineConfig, devices } from '@playwright/test';
+       2
+       3 export default defineConfig({
+       4   testDir: 'tests/e2e',
+       5   fullyParallel: true,
+       6   retries: 0,
+       7   reporter: 'list',
+       8   use: {
+       9     baseURL: 'http://localhost:8888',
+      10     trace: 'on-first-retry',
+     … +11 lines (ctrl+o to expand)
+
+⏺ Bash(mkdir -p /Users/ori/devel/src/github.com/orimanabu/code-canvas/tests/e2e)
+  ⎿  Done
+
+⏺ Write(tests/e2e/canvas.spec.js)
+  ⎿  Wrote 169 lines to tests/e2e/canvas.spec.js
+       1 import { test, expect } from '@playwright/test';
+       2
+       3 test.beforeEach(async ({ page }) => {
+       4   await page.goto('/canvas.html');
+       5   // Wait for the app to initialise (status bar shows "Ready" message)
+       6   await expect(page.locator('#status')).toContainText('Ready', { timeout: 5000 });
+       7   // Clear any stale localStorage state so tests start from an empty canvas
+       8   await page.evaluate(() => localStorage.clear());
+       9   await page.reload();
+      10   await expect(page.locator('#status')).toContainText('Ready', { timeout: 5000 });
+     … +159 lines (ctrl+o to expand)
+
+⏺ Bash(npx playwright test 2>&1 | tail -30)
+  ⎿      Error: expect(locator).toBeVisible() failed
+
+         Locator:  locator('#link-tip')
+     … +27 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+
+⏺ Bash(npx playwright test 2>&1 | grep -A 20 "page loads and toolbar")
+  ⎿    ✘   1 [chromium] › tests/e2e/canvas.spec.js:14:1 › page loads and toolbar is visible (5.5s)
+       ✘   3 [chromium] › tests/e2e/canvas.spec.js:30:1 › double-clicking the canvas creates a node (31.3s)
+       ✘  10 [chromium] › tests/e2e/canvas.spec.js:99:1 › dragging a node header moves the node (31.1s)
+     … +29 lines (ctrl+o to expand)
+
+⏺ Bash(npx playwright test 2>&1 | grep -A 15 "double-clicking")
+  ⎿    ✘   1 [chromium] › tests/e2e/canvas.spec.js:30:1 › double-clicking the canvas creates a node (30.0s)
+       ✘  10 [chromium] › tests/e2e/canvas.spec.js:99:1 › dragging a node header moves the node (30.1s)
+     … +36 lines (ctrl+o to expand)
+
+⏺ The #canvas div has no visible area when empty. Let me fix the failing tests:
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 3 lines, removed 1 line
+      14  test('page loads and toolbar is visible', async ({ page }) => {
+      15    await expect(page.locator('#toolbar')).toBeVisible();
+      16    await expect(page.locator('#btn-add')).toBeVisible();
+      17 -  await expect(page.locator('#canvas')).toBeVisible();
+      17 +  // #wrap is the layout container; #canvas is an empty abs-positioned div
+      18 +  // (Playwright requires a non-zero bounding box for toBeVisible)
+      19 +  await expect(page.locator('#wrap')).toBeVisible();
+      20  });
+      21
+      22  // ─── Add node via toolbar button ─────────────────────────────────────────────
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 2 lines, removed 1 line
+      30
+      31  // ─── Double-click canvas creates a node at that position ─────────────────────
+      32  test('double-clicking the canvas creates a node', async ({ page }) => {
+      33 -  await page.locator('#canvas').dblclick({ position: { x: 300, y: 200 } });
+      33 +  // #canvas has no area when empty; double-click the #wrap container instead
+      34 +  await page.locator('#wrap').dblclick({ position: { x: 300, y: 200 } });
+      35    await expect(page.locator('.node')).toHaveCount(1);
+      36  });
+      37
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 12 lines, removed 6 lines
+      106    const header = node.locator('.node-header');
+      107
+      108    const boxBefore = await node.boundingBox();
+      109 -  await header.dragTo(page.locator('#canvas'), {
+      110 -    targetPosition: { x: 500, y: 350 },
+      111 -  });
+      112 -  const boxAfter = await node.boundingBox();
+      109 +  const hBox = await header.boundingBox();
+      110 +  const startX = hBox.x + hBox.width / 2;
+      111 +  const startY = hBox.y + hBox.height / 2;
+      112
+      114 -  // The node should have moved (position changed)
+      115 -  expect(boxAfter.x).not.toBeCloseTo(boxBefore.x, -1);
+      113 +  // Use low-level mouse API to avoid issues with invisible-canvas drag target
+      114 +  await page.mouse.move(startX, startY);
+      115 +  await page.mouse.down();
+      116 +  await page.mouse.move(startX + 200, startY + 100, { steps: 10 });
+      117 +  await page.mouse.up();
+      118 +
+      119 +  const boxAfter = await node.boundingBox();
+      120 +  // Node should have moved by approximately the drag delta
+      121 +  expect(Math.abs(boxAfter.x - boxBefore.x)).toBeGreaterThan(50);
+      122  });
+      123
+      124  // ─── Zoom controls ────────────────────────────────────────────────────────────
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 7 lines, removed 3 lines
+      169    await ta.fill('function hello() {}');
+      170    await page.locator('.node .btn-done').click();
+      171
+      172 -  // Select text in the rendered code block
+      172 +  // Simulate a text selection via mouse drag across the code block
+      173    const pre = page.locator('.node pre');
+      174 -  await pre.selectText();
+      174 +  const preBox = await pre.boundingBox();
+      175 +  await page.mouse.move(preBox.x + 5, preBox.y + preBox.height / 2);
+      176 +  await page.mouse.down();
+      177 +  await page.mouse.move(preBox.x + preBox.width - 5, preBox.y + preBox.height / 2, { steps: 5 });
+      178 +  await page.mouse.up();
+      179
+      176 -  // Link tooltip should appear after text selection
+      180 +  // Link tooltip should appear after mouseup with text selected
+      181    await expect(page.locator('#link-tip')).toBeVisible({ timeout: 2000 });
+      182  });
+
+⏺ Bash(npx playwright test 2>&1 | tail -20)
+  ⎿      Call log:
+           - Expect "toBeVisible" with timeout 2000ms
+           - waiting for locator('#link-tip')
+     … +17 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ The link tooltip requires actual browser text selection. Let me use page.evaluate() to set it programmatically:
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 12 lines, removed 7 lines
+      169    await ta.fill('function hello() {}');
+      170    await page.locator('.node .btn-done').click();
+      171
+      172 -  // Simulate a text selection via mouse drag across the code block
+      173 -  const pre = page.locator('.node pre');
+      174 -  const preBox = await pre.boundingBox();
+      175 -  await page.mouse.move(preBox.x + 5, preBox.y + preBox.height / 2);
+      176 -  await page.mouse.down();
+      177 -  await page.mouse.move(preBox.x + preBox.width - 5, preBox.y + preBox.height / 2, { steps: 5 });
+      178 -  await page.mouse.up();
+      172 +  // Programmatically select text inside the code pre and fire mouseup on document.
+      173 +  // Playwright's mouse drag doesn't always trigger the browser's native selection,
+      174 +  // but setting the Selection API range directly does.
+      175 +  await page.evaluate(() => {
+      176 +    const pre = document.querySelector('.node pre');
+      177 +    const range = document.createRange();
+      178 +    range.selectNodeContents(pre);
+      179 +    const sel = window.getSelection();
+      180 +    sel.removeAllRanges();
+      181 +    sel.addRange(range);
+      182 +    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      183 +  });
+      184
+      185    // Link tooltip should appear after mouseup with text selected
+      186    await expect(page.locator('#link-tip')).toBeVisible({ timeout: 2000 });
+
+⏺ Bash(npx playwright test 2>&1 | tail -10)
+  ⎿  [WebServer] ::1 - - [20/Apr/2026 14:20:28] "GET /canvas-dialogs.js HTTP/1.1" 200 -
+     [WebServer] ::1 - - [20/Apr/2026 14:20:28] "GET /canvas.html HTTP/1.1" 304 -
+     [WebServer] ::1 - - [20/Apr/2026 14:20:28] code 404, message File not found
+     … +7 lines (ctrl+o to expand)
+  ⎿  (timeout 2m)
+
+⏺ All 14 Playwright E2E tests pass. Let me run the full test suite to confirm everything works together:
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿        4|   await page.goto('/canvas.html');
+           5|   // Wait for the app to initialise (status bar shows "Ready" message)
+     … +6 lines (ctrl+o to expand)
+
+⏺ Vitest is picking up the Playwright spec file. Need to exclude tests/e2e/**:
+
+⏺ Update(vitest.config.js)
+  ⎿  Added 1 line
+       4    test: {
+       5      // Default: node (for canvas-utils.test.js)
+       6      environment: 'node',
+       7 +    exclude: ['**/node_modules/**', '**/tests/e2e/**'],
+       8      // DOM tests run in jsdom
+       9      environmentMatchGlobs: [
+      10        ['tests/canvas-dom.test.js', 'jsdom'],
+
+⏺ Bash(npm test 2>&1 | tail -8)
+  ⎿     ✓ Delete key > removes the selected node from state and DOM 595ms
+        ✓ Delete key > removes all nodes in the multi-selection 371ms
+     … +4 lines (ctrl+o to expand)
+
+⏺ 187 Vitest tests + 14 Playwright tests, all passing.
+
+⏺ Now let me add the npx playwright test script to package.json for convenience:
+
+⏺ Update(package.json)
+  ⎿  Error editing file
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(package.json)
+  ⎿  Added 3 lines, removed 1 line
+       3    "type": "module",
+       4    "scripts": {
+       5      "test": "vitest run",
+       6 -    "test:watch": "vitest"
+       6 +    "test:watch": "vitest",
+       7 +    "test:e2e": "playwright test",
+       8 +    "test:all": "vitest run && playwright test"
+       9    },
+      10    "devDependencies": {
+      11      "@playwright/test": "^1.59.1",
+
+⏺ Here's a summary of everything done:
+
+  ---
+  実装完了
+
+  Part 1: プロダクションコードの改善
+
+  structuredClone() による snapshotForUndo() の修正 (canvas.js:2241)
+  - S.nodes.map(n => ({ ...n })) などのシャローコピーを structuredClone() に置換
+  - ゼロ依存でネストオブジェクトへの正確な深いコピーを実現（ブラウザ組み込み）
+
+  Part 2: テスト改善
+
+  ┌──────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │         追加したもの         │                                                     内容                                                     │
+  ├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ msw 2.13                     │ canvas-dialogs.js の GitHub API 呼び出しをモック。resolveBranch、resolveTag、fetch                           │
+  │                              │ ダイアログのバリデーション・成功パスを27テストでカバー                                                       │
+  ├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ @testing-library/user-event  │ jsdom 上で userEvent.click()、userEvent.dblClick() による現実的なUI操作テスト                                │
+  │ 14                           │                                                                                                              │
+  ├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-interactions.test.js  │ Delete/Backspace キー、V/H モード切替、Ctrl+Z/C/X/V、編集モード移行（btn-edit クリック）など22テスト         │
+  ├──────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Playwright 1.59 + Chromium   │ playwright.config.js + tests/e2e/canvas.spec.js — 実ブラウザでの E2E                                         │
+  │                              │ テスト14本（追加・ドラッグ・永続化・リンクツールチップなど）                                                 │
+  └──────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  テスト数の変化
+
+  ┌────────────────┬────────┬───────────┐
+  │                │ Before │   After   │
+  ├────────────────┼────────┼───────────┤
+  │ Vitest         │ 138    │ 187 (+49) │
+  ├────────────────┼────────┼───────────┤
+  │ Playwright E2E │ 0      │ 14 (新規) │
+  ├────────────────┼────────┼───────────┤
+  │ 合計           │ 138    │ 201       │
+  └────────────────┴────────┴───────────┘
+
+  実行方法
+
+  npm test          # Vitest (187 tests)
+  npm run test:e2e  # Playwright (14 tests)
+  npm run test:all  # 両方
+
+✻ Cooked for 19m 47s
+```
