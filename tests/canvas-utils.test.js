@@ -150,32 +150,44 @@ describe('addLineNumbers', () => {
 
 // ─── injectAnchor ────────────────────────────────────────
 describe('injectAnchor', () => {
-  it('wraps matching text in a link-anchor span', () => {
-    const result = injectAnchor('hello world', 'world', 'link-1');
+  it('wraps matching text on line 2+ in a link-anchor span', () => {
+    const result = injectAnchor('first line\nhello world', 'world', 'link-1');
     expect(result).toContain('class="link-anchor"');
     expect(result).toContain('data-lid="link-1"');
     expect(result).toContain('world');
   });
 
-  it('does not alter surrounding text', () => {
-    const result = injectAnchor('hello world', 'world', 'x');
-    expect(result.startsWith('hello ')).toBe(true);
+  it('does not inject anchor on the first line', () => {
+    const result = injectAnchor('hello world', 'world', 'link-1');
+    expect(result).not.toContain('class="link-anchor"');
+    expect(result).toBe('hello world');
+  });
+
+  it('does not inject anchor when match is only on the first line', () => {
+    const result = injectAnchor('world\nsecond line', 'world', 'x');
+    expect(result).not.toContain('link-anchor');
+    expect(result.startsWith('world\n')).toBe(true);
+  });
+
+  it('does not alter surrounding text on line 2', () => {
+    const result = injectAnchor('line1\nhello world', 'world', 'x');
+    expect(result).toContain('hello ');
   });
 
   it('escapes special HTML characters in rawText', () => {
-    const result = injectAnchor('a &amp; b', '& b', 'x');
+    const result = injectAnchor('first\na &amp; b', '& b', 'x');
     expect(result).toContain('link-anchor');
   });
 
   it('does not modify HTML tags', () => {
-    const html = '<span class="kw">return</span>';
+    const html = 'first line\n<span class="kw">return</span>';
     const result = injectAnchor(html, 'return', 'y');
     expect(result).toContain('class="kw"');
     expect(result).toContain('class="link-anchor"');
   });
 
   it('leaves text unchanged when no match', () => {
-    const html = 'hello world';
+    const html = 'first line\nhello world';
     expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
   });
 });

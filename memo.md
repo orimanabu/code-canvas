@@ -18370,3 +18370,119 @@ The existing `serve.py` / `serve.go` files make this trivial.
   - Bubbles: テキスト内容でソート
   - Frames: label でソート
 ```
+
+```
+❯
+今の実装では、リンクを描画する際、リンク元のキーワードを正規表現で探していると思います。この際、ブロック内の1行目にはマッチしないようにしてください
+
+⏺ まず関連コードを確認します。
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ injectAnchor 関数の全体と splitHtmlLines を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ injectAnchor の修正方針が明確になりました。HTMLの最初の \n より前（1行目）はマッチ対象から除外するよう変更します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 16 lines
+      85  // and never inside an already-injected link-anchor span.
+      86  // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
+      87  // escape before building the regex pattern and use the escaped form in the replacement too.
+      88 +// Matches in the first line of the block (before the first \n) are intentionally skipped
+      89 +// so that function/type signatures at the top of a code block are never used as anchor points.
+      90  export function injectAnchor(html, rawText, linkId) {
+      91    const escapedText = esc(rawText);
+      92    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+     ...
+      103    // link-anchor spans are always leaf spans (no child tags), so a simple
+      104    // boolean toggle on open/close is sufficient.
+      105    let insideLinkAnchor = false;
+      106 +  // Skip the first line: do not inject anchors until we have seen the first \n.
+      107 +  let firstLinePassed = false;
+      108    return parts.map((p, i) => {
+      109      if (i % 2 === 1) { // tag segment
+      110        if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
+      111        else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
+      112        return p;
+      113      }
+      114 +    if (!firstLinePassed) {
+      115 +      const nlIdx = p.indexOf('\n');
+      116 +      if (nlIdx === -1) return p; // still on first line, no replacement
+      117 +      // The newline marks the end of the first line; only replace after it.
+      118 +      firstLinePassed = true;
+      119 +      const before = p.slice(0, nlIdx + 1);
+      120 +      const after  = p.slice(nlIdx + 1);                                                                                                       121 +      if (insideLinkAnchor) return p;
+      122 +      return before + after.replace(re, () =>
+      123 +        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+      124 +      );
+      125 +    }                                                                                                                                          126      if (insideLinkAnchor) return p; // skip text already owned by another anchor
+      127      return p.replace(re, () =>                                                                                                                 128        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+
+                                                             ⏺ テストを確認します。
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ 既存テストが単一行の入力を使っているため、新しい動作（1行目はスキップ）に合わせて更新が必要です。テストファイルを読み込みます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-utils.test.js)                                                                                                                  ⎿  Added 20 lines, removed 8 lines
+      150                                                                                                                                                 151  // ─── injectAnchor ────────────────────────────────────────
+      152  describe('injectAnchor', () => {                                                                                                               153 -  it('wraps matching text in a link-anchor span', () => {
+      154 -    const result = injectAnchor('hello world', 'world', 'link-1');                                                                             153 +  it('wraps matching text on line 2+ in a link-anchor span', () => {
+      154 +    const result = injectAnchor('first line\nhello world', 'world', 'link-1');
+      155      expect(result).toContain('class="link-anchor"');                                                                                           156      expect(result).toContain('data-lid="link-1"');
+      157      expect(result).toContain('world');                                                                                                         158    });
+      159                                                                                                                                                 160 -  it('does not alter surrounding text', () => {
+      161 -    const result = injectAnchor('hello world', 'world', 'x');                                                                                  162 -    expect(result.startsWith('hello ')).toBe(true);
+      160 +  it('does not inject anchor on the first line', () => {                                                                                       161 +    const result = injectAnchor('hello world', 'world', 'link-1');
+      162 +    expect(result).not.toContain('class="link-anchor"');                                                                                       163 +    expect(result).toBe('hello world');
+      164    });                                                                                                                                          165
+      166 +  it('does not inject anchor when match is only on the first line', () => {
+      167 +    const result = injectAnchor('world\nsecond line', 'world', 'x');
+      168 +    expect(result).not.toContain('link-anchor');
+      169 +    expect(result.startsWith('world\n')).toBe(true);
+      170 +  });
+      171 +
+      172 +  it('does not alter surrounding text on line 2', () => {
+      173 +    const result = injectAnchor('line1\nhello world', 'world', 'x');
+      174 +    expect(result).toContain('hello ');
+      175 +  });                                                                                                                                          176 +
+      177    it('escapes special HTML characters in rawText', () => {                                                                                     166 -    const result = injectAnchor('a &amp; b', '& b', 'x');
+      178 +    const result = injectAnchor('first\na &amp; b', '& b', 'x');                                                                               179      expect(result).toContain('link-anchor');
+      180    });                                                                                                                                          181
+      182    it('does not modify HTML tags', () => {                                                                                                      171 -    const html = '<span class="kw">return</span>';
+      183 +    const html = 'first line\n<span class="kw">return</span>';                                                                                 184      const result = injectAnchor(html, 'return', 'y');
+      185      expect(result).toContain('class="kw"');                                                                                                    186      expect(result).toContain('class="link-anchor"');
+      187    });                                                                                                                                          188
+      189    it('leaves text unchanged when no match', () => {                                                                                            178 -    const html = 'hello world';
+      190 +    const html = 'first line\nhello world';                                                                                                    191      expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+      192    });                                                                                                                                          193  });
+
+                                                                                                                                      ⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+     > test                                                                                                                                              > vitest run
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (66 tests) 22ms
+      ❯ tests/canvas-dom.test.js (0 test)
+     … +72 lines (ctrl+o to see all)
+
+⏺ canvas-utils.test.js の全66テストは通過しています。他の4つの失敗は今回の変更とは無関係（btn が null になるDOMセットアップの既存エラー）です。
+
+  変更内容をまとめると:
+
+  canvas-utils.js の injectAnchor:
+  - firstLinePassed フラグを追加
+  - テキストセグメントを処理する際、最初の \n が現れるまでは置換を行わない
+  - \n を含むセグメントでは \n より前の部分はスキップし、以降の部分のみ置換対象にする
+
+  これにより、コードブロックの1行目（例: 関数シグネチャや型宣言の行）はリンクアンカーの対象外になります。
+
+✻ Baked for 1m 21s
+```

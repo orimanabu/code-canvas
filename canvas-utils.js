@@ -85,6 +85,8 @@ export const NODE_COLORS = [
 // and never inside an already-injected link-anchor span.
 // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
 // escape before building the regex pattern and use the escaped form in the replacement too.
+// Matches in the first line of the block (before the first \n) are intentionally skipped
+// so that function/type signatures at the top of a code block are never used as anchor points.
 export function injectAnchor(html, rawText, linkId) {
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -101,11 +103,25 @@ export function injectAnchor(html, rawText, linkId) {
   // link-anchor spans are always leaf spans (no child tags), so a simple
   // boolean toggle on open/close is sufficient.
   let insideLinkAnchor = false;
+  // Skip the first line: do not inject anchors until we have seen the first \n.
+  let firstLinePassed = false;
   return parts.map((p, i) => {
     if (i % 2 === 1) { // tag segment
       if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
       else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
       return p;
+    }
+    if (!firstLinePassed) {
+      const nlIdx = p.indexOf('\n');
+      if (nlIdx === -1) return p; // still on first line, no replacement
+      // The newline marks the end of the first line; only replace after it.
+      firstLinePassed = true;
+      const before = p.slice(0, nlIdx + 1);
+      const after  = p.slice(nlIdx + 1);
+      if (insideLinkAnchor) return p;
+      return before + after.replace(re, () =>
+        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+      );
     }
     if (insideLinkAnchor) return p; // skip text already owned by another anchor
     return p.replace(re, () =>
