@@ -18486,3 +18486,74 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ✻ Baked for 1m 21s
 ```
+
+```
+❯ 今のテストコードに不備がないか確認してください
+
+  Searched for 3 patterns, read 7 files (ctrl+o to expand)
+
+⏺ テストを実際に実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (66 tests) 22ms
+      ❯ tests/canvas-integration.test.js (0 test)
+     … +66 lines (ctrl+o to see all)
+
+⏺ 原因が明確です。canvas.js の 2702 行目で btn-jump (Jump ナビゲーターボタン) の addEventListener が呼ばれていますが、setup-dom.js のモック HTML
+  にこのボタンが含まれていません。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ btn-jump ボタンが setup-dom.js のモック HTML に不足しています。追加します。
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line
+      47        <button id="btn-zoom-fit"></button>
+      48        <button id="btn-zoom-in"></button>
+      49        <input id="zoom-input">
+      50 +      <button id="btn-jump"></button>
+      51      </div>
+      52      <div id="wrap">
+      53        <svg id="svg-tails"></svg>
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全189テスト合格になりました。
+
+  問題の原因: 最近追加された「Jump」ナビゲーターボタン (btn-jump) が canvas.js の初期化IIFEで addEventListener                                        を呼んでいましたが、tests/setup-dom.js のモックHTML に <button id="btn-jump"> が含まれていなかったため、全JSOMテストスイートが TypeError: Cannot
+  read properties of null でクラッシュしていました。
+
+  修正内容: setup-dom.js のツールバー部分に <button id="btn-jump"></button> を追加しました。
+                                                                                                                                                    ✻ Cogitated for 52s
+                                                                                                                                                    ❯ ところでIIFEとは何ですか
+                                                                                                                                                    ⏺ IIFE (Immediately Invoked Function Expression) — 即時実行関数式です。
+
+  定義と同時に即座に実行される関数のことで、こういう形です:
+
+  (function () {
+    // ...
+  })();
+
+  または Arrow function版:
+  (() => {                                                                                                                                              // ...
+  })();
+  目的: スコープの隔離です。内部で宣言した変数 (const btn, let panel など) がグローバルスコープや他のコードに漏れないようにします。
+  今回のケースで言うと canvas.js:2624 の:
+                                                                                                                                                      // Navigator
+  (function () {                                                                                                                                        const btn = document.getElementById('btn-jump');
+    let panel = null;                                                                                                                                   // ...
+    btn.addEventListener('click', openNavigator);                                                                                                     })();  // ← 定義直後にここで実行される
+                                                                                                                                                      このコードはモジュールが読み込まれた瞬間に実行されます。そのため、テスト環境でも canvas.js を import した時点で走り、btn-jump 要素が DOM
+  になければ即クラッシュしていました。
+```

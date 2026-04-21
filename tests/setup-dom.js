@@ -47,6 +47,7 @@ if (typeof document === 'undefined') {
       <button id="btn-zoom-fit"></button>
       <button id="btn-zoom-in"></button>
       <input id="zoom-input">
+      <button id="btn-jump"></button>
     </div>
     <div id="wrap">
       <svg id="svg-tails"></svg>
