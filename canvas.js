@@ -2620,6 +2620,84 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   setStatus('Cleared');
 });
 
+// Navigator
+(function () {
+  const btn = document.getElementById('btn-jump');
+  let panel = null;
+
+  function closeNavigator() {
+    panel?.remove();
+    panel = null;
+    btn.classList.remove('active');
+  }
+
+  function openNavigator() {
+    if (panel) { closeNavigator(); return; }
+    btn.classList.add('active');
+
+    panel = document.createElement('div');
+    panel.id = 'navigator-panel';
+
+    const blocks = S.nodes.filter(n => !n.type);
+    const bubbles = S.nodes.filter(n => n.type === 'bubble');
+    const frames = S.nodes.filter(n => n.type === 'frame');
+
+    function makeItem(n, icon, label, sub) {
+      const div = document.createElement('div');
+      div.className = 'nav-item';
+      div.innerHTML =
+        `<span class="nav-icon">${icon}</span>` +
+        `<span class="nav-label">${label}</span>` +
+        (sub ? `<span class="nav-sub">${sub}</span>` : '');
+      div.addEventListener('click', () => { closeNavigator(); jumpTo(n.id); });
+      return div;
+    }
+
+    function addSection(title, nodes, icon, labelFn, subFn) {
+      const sec = document.createElement('div');
+      sec.className = 'nav-section';
+      sec.textContent = title;
+      panel.appendChild(sec);
+      if (nodes.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'nav-empty';
+        empty.textContent = 'None';
+        panel.appendChild(empty);
+      } else {
+        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), subFn?.(n))));
+      }
+    }
+
+    addSection('Blocks', blocks, '▣',
+      n => n.title || n.filePath || '(Untitled)',
+      n => n.lang || '');
+    const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
+    addSection('Bubbles', bubbles, '💬',
+      n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
+    const div2 = document.createElement('div'); div2.className = 'nav-divider'; panel.appendChild(div2);
+    addSection('Frames', frames, '⬜',
+      n => n.label || '(Untitled)');
+
+    // Position below the button
+    const rect = btn.getBoundingClientRect();
+    panel.style.top = (rect.bottom + 6) + 'px';
+    panel.style.left = rect.left + 'px';
+    document.body.appendChild(panel);
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('pointerdown', function onDown(e) {
+        if (!panel?.contains(e.target) && e.target !== btn) {
+          closeNavigator();
+          document.removeEventListener('pointerdown', onDown);
+        }
+      });
+    }, 0);
+  }
+
+  btn.addEventListener('click', openNavigator);
+})();
+
 initDialogs({
   S, wrap, canvasTitleEl,
   renderNode, ndEl, autoFitNode,

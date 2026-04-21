@@ -18146,3 +18146,196 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ✻ Cogitated for 39s
 ```
+
+```
+❯ ツールバーに新しいボタンを追加してください。ボタンを押すとcanvasで定義されたblock、bubble、frameのリストが現れ、リストの項目をクリックすると、該
+当するオブジェクトにジャンプする、という動きにしてください。ボタンのキャプションは何がよいでしょうか。Quick Jumpとか？
+
+⏺ "Quick Jump" は分かりやすいですね。他の候補としては：
+
+  - Navigator — IDE風で親しみやすい
+  - Jump To — 動詞で意図が明確
+  - Objects — シンプル
+  - ☰ List — アイコン付きでコンパクト
+
+  個人的には "Navigator" か "☰ Jump" あたりがツールバーに映えると思います。まず実装を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me check the CSS to understand how to style the new panel, and look at where the toolbar buttons are wired up in canvas.js.
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ これで全体像が把握できました。実装します。
+
+  方針：
+  - ボタン名は "☰ Navigator" — コンパクトで意図が明確
+  - ボタンクリックでドロップダウンパネルを表示（モーダルではなくフローティング）
+  - blocks / bubbles / frames をセクション分けしてリスト表示
+  - クリックで jumpTo() してパネルを閉じる
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ これで十分な情報が得られました。3ファイルを修正します。
+
+  1. canvas.html — ボタン追加
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      24    <button class="tb-btn" id="btn-add-line">― Line</button>
+      25    <div class="sep"></div>
+      26    <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
+      27 +  <button class="tb-btn" id="btn-navigator">☰ Navigator</button>
+      28    <div class="sep"></div>
+      29    <div class="zoom-ctrl">
+      30      <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#8722;</button>
+
+⏺ 2. canvas.css — Navigator パネルのスタイル追加
+
+                                                                                                    ⏺ Update(canvas.css)
+  ⎿  Added 26 lines
+      417  .tb-btn:hover { background: #30363d; }
+      418  .tb-btn.danger { border-color: #da3633; color: #f85149; }
+      419  .tb-btn.danger:hover { background: #3d1f1e; }                                                                                                  420 +.tb-btn.active { background: #1f6feb33; border-color: #388bfd; color: #58a6ff; }
+      421                                                                                                                                                 422 +/* ── Navigator panel ── */
+      423 +#navigator-panel {                                                                                                                             424 +  position: fixed;
+      425 +  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+      426 +  padding: 6px 0; min-width: 260px; max-height: 400px;
+      427 +  overflow-y: auto; z-index: 500;
+      428 +  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      429 +}
+      430 +.nav-section {
+      431 +  padding: 6px 12px 2px;
+      432 +  font-size: 10px; font-weight: 700; color: #484f58;                                                                                           433 +  text-transform: uppercase; letter-spacing: 0.6px;
+      434 +}                                                                                                                                              435 +.nav-item {
+      436 +  display: flex; align-items: center; gap: 8px;                                                                                                437 +  padding: 5px 14px; font-size: 12px; color: #c9d1d9;
+      438 +  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;                                                             439 +}
+      440 +.nav-item:hover { background: #21262d; color: #e6edf3; }
+      441 +.nav-item .nav-icon { font-size: 11px; flex-shrink: 0; }                                                                                       442 +.nav-item .nav-label { overflow: hidden; text-overflow: ellipsis; }
+      443 +.nav-item .nav-sub { color: #484f58; font-size: 11px; margin-left: auto; flex-shrink: 0; padding-left: 8px; }                                  444 +.nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
+      445 +.nav-divider { height: 1px; background: #21262d; margin: 4px 0; }                                                                              446 +
+      447  .zoom-ctrl {                                                                                                                                   448    display: flex; align-items: center; gap: 2px;
+      449  }
+⏺ 3. canvas.js — Navigator ロジック追加
+⏺ Update(canvas.js)                                                                                                                                   ⎿  Added 78 lines
+      2620    setStatus('Cleared');
+      2621  });
+      2622
+      2623 +// Navigator
+      2624 +(function () {
+      2625 +  const btn = document.getElementById('btn-navigator');
+      2626 +  let panel = null;
+      2627 +
+      2628 +  function closeNavigator() {
+      2629 +    panel?.remove();                                                                                                                          2630 +    panel = null;
+      2631 +    btn.classList.remove('active');                                                                                                           2632 +  }
+      2633 +                                                                                                                                              2634 +  function openNavigator() {
+      2635 +    if (panel) { closeNavigator(); return; }                                                                                                  2636 +    btn.classList.add('active');
+      2637 +                                                                                                                                              2638 +    panel = document.createElement('div');
+      2639 +    panel.id = 'navigator-panel';                                                                                                             2640 +
+      2641 +    const blocks = S.nodes.filter(n => !n.type);                                                                                              2642 +    const bubbles = S.nodes.filter(n => n.type === 'bubble');
+      2643 +    const frames = S.nodes.filter(n => n.type === 'frame');                                                                                   2644 +
+      2645 +    function makeItem(n, icon, label, sub) {                                                                                                  2646 +      const div = document.createElement('div');
+      2647 +      div.className = 'nav-item';                                                                                                             2648 +      div.innerHTML =
+      2649 +        `<span class="nav-icon">${icon}</span>` +                                                                                             2650 +        `<span class="nav-label">${label}</span>` +
+      2651 +        (sub ? `<span class="nav-sub">${sub}</span>` : '');                                                                                   2652 +      div.addEventListener('click', () => { closeNavigator(); jumpTo(n.id); });
+      2653 +      return div;                                                                                                                             2654 +    }
+      2655 +                                                                                                                                              2656 +    function addSection(title, nodes, icon, labelFn, subFn) {
+      2657 +      const sec = document.createElement('div');      2658 +      sec.className = 'nav-section';
+      2659 +      sec.textContent = title;
+      2660 +      panel.appendChild(sec);
+      2661 +      if (nodes.length === 0) {
+      2662 +        const empty = document.createElement('div');
+      2663 +        empty.className = 'nav-empty';
+      2664 +        empty.textContent = 'None';
+      2665 +        panel.appendChild(empty);
+      2666 +      } else {
+      2667 +        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), subFn?.(n))));
+      2668 +      }
+      2669 +    }
+      2670 +
+      2671 +    addSection('Blocks', blocks, '▣',
+      2672 +      n => n.title || n.filePath || '(Untitled)',
+      2673 +      n => n.lang || '');
+      2674 +    const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
+      2675 +    addSection('Bubbles', bubbles, '💬',
+      2676 +      n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
+      2677 +    const div2 = document.createElement('div'); div2.className = 'nav-divider'; panel.appendChild(div2);
+      2678 +    addSection('Frames', frames, '⬜',
+      2679 +      n => n.label || '(Untitled)');
+      2680 +
+      2681 +    // Position below the button
+      2682 +    const rect = btn.getBoundingClientRect();
+      2683 +    panel.style.top = (rect.bottom + 6) + 'px';
+      2684 +    panel.style.left = rect.left + 'px';
+      2685 +    document.body.appendChild(panel);
+      2686 +
+      2687 +    // Close on outside click
+      2688 +    setTimeout(() => {
+      2689 +      document.addEventListener('pointerdown', function onDown(e) {
+      2690 +        if (!panel?.contains(e.target) && e.target !== btn) {
+      2691 +          closeNavigator();
+      2692 +          document.removeEventListener('pointerdown', onDown);
+      2693 +        }
+      2694 +      });
+      2695 +    }, 0);
+      2696 +  }
+      2697 +
+      2698 +  btn.addEventListener('click', openNavigator);
+      2699 +})();
+      2700 +
+      2701  initDialogs({
+      2702    S, wrap, canvasTitleEl,
+      2703    renderNode, ndEl, autoFitNode,
+
+⏺ 実装完了です。動作をまとめます：
+
+  - ボタン名: ☰ Navigator — ツールバーの「⎇ Global Config」の隣に配置
+  - パネル: ボタン直下にドロップダウン表示（モーダルではないので、他のノードを見ながら操作可能）
+  - 3セクション: Blocks / Bubbles / Frames に分けてリスト表示
+    - Block: title → filePath → "(Untitled)" の順で名前を解決、右端に言語名
+    - Bubble: テキストの先頭40文字
+    - Frame: label
+  - クリック: 該当ノードにジャンプし選択状態にして、パネルを閉じる
+  - パネル外クリック: 自動で閉じる
+  - ボタンはアクティブ中に青くハイライト
+
+✻ Worked for 1m 16s
+
+❯ ボタン名をNavigatorからJumpに変えてください
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line, removed 1 line
+      24    <button class="tb-btn" id="btn-add-line">― Line</button>
+      25    <div class="sep"></div>
+      26    <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
+      27 -  <button class="tb-btn" id="btn-navigator">☰ Navigator</button>                                                                           
+   ── 27 +  <button class="tb-btn" id="btn-navigator">☰ Jump</button>                                                                        ──────
+      28    <div class="sep"></div>
+      29    <div class="zoom-ctrl">
+      30      <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#8722;</button>
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2622
+      2623  // Navigator
+      2624  (function () {
+      2625 -  const btn = document.getElementById('btn-navigator');
+      2625 +  const btn = document.getElementById('btn-jump');
+      2626    let panel = null;
+      2627
+      2628    function closeNavigator() {
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line, removed 1 line
+      24    <button class="tb-btn" id="btn-add-line">― Line</button>
+      25    <div class="sep"></div>
+      26    <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
+      27 -  <button class="tb-btn" id="btn-navigator">☰ Jump</button>
+      27 +  <button class="tb-btn" id="btn-jump">☰ Jump</button>
+      28    <div class="sep"></div>
+      29    <div class="zoom-ctrl">
+      30      <button class="zoom-btn" id="btn-zoom-out" title="Zoom out">&#8722;</button>
+
+⏺ ボタン名を ☰ Jump に変更し、IDも btn-navigator → btn-jump に合わせました。
+```

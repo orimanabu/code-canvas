@@ -417,6 +417,32 @@ kbd {
 .tb-btn:hover { background: #30363d; }
 .tb-btn.danger { border-color: #da3633; color: #f85149; }
 .tb-btn.danger:hover { background: #3d1f1e; }
+.tb-btn.active { background: #1f6feb33; border-color: #388bfd; color: #58a6ff; }
+
+/* ── Navigator panel ── */
+#navigator-panel {
+  position: fixed;
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  padding: 6px 0; min-width: 260px; max-height: 400px;
+  overflow-y: auto; z-index: 500;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.nav-section {
+  padding: 6px 12px 2px;
+  font-size: 10px; font-weight: 700; color: #484f58;
+  text-transform: uppercase; letter-spacing: 0.6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 14px; font-size: 12px; color: #c9d1d9;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-item:hover { background: #21262d; color: #e6edf3; }
+.nav-item .nav-icon { font-size: 11px; flex-shrink: 0; }
+.nav-item .nav-label { overflow: hidden; text-overflow: ellipsis; }
+.nav-item .nav-sub { color: #484f58; font-size: 11px; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
+.nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
+.nav-divider { height: 1px; background: #21262d; margin: 4px 0; }
 
 .zoom-ctrl {
   display: flex; align-items: center; gap: 2px;
