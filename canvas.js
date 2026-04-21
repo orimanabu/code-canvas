@@ -2638,9 +2638,13 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     panel = document.createElement('div');
     panel.id = 'navigator-panel';
 
-    const blocks = S.nodes.filter(n => !n.type);
-    const bubbles = S.nodes.filter(n => n.type === 'bubble');
-    const frames = S.nodes.filter(n => n.type === 'frame');
+    const cmp = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+    const blocks = S.nodes.filter(n => !n.type)
+      .sort((a, b) => cmp(a.title || a.filePath || '', b.title || b.filePath || ''));
+    const bubbles = S.nodes.filter(n => n.type === 'bubble')
+      .sort((a, b) => cmp(a.text || '', b.text || ''));
+    const frames = S.nodes.filter(n => n.type === 'frame')
+      .sort((a, b) => cmp(a.label || '', b.label || ''));
 
     function makeItem(n, icon, label, sub) {
       const div = document.createElement('div');

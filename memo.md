@@ -18339,3 +18339,34 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ⏺ ボタン名を ☰ Jump に変更し、IDも btn-navigator → btn-jump に合わせました。
 ```
+
+```
+❯ Jumpを押して出てくるリストは、セクションごとにソートしてください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 7 lines, removed 3 lines
+      2638      panel = document.createElement('div');
+      2639      panel.id = 'navigator-panel';
+      2640
+      2641 -    const blocks = S.nodes.filter(n => !n.type);
+      2642 -    const bubbles = S.nodes.filter(n => n.type === 'bubble');
+      2643 -    const frames = S.nodes.filter(n => n.type === 'frame');
+      2641 +    const cmp = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+      2642 +    const blocks = S.nodes.filter(n => !n.type)
+      2643 +      .sort((a, b) => cmp(a.title || a.filePath || '', b.title || b.filePath || ''));
+      2644 +    const bubbles = S.nodes.filter(n => n.type === 'bubble')
+      2645 +      .sort((a, b) => cmp(a.text || '', b.text || ''));
+      2646 +    const frames = S.nodes.filter(n => n.type === 'frame')
+      2647 +      .sort((a, b) => cmp(a.label || '', b.label || ''));
+      2648
+      2649      function makeItem(n, icon, label, sub) {
+      2650        const div = document.createElement('div');
+
+⏺ 各セクションをアルファベット順（大文字小文字を区別しない）にソートするようにしました：
+
+  - Blocks: title → filePath の順で名前を取り、ソート
+  - Bubbles: テキスト内容でソート
+  - Frames: label でソート
+```
