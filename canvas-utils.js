@@ -88,7 +88,13 @@ export const NODE_COLORS = [
 export function injectAnchor(html, rawText, linkId) {
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re  = new RegExp(pat, 'g');
+  // Add word-boundary assertions on whichever sides of the pattern begin/end
+  // with a word character (\w).  This prevents "start" from matching the
+  // "start" prefix inside "startNoPodLock" while still matching "start()" or
+  // "start" when surrounded by non-word characters.
+  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+  const re  = new RegExp(prefix + pat + suffix, 'g');
   // split on HTML tags
   const parts = html.split(/(<[^>]*>)/);
   // Track whether we are currently inside an existing link-anchor span.

@@ -18119,3 +18119,30 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ✻ Churned for 3m 40s
 ```
+
+```
+❯ あるブロック内のstartという関数からリンクを作成したのですが、同じブロック内の上の方にあるstartNoPodLockという文字列の"start"の部分からリンクが描  画されてしまいました。start()からリンクを描画するようにしてください
+                                                                                                                                                      Read 1 file (ctrl+o to expand)
+                                                                                                                                                    ⏺ 問題は injectAnchor の正規表現に単語境界(\b)がないため、start が startNoPodLock
+  の先頭にもマッチしてしまうことです。選択テキストの先頭・末尾が単語文字(\w)のときに \b アサーションを付ける修正を行います。
+⏺ Update(canvas-utils.js)                                                                                                                             ⎿  Added 7 lines, removed 1 line
+       88  export function injectAnchor(html, rawText, linkId) {                                                                                           89    const escapedText = esc(rawText);
+       90    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');                                                                               91 -  const re  = new RegExp(pat, 'g');
+       91 +  // Add word-boundary assertions on whichever sides of the pattern begin/end                                                                   92 +  // with a word character (\w).  This prevents "start" from matching the
+       93 +  // "start" prefix inside "startNoPodLock" while still matching "start()" or                                                                   94 +  // "start" when surrounded by non-word characters.
+       95 +  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';                                                                         96 +  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+       97 +  const re  = new RegExp(prefix + pat + suffix, 'g');                                                                                           98    // split on HTML tags
+       99    const parts = html.split(/(<[^>]*>)/);                                                                                                       100    // Track whether we are currently inside an existing link-anchor span.
+
+                                                                 ⏺ 動作を確認しておきます：
+
+                                                                                                                            ┌────────────────┬────────────────────┬─────────────────────────────────┬──────────────────┐
+  │  選択テキスト  │ 生成される正規表現 │    startNoPodLock にマッチ？    │ start にマッチ？ │                                                        ├────────────────┼────────────────────┼─────────────────────────────────┼──────────────────┤
+  │ start          │ \bstart\b          │ ✗（tの後にNが続くため境界なし） │ ✓                │                                                        ├────────────────┼────────────────────┼─────────────────────────────────┼──────────────────┤
+  │ start()        │ \bstart\(\)        │ ✗（(が期待されるがNが来る）     │ ✓                │                                                        ├────────────────┼────────────────────┼─────────────────────────────────┼──────────────────┤
+  │ startNoPodLock │ \bstartNoPodLock\b │ ✓                               │ ✗                │                                                        └────────────────┴────────────────────┴─────────────────────────────────┴──────────────────┘
+
+  先頭・末尾の文字が \w（英数字・アンダースコア）のときだけ \b を付けるので、記号で始まる・終わる選択テキスト（例：->field）にも正しく対応します。
+
+✻ Cogitated for 39s
+```
