@@ -2607,6 +2607,9 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
   const _cl = document.getElementById('free-lines-layer');
   if (_cl) while (_cl.firstChild) _cl.removeChild(_cl.firstChild);
+  canvasTitleEl.value = 'Untitled canvas';
+  document.title = '∞ Code Canvas';
+  resizeCanvasTitleInput();
   setStatus('Cleared');
 });
 

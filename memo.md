@@ -18004,3 +18004,32 @@ The existing `serve.py` / `serve.go` files make this trivial.
 
 ✻ Baked for 6m 40s
 ```
+
+```
+❯ "Clear"ボタンを押した際、Canvas Titleもクリアしてください
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now let me find where the Canvas Title is managed.
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ Now I can see the Clear button handler at line 2599. I need to add canvas title reset there.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines
+      2607    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      2608    const _cl = document.getElementById('free-lines-layer');
+      2609    if (_cl) while (_cl.firstChild) _cl.removeChild(_cl.firstChild);
+      2610 +  canvasTitleEl.value = 'Untitled canvas';
+      2611 +  document.title = '∞ Code Canvas';
+      2612 +  resizeCanvasTitleInput();
+      2613    setStatus('Cleared');
+      2614  });
+      2615
+
+⏺ Clearボタン押下時に、Canvas Titleを 'Untitled canvas' にリセットし、ページタイトルも '∞ Code Canvas'
+  に戻すよう修正しました（canvas.js:2610-2612）。
+```
