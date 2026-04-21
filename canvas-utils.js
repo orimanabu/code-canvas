@@ -81,7 +81,8 @@ export const NODE_COLORS = [
   { id: 'pink',   label: 'Pink',   hex: '#f778ba', hexLight: '#ff9ed2', bgDark: '#29091b', bgMid: '#360d24', borderMid: '#6a2050', titleBg: 'rgba(247,120,186,0.15)', glow28: 'rgba(247,120,186,0.28)', glow42: 'rgba(247,120,186,0.42)' },
 ];
 
-// Replace first occurrence of `rawText` in HTML string, only inside text nodes (outside tags).
+// Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
+// and never inside an already-injected link-anchor span.
 // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
 // escape before building the regex pattern and use the escaped form in the replacement too.
 export function injectAnchor(html, rawText, linkId) {
@@ -90,8 +91,17 @@ export function injectAnchor(html, rawText, linkId) {
   const re  = new RegExp(pat, 'g');
   // split on HTML tags
   const parts = html.split(/(<[^>]*>)/);
+  // Track whether we are currently inside an existing link-anchor span.
+  // link-anchor spans are always leaf spans (no child tags), so a simple
+  // boolean toggle on open/close is sufficient.
+  let insideLinkAnchor = false;
   return parts.map((p, i) => {
-    if (i % 2 === 1) return p; // tag → pass through
+    if (i % 2 === 1) { // tag segment
+      if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
+      else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
+      return p;
+    }
+    if (insideLinkAnchor) return p; // skip text already owned by another anchor
     return p.replace(re, () =>
       `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
     );

@@ -129,7 +129,14 @@ function highlight(code, filePath) {
 function buildCodeHTML(code, nodeId) {
   const n = S.nodes.find(n => n.id === nodeId);
   let { html, lang } = highlight(code, n?.filePath);
-  const nodeLinks = S.links.filter(l => l.fromId === nodeId);
+  // Sort by descending text length so longer anchors are injected first.
+  // This prevents a shorter substring (e.g. "newContainerEvent") from being
+  // wrapped before a longer string that contains it
+  // (e.g. "newContainerEventWithInspectData"), which would cause the longer
+  // string's injection to fail because its text no longer forms a contiguous
+  // run in the HTML.
+  const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+                            .sort((a, b) => b.text.length - a.text.length);
   for (const lnk of nodeLinks) {
     html = injectAnchor(html, lnk.text, lnk.id);
   }

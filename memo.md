@@ -18033,3 +18033,89 @@ The existing `serve.py` / `serve.go` files make this trivial.
 ⏺ Clearボタン押下時に、Canvas Titleを 'Untitled canvas' にリセットし、ページタイトルも '∞ Code Canvas'
   に戻すよう修正しました（canvas.js:2610-2612）。
 ```
+
+```
+❯ コードブロック内の文字列を選択してリンク元にする際、正規表現でマッチしていると思いますが、そのマッチのさせ方を改善したいです。具体的には、あるコ
+ードブロックで `newContainerEvent` という文字列からリンクを作成した状態で、`newContainerEventWithInspectData`からリンクを作成しようとすると、部分文
+字列の"newContainerEvent"ですでにリンクが作成されているため、リンク元がnewContainerEventWithInspectDataの文字列ではなくブロックノードになってしまい
+ます。この場合でもリンク元をnewContainerEventWithInspectDataにするよう修正してください
+
+  Searched for 3 patterns, read 2 files (ctrl+o to expand)
+
+⏺ Now I understand the issue. In buildCodeHTML, links are injected in their stored order. If newContainerEvent was created first, its injectAnchor
+  call wraps that text in a span. When newContainerEventWithInspectData is processed next, injectAnchor can't find it as a contiguous text run
+  because newContainerEvent is now inside a tag, so the injection fails and the link falls back to a node-edge arrow.
+
+  The fix is two-part:
+  1. Sort links by text length descending in buildCodeHTML — so longer strings are anchored first
+  2. Skip text inside existing link-anchor spans in injectAnchor — so the shorter newContainerEvent doesn't get double-anchored inside the longer
+  span
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 12 lines, removed 2 lines
+      81    { id: 'pink',   label: 'Pink',   hex: '#f778ba', hexLight: '#ff9ed2', bgDark: '#29091b', bgMid: '#360d24', borderMid: '#6a2050',
+          titleBg: 'rgba(247,120,186,0.15)', glow28: 'rgba(247,120,186,0.28)', glow42: 'rgba(247,120,186,0.42)' },
+      82  ];
+      83
+      84 -// Replace first occurrence of `rawText` in HTML string, only inside text nodes (outside tags).
+      84 +// Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
+      85 +// and never inside an already-injected link-anchor span.
+      86  // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
+      87  // escape before building the regex pattern and use the escaped form in the replacement too.
+      88  export function injectAnchor(html, rawText, linkId) {
+     ...
+       91    const re  = new RegExp(pat, 'g');
+       92    // split on HTML tags
+       93    const parts = html.split(/(<[^>]*>)/);
+       94 +  // Track whether we are currently inside an existing link-anchor span.
+       95 +  // link-anchor spans are always leaf spans (no child tags), so a simple
+       96 +  // boolean toggle on open/close is sufficient.
+       97 +  let insideLinkAnchor = false;
+       98    return parts.map((p, i) => {
+       94 -    if (i % 2 === 1) return p; // tag → pass through
+       99 +    if (i % 2 === 1) { // tag segment
+      100 +      if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
+      101 +      else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
+      102 +      return p;
+      103 +    }
+      104 +    if (insideLinkAnchor) return p; // skip text already owned by another anchor
+      105      return p.replace(re, () =>
+      106        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+      107      );
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines, removed 1 line
+      129  function buildCodeHTML(code, nodeId) {
+      130    const n = S.nodes.find(n => n.id === nodeId);
+      131    let { html, lang } = highlight(code, n?.filePath);
+      132 -  const nodeLinks = S.links.filter(l => l.fromId === nodeId);
+      132 +  // Sort by descending text length so longer anchors are injected first.
+      133 +  // This prevents a shorter substring (e.g. "newContainerEvent") from being
+      134 +  // wrapped before a longer string that contains it
+      135 +  // (e.g. "newContainerEventWithInspectData"), which would cause the longer
+      136 +  // string's injection to fail because its text no longer forms a contiguous
+      137 +  // run in the HTML.
+      138 +  const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+      139 +                            .sort((a, b) => b.text.length - a.text.length);
+      140    for (const lnk of nodeLinks) {
+      141      html = injectAnchor(html, lnk.text, lnk.id);
+      142    }
+
+⏺ 修正完了です。変更点は2箇所です。
+
+  canvas-utils.js — injectAnchor
+  既存の link-anchor スパン内のテキストをスキップするように変更しました。link-anchor
+  スパンはリーフ要素（子タグなし）なので、開閉タグでフラグを切り替えるだけで正確に追跡できます。
+
+  canvas.js — buildCodeHTML
+  リンクをテキスト長の降順でソートしてから注入するようにしました。これにより newContainerEventWithInspectData（長い方）が
+  newContainerEvent（短い方）より先に処理され、長い文字列がHTMLとして連続したテキストノードとして存在する段階で確実にアンカーが注入されます。
+
+  この2つの変更の組み合わせで問題が解消されます：
+  - 長い文字列が先にアンカー化される → 正しく動作
+  - 短い文字列の注入時は既存の link-anchor スパン内をスキップ → 不正なネストや二重アンカーを防ぐ
+
+✻ Churned for 3m 40s
+```
