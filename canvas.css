@@ -246,6 +246,13 @@ body {
 }
 .link-anchor:hover { background: rgba(56,139,253,0.35); }
 
+.tail-anchor {
+  background: rgba(57,197,207,0.18);
+  border-bottom: 1.5px solid #39c5cf;
+  border-radius: 2px; padding: 0 1px;
+}
+.tail-anchor:hover { background: rgba(57,197,207,0.35); }
+
 /* ── SVG links ── */
 .link-path {
   fill: none;
@@ -500,6 +507,22 @@ kbd {
 }
 #anchor-ctx button:hover { background: #1f6feb; color: #fff; }
 
+#tail-anchor-ctx {
+  position: fixed; z-index: 300;
+  background: #061a1d; border: 1px solid #144a50;
+  border-radius: 6px; padding: 4px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.55);
+  display: none; white-space: nowrap;
+  pointer-events: auto;
+}
+#tail-anchor-ctx button {
+  display: block; width: 100%;
+  background: none; border: none; color: #56d4dd;
+  padding: 6px 14px; font-size: 12px; text-align: left;
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+#tail-anchor-ctx button:hover { background: #39c5cf; color: #0d1117; }
+
 /* ── Status bar ── */
 #status {
   position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
@@ -518,6 +541,17 @@ body.link-mode .node { cursor: pointer !important; }
 body.link-mode .node:hover {
   border-color: #3fb950 !important;
   box-shadow: 0 0 0 3px rgba(63,185,80,0.22) !important;
+}
+
+/* ── Tail attach mode ── */
+body.tail-attach-mode #status {
+  background: #061a1d; border-color: #39c5cf; color: #39c5cf;
+}
+body.tail-attach-mode #wrap { cursor: crosshair !important; }
+body.tail-attach-mode .bubble-node { cursor: pointer !important; }
+body.tail-attach-mode .bubble-node:hover {
+  border-color: #39c5cf !important;
+  box-shadow: 0 0 0 3px rgba(57,197,207,0.22) !important;
 }
 
 /* ── Mode indicator ── */

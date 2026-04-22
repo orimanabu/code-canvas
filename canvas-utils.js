@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
-export const DATA_VERSION = '3.0';
+export const DATA_VERSION = '3.1';
 
 // ═══════════════════════════════════════════════════════
 // UTILS
@@ -126,6 +126,41 @@ export function injectAnchor(html, rawText, linkId) {
     if (insideLinkAnchor) return p; // skip text already owned by another anchor
     return p.replace(re, () =>
       `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+    );
+  }).join('');
+}
+
+// Inject a tail-anchor span around all occurrences of rawText in highlighted HTML.
+// Structurally identical to injectAnchor but uses class="tail-anchor" and data-taid.
+export function injectTailAnchor(html, rawText, taid) {
+  const escapedText = esc(rawText);
+  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+  const re  = new RegExp(prefix + pat + suffix, 'g');
+  const parts = html.split(/(<[^>]*>)/);
+  let insideAnchor = false;
+  let firstLinePassed = false;
+  return parts.map((p, i) => {
+    if (i % 2 === 1) { // tag segment
+      if (/^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/.test(p)) insideAnchor = true;
+      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      return p;
+    }
+    if (!firstLinePassed) {
+      const nlIdx = p.indexOf('\n');
+      if (nlIdx === -1) return p;
+      firstLinePassed = true;
+      const before = p.slice(0, nlIdx + 1);
+      const after  = p.slice(nlIdx + 1);
+      if (insideAnchor) return p;
+      return before + after.replace(re, () =>
+        `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
+      );
+    }
+    if (insideAnchor) return p;
+    return p.replace(re, () =>
+      `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
     );
   }).join('');
 }

@@ -1,5 +1,5 @@
 import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS,
-         injectAnchor, splitHtmlLines, addLineNumbers,
+         injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
          roundedRectRayHit, anchorFpFromSide, edgePoint } from './canvas-utils.js';
 import { initDialogs, showAlert } from './canvas-dialogs.js';
 
@@ -12,6 +12,7 @@ const S = {
   vp: { x: 0, y: 0, scale: 1 },
   nid: 1,   // next node id
   lid: 1,   // next link id
+  taid: 1,  // next tail-anchor id
   sel: null,        // selected node id
   multiSel: new Set(), // multi-selected node ids (Shift+click)
   editing: null,    // editing node id
@@ -22,6 +23,8 @@ const S = {
   spaceDown: false,
   mode: 'select',   // 'select' | 'hand'
   linkMode: false,
+  tailAttachMode: false,
+  tailPending: null,  // { fromId, text } — set while waiting for user to click a bubble
   clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
   pending: null,    // { fromId, text }
   globalConfig: { description: '', repositories: [] },
@@ -47,12 +50,15 @@ const svgTails    = document.getElementById('svg-tails');
 const linkTip        = document.getElementById('link-tip');
 const linkTipLink    = document.getElementById('link-tip-link');
 const linkTipNewBlock = document.getElementById('link-tip-newblock');
+const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
 const anchorCtx         = document.getElementById('anchor-ctx');
 const anchorCtxLink     = document.getElementById('anchor-ctx-link');
 const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
 const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
+const tailAnchorCtx        = document.getElementById('tail-anchor-ctx');
+const tailAnchorCtxDetach  = document.getElementById('tail-anchor-ctx-detach');
 const linkCtxColors  = document.getElementById('link-ctx-colors');
 const linkCtxWidths  = document.getElementById('link-ctx-widths');
 const linkCtxDashes  = document.getElementById('link-ctx-dashes');
@@ -93,6 +99,7 @@ function applyVP() {
   wrap.style.backgroundPosition = `${x % gs}px ${y % gs}px`;
   renderLinks();
   renderFreeLines();
+  renderAnchoredBubbleTails();
   const zi = document.getElementById('zoom-input');
   if (zi && document.activeElement !== zi) zi.value = Math.round(scale * 100) + '%';
 }
@@ -143,6 +150,12 @@ function buildCodeHTML(code, nodeId) {
                             .sort((a, b) => b.text.length - a.text.length);
   for (const lnk of nodeLinks) {
     html = injectAnchor(html, lnk.text, lnk.id);
+  }
+  const tailBubbles = S.nodes
+    .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+    .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+  for (const tb of tailBubbles) {
+    html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId);
   }
   return { html, lang };
 }
@@ -314,6 +327,17 @@ function renderNode(n, el) {
     el.querySelector('.btn-del').addEventListener('click', e => {
       e.stopPropagation(); removeNode(n.id);
     });
+    el.querySelectorAll('.tail-anchor').forEach(a => {
+      a.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const taid = +a.dataset.taid;
+        const bubble = S.nodes.find(nb => nb.type === 'bubble' && nb.tailAnchorId === taid);
+        if (!bubble) return;
+        showTailAnchorCtx(bubble.id, e.clientX, e.clientY);
+      });
+    });
+
     el.querySelectorAll('.link-anchor').forEach(a => {
       a.addEventListener('click', e => {
         e.stopPropagation();
@@ -517,7 +541,16 @@ function renderBubbleTail(n) {
   const cy  = n.h / 2 - bord;
   const bl  = { x: -bord,        y: -bord        }; // outer top-left in SVG coords
   const br  = { x: n.w - bord,   y: n.h - bord   }; // outer bottom-right in SVG coords
-  const tip = { x: n.tailX - n.x - bord, y: n.tailY - n.y - bord };
+  let tipX = n.tailX, tipY = n.tailY;
+  if (n.tailAnchorId != null) {
+    const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+    if (anchorEl) {
+      const r = anchorEl.getBoundingClientRect();
+      const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+      tipX = cp.x; tipY = cp.y;
+    }
+  }
+  const tip = { x: tipX - n.x - bord, y: tipY - n.y - bord };
   const r   = Math.min(14, n.w / 2, n.h / 2);
 
   // Exact intersection of center→tip ray with the rounded border + tangent there
@@ -573,6 +606,22 @@ function renderBubbleTail(n) {
   handle.addEventListener('mousedown', e => {
     e.stopPropagation(); e.preventDefault();
     pushUndo();
+    // Detach from anchor on drag start — freeze current position as free coords
+    if (n.tailAnchorId != null) {
+      const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+      if (anchorEl) {
+        const r = anchorEl.getBoundingClientRect();
+        const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+        n.tailX = cp.x; n.tailY = cp.y;
+      }
+      const oldFromId = n.tailAnchorFromId;
+      n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      if (oldFromId != null) {
+        const cn = S.nodes.find(c => c.id === oldFromId);
+        if (cn) renderNode(cn);
+      }
+      scheduleSave();
+    }
     S.tailDrag = { id: n.id, otailX: n.tailX, otailY: n.tailY };
   });
   g.appendChild(handle);
@@ -589,6 +638,7 @@ function addBubble(x, y) {
     tailX: x + 100, tailY: y + 140,
     color: 'green',
     showTail: true,
+    tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
   };
   S.nodes.push(n);
   const el = document.createElement('div');
@@ -604,6 +654,29 @@ function addBubble(x, y) {
   _suppressUndo = false;
   scheduleSave();
   return n;
+}
+
+function renderAnchoredBubbleTails() {
+  for (const n of S.nodes) {
+    if (n.type === 'bubble' && n.tailAnchorId != null && n.showTail !== false)
+      renderBubbleTail(n);
+  }
+}
+
+function attachTailToText(bubbleNode, fromId, text) {
+  pushUndo();
+  const oldFromId = bubbleNode.tailAnchorFromId;
+  bubbleNode.tailAnchorId     = S.taid++;
+  bubbleNode.tailAnchorText   = text;
+  bubbleNode.tailAnchorFromId = fromId;
+  const codeNode = S.nodes.find(n => n.id === fromId);
+  if (codeNode) renderNode(codeNode);
+  if (oldFromId != null && oldFromId !== fromId) {
+    const oldNode = S.nodes.find(n => n.id === oldFromId);
+    if (oldNode) renderNode(oldNode);
+  }
+  renderBubbleTail(bubbleNode);
+  scheduleSave();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -813,6 +886,16 @@ function setupNodeEvents(n, el) {
       return;
     }
 
+    // ── tail-attach-mode: clicking a bubble attaches its tail ──
+    if (S.tailAttachMode) {
+      if (S.tailPending && n.type === 'bubble') {
+        attachTailToText(n, S.tailPending.fromId, S.tailPending.text);
+        exitTailAttachMode();
+      }
+      e.stopPropagation();
+      return;
+    }
+
     // Ctrl/Cmd + drag = zoom (let it bubble to wrap handler)
     if (e.ctrlKey || e.metaKey) return;
 
@@ -973,20 +1056,38 @@ function clearMultiSel() {
 
 function removeNode(id) {
   pushUndo();
+  const removed = S.nodes.find(n => n.id === id);
+
   // Collect source nodes whose link-anchor spans must be cleared
   const affectedFromIds = S.links
     .filter(l => l.toId === id)
     .map(l => l.fromId);
 
+  // If removing a bubble with a tail anchor, re-render the code node to clear the span
+  if (removed?.type === 'bubble' && removed.tailAnchorFromId != null) {
+    if (!affectedFromIds.includes(removed.tailAnchorFromId))
+      affectedFromIds.push(removed.tailAnchorFromId);
+  }
+
   S.nodes = S.nodes.filter(n => n.id !== id);
   S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
+
+  // If removing a code node, clear tail anchors on bubbles that pointed into it
+  if (!removed?.type || removed.type === 'code') {
+    S.nodes.forEach(n => {
+      if (n.type === 'bubble' && n.tailAnchorFromId === id) {
+        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      }
+    });
+  }
+
   const el = ndEl(id);
   if (el) el.remove();
   if (S.sel === id)     S.sel = null;
   if (S.editing === id) S.editing = null;
   S.multiSel.delete(id);
 
-  // Re-render source nodes to remove stale link-anchor spans
+  // Re-render source nodes to remove stale link-anchor / tail-anchor spans
   affectedFromIds.forEach(fromId => {
     const fn = S.nodes.find(n => n.id === fromId);
     if (fn) renderNode(fn);
@@ -1115,6 +1216,8 @@ function pasteNodes() {
       if (n.type === 'bubble') {
         n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
         n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+        // Pasted bubbles start with a free tail — no anchor collision risk
+        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
       }
       S.nodes.push(n);
       const el = document.createElement('div');
@@ -1327,6 +1430,23 @@ function exitLinkMode() {
 }
 
 // ═══════════════════════════════════════════════════════
+// TAIL ATTACH MODE
+// ═══════════════════════════════════════════════════════
+function enterTailAttachMode(fromId, text) {
+  S.tailAttachMode = true;
+  S.tailPending = { fromId, text };
+  document.body.classList.add('tail-attach-mode');
+  setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
+}
+
+function exitTailAttachMode() {
+  S.tailAttachMode = false;
+  S.tailPending = null;
+  document.body.classList.remove('tail-attach-mode');
+  setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+}
+
+// ═══════════════════════════════════════════════════════
 // LINK CONTEXT MENU
 // ═══════════════════════════════════════════════════════
 const LINK_COLORS = [
@@ -1495,6 +1615,37 @@ function hideAnchorCtx() {
 
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('#anchor-ctx')) hideAnchorCtx();
+});
+
+// ── Tail-anchor context menu (right-click on tail-anchor span) ──
+function showTailAnchorCtx(bubbleId, x, y) {
+  tailAnchorCtxDetach.onclick = () => {
+    hideTailAnchorCtx();
+    const bubble = S.nodes.find(n => n.id === bubbleId && n.type === 'bubble');
+    if (!bubble) return;
+    pushUndo();
+    const oldFromId = bubble.tailAnchorFromId;
+    bubble.tailAnchorId = null; bubble.tailAnchorText = null; bubble.tailAnchorFromId = null;
+    if (oldFromId != null) {
+      const cn = S.nodes.find(n => n.id === oldFromId);
+      if (cn) renderNode(cn);
+    }
+    renderBubbleTail(bubble);
+    scheduleSave();
+  };
+  tailAnchorCtx.style.display = 'block';
+  const cw = tailAnchorCtx.offsetWidth || 200;
+  const ch = tailAnchorCtx.offsetHeight || 40;
+  tailAnchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+  tailAnchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+}
+
+function hideTailAnchorCtx() {
+  tailAnchorCtx.style.display = 'none';
+}
+
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('#tail-anchor-ctx')) hideTailAnchorCtx();
 });
 
 // ═══════════════════════════════════════════════════════
@@ -1839,7 +1990,7 @@ wrap.addEventListener('mousemove', e => {
 // TEXT SELECTION → LINK
 // ═══════════════════════════════════════════════════════
 document.addEventListener('mouseup', e => {
-  if (S.linkMode) return;
+  if (S.linkMode || S.tailAttachMode) return;
 
   const sel  = window.getSelection();
   const text = sel?.toString().trim();
@@ -1882,6 +2033,13 @@ document.addEventListener('mouseup', e => {
     renderLinks();
     selectNode(newNode.id);
     startEdit(newNode.id);
+  };
+
+  linkTipAttachTail.style.display = '';
+  linkTipAttachTail.onclick = () => {
+    sel.removeAllRanges();
+    linkTip.style.display = 'none';
+    enterTailAttachMode(fromId, text);
   };
 });
 
@@ -2022,7 +2180,7 @@ document.addEventListener('mousemove', e => {
         if (mn) {
           mn.x = ox + dx;
           mn.y = oy + dy;
-          if (mn.type === 'bubble' && otailX !== undefined) {
+          if (mn.type === 'bubble' && otailX !== undefined && !mn.tailAnchorId) {
             mn.tailX = otailX + dx;
             mn.tailY = otailY + dy;
           }
@@ -2036,7 +2194,7 @@ document.addEventListener('mousemove', e => {
       if (n) {
         n.x = S.drag.ox + dx;
         n.y = S.drag.oy + dy;
-        if (n.type === 'bubble' && S.drag.otailX !== undefined) {
+        if (n.type === 'bubble' && S.drag.otailX !== undefined && !n.tailAnchorId) {
           n.tailX = S.drag.otailX + dx;
           n.tailY = S.drag.otailY + dy;
         }
@@ -2045,6 +2203,7 @@ document.addEventListener('mousemove', e => {
       }
     }
     renderLinks();
+    renderAnchoredBubbleTails();
   } else if (S.tailDrag) {
     const n = S.nodes.find(n => n.id === S.tailDrag.id);
     if (n) {
@@ -2089,6 +2248,7 @@ document.addEventListener('mousemove', e => {
       }
       if (n.type === 'bubble') renderBubbleTail(n);
       renderLinks();
+      renderAnchoredBubbleTails();
     }
   } else if (S.marquee) {
     S.marquee.ex = e.clientX;
@@ -2232,6 +2392,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Escape') {
     if (S.lineDrawMode) exitLineDrawMode();
     else if (S.linkMode) exitLinkMode();
+    else if (S.tailAttachMode) exitTailAttachMode();
     else if (S.editing) stopEdit();
   }
   if ((e.code === 'Delete' || e.code === 'Backspace') && !isInput && !S.editing) {
@@ -2314,7 +2475,7 @@ function snapshotForUndo() {
     nodes: structuredClone(S.nodes),
     links: structuredClone(S.links),
     freeLines: structuredClone(S.freeLines),
-    nid: S.nid, lid: S.lid, flid: S.flid,
+    nid: S.nid, lid: S.lid, flid: S.flid, taid: S.taid,
   };
 }
 
@@ -2336,7 +2497,7 @@ function undo() {
   if (_ull) while (_ull.firstChild) _ull.removeChild(_ull.firstChild);
   // Restore state
   S.sel = null; S.selLine = null; S.multiSel.clear();
-  S.nid = snap.nid; S.lid = snap.lid; S.flid = snap.flid;
+  S.nid = snap.nid; S.lid = snap.lid; S.flid = snap.flid; S.taid = snap.taid ?? S.taid;
   S.nodes = [];
   S.links = snap.links.map(l => ({ ...l }));
   S.freeLines = snap.freeLines.map(l => ({ ...l, points: l.points.map(p => ({ ...p })) }));
@@ -2398,8 +2559,10 @@ function saveState() {
     canvasTitle: canvasTitleEl.value,
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {
-        const { id, type, x, y, w, h, text, tailX, tailY, color, showTail } = n;
-        return { id, type, x, y, w, h, text, tailX, tailY, color, showTail };
+        const { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+                tailAnchorId, tailAnchorText, tailAnchorFromId } = n;
+        return { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+                 tailAnchorId, tailAnchorText, tailAnchorFromId };
       }
       if (n.type === 'frame') {
         const { id, type, x, y, w, h, label, color } = n;
@@ -2415,6 +2578,7 @@ function saveState() {
     nid: S.nid,
     lid: S.lid,
     flid: S.flid,
+    taid: S.taid,
     vp: { ...S.vp },
     globalConfig: { description: S.globalConfig.description, repositories: S.globalConfig.repositories.map(r => ({ ...r })) },
   };
@@ -2449,6 +2613,7 @@ function loadState(data) {
   S.nid = data.nid ?? 1;
   S.lid = data.lid ?? 1;
   S.flid = data.flid ?? 1;
+  S.taid = data.taid ?? 1;
   if (data.vp) Object.assign(S.vp, data.vp);
   if (!data.dataVersion || data.dataVersion < '2.0') {
     // migrate pre-2.0: gitConfig (single repo) → repositories array
@@ -2486,7 +2651,9 @@ function loadState(data) {
     if (nd.type === 'bubble') {
       n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
-            color: nd.color ?? 'green', showTail: nd.showTail ?? true };
+            color: nd.color ?? 'green', showTail: nd.showTail ?? true,
+            tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+            tailAnchorFromId: nd.tailAnchorFromId ?? null };
     } else if (nd.type === 'frame') {
       n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             label: nd.label ?? '', color: nd.color ?? 'blue' };
@@ -2519,7 +2686,19 @@ function loadState(data) {
   }));
   renderLinks();
   renderFreeLines();
-  applyVP();
+  // Re-render code nodes that need tail-anchor spans injected.
+  // Bubble nodes may appear after their target code node in the saved array,
+  // so buildCodeHTML above found no bubbles yet and skipped injection.
+  const anchoredFromIds = new Set(
+    S.nodes
+      .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
+      .map(n => n.tailAnchorFromId)
+  );
+  for (const fromId of anchoredFromIds) {
+    const cn = S.nodes.find(n => n.id === fromId);
+    if (cn) renderNode(cn);
+  }
+  applyVP(); // also calls renderAnchoredBubbleTails
 }
 
 // Remove localStorage entries older than STALE_DAYS that belong to closed tabs.
@@ -2671,7 +2850,7 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   if (!confirm('Clear the entire canvas?')) return;
   localStorage.removeItem(STORAGE_KEY);
   S.nodes.forEach(n => ndEl(n.id)?.remove());
-  S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1;
+  S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1; S.taid = 1;
   S.sel = null; S.selLine = null; S.editing = null;
   S.multiSel.clear(); S.clipboard = [];
   S.globalConfig = { description: '', repositories: [] };

@@ -65,6 +65,15 @@ if (typeof document === 'undefined') {
     <div id="link-tip">
       <button id="link-tip-link"></button>
       <button id="link-tip-newblock"></button>
+      <button id="link-tip-attach-tail"></button>
+    </div>
+    <div id="anchor-ctx">
+      <button id="anchor-ctx-link"></button>
+      <button id="anchor-ctx-newblock"></button>
+      <button id="anchor-ctx-del-all"></button>
+    </div>
+    <div id="tail-anchor-ctx">
+      <button id="tail-anchor-ctx-detach"></button>
     </div>
     <div id="link-ctx">
       <button id="link-ctx-del"></button>

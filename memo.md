@@ -19441,3 +19441,1206 @@ pathをクエリパラメータに指定する
 
 ✻ Brewed for 2m 47s
 ```
+
+```
+❯ Bubbleの尻尾を、ブロック内の選択テキストに紐づけることはできますか
+
+⏺ 現在のコードを確認しました。これは技術的に実装可能です。プランを設計します。
+
+⏺ Plan(Design bubble tail anchor implementation plan)
+  ⎿  Done (38 tool uses · 63.6k tokens · 2m 53s)
+  (ctrl+o to expand)
+
+⏺ 詳細な設計が出ました。いくつか確認してからプランを確定します。
+
+  Searched for 4 patterns, read 2 files (ctrl+o to expand)
+
+⏺ これで全体像が把握できました。プランを書きます。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/inherited-questing-fern.md · /plan to edit
+     Plan: Attach Bubble Tail to Selected Text in Code Block
+
+     Context
+
+     Currently, bubble node tails point to arbitrary canvas coordinates (tailX, tailY) stored on the bubble.
+     The user wants to semantically link a bubble's tail tip to specific text inside a code block, so the tail dynamically tracks that text as the
+     user pans/zooms/repositions nodes.
+
+     This mirrors the existing link-anchor mechanism (link-anchor spans injected into code HTML), but for tail tips rather than arrow origins.
+
+     ---
+     Data Model Changes
+
+     New fields on bubble nodes
+
+     tailAnchorId: number | null      // unique id; matches data-taid on the injected span
+     tailAnchorText: string | null    // raw selected text
+     tailAnchorFromId: number | null  // id of the code node containing the anchor span
+
+     All three null → free tail (current behavior). All three set → anchored tail.
+
+     New counter S.taid
+
+     Add S.taid = 1 alongside S.nid, S.lid, S.flid.
+     Serialize/deserialize in saveState/loadState the same way as those counters.
+     Also snapshot/restore in pushUndo/undo.
+
+     ---
+     File Changes
+
+     1. canvas-utils.js
+
+     - Add exported injectTailAnchor(html, rawText, taid) after injectAnchor (line 131).
+     Structurally identical to injectAnchor, but uses class="tail-anchor" and data-taid.
+     The "skip first line" and "don't inject inside existing anchors" logic carries over;
+     extend the existing-anchor check to cover both link-anchor and tail-anchor classes.
+     - Bump DATA_VERSION from '3.0' to '3.1'.
+
+     2. canvas.js
+
+     Import
+
+     import { ..., injectAnchor, injectTailAnchor, ... } from './canvas-utils.js';
+
+     buildCodeHTML (line 133)
+
+     After the link-anchor injection loop, inject tail-anchor spans:
+     const tailBubbles = S.nodes
+       .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+       .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+     for (const tb of tailBubbles) {
+       html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId);
+     }
+
+     renderBubbleTail (line 491)
+
+     Replace the tip computation (line 520):
+     // Was: const tip = { x: n.tailX - n.x - bord, y: n.tailY - n.y - bord };
+     let tipX = n.tailX, tipY = n.tailY;
+     if (n.tailAnchorId != null) {
+       const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+       if (anchorEl) {
+         const r = anchorEl.getBoundingClientRect();
+         const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+         tipX = cp.x; tipY = cp.y;
+         // Do NOT write back to n.tailX/tailY — preserve free-drag fallback coords
+       }
+     }
+     const tip = { x: tipX - n.x - bord, y: tipY - n.y - bord };
+
+     Also update tail-handle mousedown (line 573) to detach on drag:
+     handle.addEventListener('mousedown', e => {
+       e.stopPropagation(); e.preventDefault();
+       pushUndo();
+       if (n.tailAnchorId != null) {
+         // Freeze current screen position as new free coords before detaching
+         const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+         if (anchorEl) {
+           const r = anchorEl.getBoundingClientRect();
+           const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+           n.tailX = cp.x; n.tailY = cp.y;
+         }
+         const oldFromId = n.tailAnchorFromId;
+         n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+         if (oldFromId != null) {
+           const cn = S.nodes.find(c => c.id === oldFromId);
+           if (cn) renderNode(cn);
+         }
+         scheduleSave();
+       }
+       S.tailDrag = { id: n.id, otailX: n.tailX, otailY: n.tailY };
+     });
+
+     New helper renderAnchoredBubbleTails()
+
+     function renderAnchoredBubbleTails() {
+       for (const n of S.nodes) {
+         if (n.type === 'bubble' && n.tailAnchorId != null && n.showTail !== false)
+           renderBubbleTail(n);
+       }
+     }
+     Call this at the end of applyVP() (after renderLinks() / renderFreeLines(), line 95).
+     This covers all pan/zoom changes automatically since every viewport change calls applyVP.
+
+     New function attachTailToText(bubbleNode, fromId, text)
+
+     function attachTailToText(bubbleNode, fromId, text) {
+       pushUndo();
+       const oldFromId = bubbleNode.tailAnchorFromId;
+       bubbleNode.tailAnchorId    = S.taid++;
+       bubbleNode.tailAnchorText  = text;
+       bubbleNode.tailAnchorFromId = fromId;
+       // Re-render code node to inject the span
+       const codeNode = S.nodes.find(n => n.id === fromId);
+       if (codeNode) renderNode(codeNode);
+       // Clear stale span in previous code node if switched
+       if (oldFromId != null && oldFromId !== fromId) {
+         const oldNode = S.nodes.find(n => n.id === oldFromId);
+         if (oldNode) renderNode(oldNode);
+       }
+       renderBubbleTail(bubbleNode);
+       scheduleSave();
+     }
+
+     Text selection mouseup handler (line 1868)
+
+     After the linkTipNewBlock.onclick assignment, add:
+     // Show "Attach tail" button only when a bubble is currently selected
+     const selBubble = S.sel != null ? S.nodes.find(n => n.id === S.sel && n.type === 'bubble') : null;
+     linkTipAttachTail.style.display = selBubble ? '' : 'none';
+     linkTipAttachTail.onclick = () => {
+       if (!selBubble) return;
+       sel.removeAllRanges();
+       linkTip.style.display = 'none';
+       attachTailToText(selBubble, fromId, text);
+     };
+
+     DOM ref (near line 47)
+
+     const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
+
+     addBubble (line 583)
+
+     Initialize new fields:
+     tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
+
+     saveState bubble branch
+
+     Serialize tailAnchorId, tailAnchorText, tailAnchorFromId, and S.taid.
+
+     loadState bubble branch
+
+     Deserialize with ?? null defaults. Restore S.taid = data.taid ?? 1.
+
+     pushUndo / undo (line 2317, 2339)
+
+     Include taid: S.taid in snapshot; restore on undo.
+
+     removeNode
+
+     Before filtering S.nodes, if removing a bubble with an anchor, re-render the code node.
+     If removing a code node, clear tailAnchorId/Text/FromId on any bubble pointing into it.
+
+     pasteNodes (line 1113)
+
+     Clear tail anchor fields on pasted bubbles to avoid data-taid collisions.
+
+     ---
+     3. canvas.html (line 306)
+
+     <div id="link-tip">
+       <button id="link-tip-link">🔗 Create link from here</button>
+       <button id="link-tip-newblock">📄 Create new block and link</button>
+       <button id="link-tip-attach-tail">📌 Attach bubble tail here</button>
+     </div>
+
+     ---
+     4. canvas.css
+
+     After .link-anchor block (around line 242):
+     .tail-anchor {
+       background: rgba(57,197,207,0.18);
+       border-bottom: 1.5px solid #39c5cf;
+       border-radius: 2px;
+       padding: 0 1px;
+     }
+     .tail-anchor:hover { background: rgba(57,197,207,0.35); }
+
+     ---
+     UX Flow
+
+     1. Select a bubble node (click it).
+     2. Select text in a code block (drag to highlight).
+     3. Tooltip appears — click "📌 Attach bubble tail here".
+     4. The bubble's tail snaps to that text (cyan underline appears on the text).
+     5. Drag tail handle → automatically detaches from anchor, tail becomes free again.
+     6. Deleting either node cleans up gracefully.
+
+     ▎ The "Attach bubble tail" button is only visible when a bubble is currently selected.
+
+     ---
+     Verification
+
+     1. Basic attach: Select a bubble → select text in a code block → click "Attach bubble tail" → tail tip snaps to the highlighted text.
+     2. Viewport tracking: Pan and zoom the canvas → tail tip stays on the text.
+     3. Node move: Drag the code block node → tail tip follows.
+     4. Detach via drag: Drag the tail handle → it detaches from the text, behaves as a free tail.
+     5. Persistence: Export JSON → import → tail remains attached to the text.
+     6. Undo: Undo after attaching → tail reverts to free position.
+     7. Cleanup: Delete the code node → bubble tail becomes free. Delete the bubble → cyan span disappears from code node.
+     8. Run existing tests: npm test — all existing tests should pass.
+
+⏺ 実装を開始します。まずすべての関連ファイルを読み込みます。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ 十分に把握できました。実装していきます。
+
+  Step 1: canvas-utils.js — injectTailAnchor 追加 & DATA_VERSION バンプ
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 1 line
+      1  // ═══════════════════════════════════════════════════════
+      2  // CONSTANTS
+      3  // ═══════════════════════════════════════════════════════
+      4 -export const DATA_VERSION = '3.0';
+      4 +export const DATA_VERSION = '3.1';
+      5
+      6  // ═══════════════════════════════════════════════════════
+      7  // UTILS
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 35 lines
+      130    }).join('');
+      131  }
+      132
+      133 +// Inject a tail-anchor span around all occurrences of rawText in highlighted HTML.
+      134 +// Structurally identical to injectAnchor but uses class="tail-anchor" and data-taid.
+      135 +export function injectTailAnchor(html, rawText, taid) {
+      136 +  const escapedText = esc(rawText);
+      137 +  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      138 +  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
+      139 +  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+      140 +  const re  = new RegExp(prefix + pat + suffix, 'g');
+      141 +  const parts = html.split(/(<[^>]*>)/);
+      142 +  let insideAnchor = false;
+      143 +  let firstLinePassed = false;
+      144 +  return parts.map((p, i) => {
+      145 +    if (i % 2 === 1) { // tag segment
+      146 +      if (/^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/.test(p)) insideAnchor = true;
+      147 +      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      148 +      return p;
+      149 +    }
+      150 +    if (!firstLinePassed) {
+      151 +      const nlIdx = p.indexOf('\n');
+      152 +      if (nlIdx === -1) return p;
+      153 +      firstLinePassed = true;
+      154 +      const before = p.slice(0, nlIdx + 1);
+      155 +      const after  = p.slice(nlIdx + 1);
+      156 +      if (insideAnchor) return p;
+      157 +      return before + after.replace(re, () =>
+      158 +        `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
+      159 +      );
+      160 +    }
+      161 +    if (insideAnchor) return p;
+      162 +    return p.replace(re, () =>
+      163 +      `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
+      164 +    );
+      165 +  }).join('');
+      166 +}
+      167 +
+      168  // Split highlighted HTML into per-line strings, correctly handling spans that
+      169  // cross line boundaries (e.g. highlight.js wraps ")\n{" inside one <span>).
+      170  // At each \n we close all currently-open spans and reopen them on the next line.
+
+⏺ Step 2: canvas.js — import injectTailAnchor
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS,
+      2 -         injectAnchor, splitHtmlLines, addLineNumbers,
+      2 +         injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      3           roundedRectRayHit, anchorFpFromSide, edgePoint } from './canvas-utils.js';
+      4  import { initDialogs, showAlert } from './canvas-dialogs.js';
+      5
+
+⏺ Step 3: S オブジェクトに taid 追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      12    vp: { x: 0, y: 0, scale: 1 },
+      13    nid: 1,   // next node id
+      14    lid: 1,   // next link id
+      15 +  taid: 1,  // next tail-anchor id
+      16    sel: null,        // selected node id
+      17    multiSel: new Set(), // multi-selected node ids (Shift+click)
+      18    editing: null,    // editing node id
+
+⏺ Step 4: DOM ref 追加 (line 49 付近)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      48  const linkTip        = document.getElementById('link-tip');
+      49  const linkTipLink    = document.getElementById('link-tip-link');
+      50  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+      51 +const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
+      52  const linkCtx        = document.getElementById('link-ctx');
+      53  const linkCtxDel     = document.getElementById('link-ctx-del');
+      54  const anchorCtx         = document.getElementById('anchor-ctx');
+
+⏺ Step 5: buildCodeHTML に tail-anchor 注入
+
+⏺ Update(canvas.js)
+  ⎿  Added 6 lines
+      146    for (const lnk of nodeLinks) {
+      147      html = injectAnchor(html, lnk.text, lnk.id);
+      148    }
+      149 +  const tailBubbles = S.nodes
+      150 +    .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+      151 +    .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+      152 +  for (const tb of tailBubbles) {
+      153 +    html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId);
+      154 +  }
+      155    return { html, lang };
+      156  }
+      157
+
+⏺ Step 6: renderBubbleTail — アンカーからの tip 位置解決 & ハンドルのデタッチ
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 1 line
+      525    const cy  = n.h / 2 - bord;
+      526    const bl  = { x: -bord,        y: -bord        }; // outer top-left in SVG coords
+      527    const br  = { x: n.w - bord,   y: n.h - bord   }; // outer bottom-right in SVG coords
+      528 -  const tip = { x: n.tailX - n.x - bord, y: n.tailY - n.y - bord };
+      528 +  let tipX = n.tailX, tipY = n.tailY;
+      529 +  if (n.tailAnchorId != null) {
+      530 +    const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+      531 +    if (anchorEl) {
+      532 +      const r = anchorEl.getBoundingClientRect();
+      533 +      const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+      534 +      tipX = cp.x; tipY = cp.y;
+      535 +    }
+      536 +  }
+      537 +  const tip = { x: tipX - n.x - bord, y: tipY - n.y - bord };
+      538    const r   = Math.min(14, n.w / 2, n.h / 2);
+      539
+      540    // Exact intersection of center→tip ray with the rounded border + tangent there
+
+⏺ Update(canvas.js)
+  ⎿  Added 16 lines
+      590    handle.addEventListener('mousedown', e => {
+      591      e.stopPropagation(); e.preventDefault();
+      592      pushUndo();
+      593 +    // Detach from anchor on drag start — freeze current position as free coords
+      594 +    if (n.tailAnchorId != null) {
+      595 +      const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+      596 +      if (anchorEl) {
+      597 +        const r = anchorEl.getBoundingClientRect();
+      598 +        const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+      599 +        n.tailX = cp.x; n.tailY = cp.y;
+      600 +      }
+      601 +      const oldFromId = n.tailAnchorFromId;
+      602 +      n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      603 +      if (oldFromId != null) {
+      604 +        const cn = S.nodes.find(c => c.id === oldFromId);
+      605 +        if (cn) renderNode(cn);
+      606 +      }
+      607 +      scheduleSave();
+      608 +    }
+      609      S.tailDrag = { id: n.id, otailX: n.tailX, otailY: n.tailY };
+      610    });
+      611    g.appendChild(handle);
+
+⏺ Step 7: addBubble に新フィールド追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      622      tailX: x + 100, tailY: y + 140,
+      623      color: 'green',
+      624      showTail: true,
+      625 +    tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
+      626    };
+      627    S.nodes.push(n);
+      628    const el = document.createElement('div');
+
+⏺ Step 8: applyVP にアンカー付きバブルの再描画追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+       95    wrap.style.backgroundPosition = `${x % gs}px ${y % gs}px`;
+       96    renderLinks();
+       97    renderFreeLines();
+       98 +  renderAnchoredBubbleTails();
+       99    const zi = document.getElementById('zoom-input');
+      100    if (zi && document.activeElement !== zi) zi.value = Math.round(scale * 100) + '%';
+      101  }
+
+⏺ Now I need to add the renderAnchoredBubbleTails function. Let me find a good place for it — right before applyVP or in the VIEWPORT section:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ renderAnchoredBubbleTails は renderBubbleTail に依存するので、addBubble/renderBubbleTail 定義の後に追加します。applyVP
+  より後の適切な場所を探します:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ addBubble の直後に attachTailToText と renderAnchoredBubbleTails を追加します:
+
+⏺ Update(canvas.js)
+  ⎿  Added 23 lines
+      641    return n;
+      642  }
+      643
+      644 +function renderAnchoredBubbleTails() {
+      645 +  for (const n of S.nodes) {
+      646 +    if (n.type === 'bubble' && n.tailAnchorId != null && n.showTail !== false)
+      647 +      renderBubbleTail(n);
+      648 +  }
+      649 +}
+      650 +
+      651 +function attachTailToText(bubbleNode, fromId, text) {
+      652 +  pushUndo();
+      653 +  const oldFromId = bubbleNode.tailAnchorFromId;
+      654 +  bubbleNode.tailAnchorId     = S.taid++;
+      655 +  bubbleNode.tailAnchorText   = text;
+      656 +  bubbleNode.tailAnchorFromId = fromId;
+      657 +  const codeNode = S.nodes.find(n => n.id === fromId);
+      658 +  if (codeNode) renderNode(codeNode);
+      659 +  if (oldFromId != null && oldFromId !== fromId) {
+      660 +    const oldNode = S.nodes.find(n => n.id === oldFromId);
+      661 +    if (oldNode) renderNode(oldNode);
+      662 +  }
+      663 +  renderBubbleTail(bubbleNode);
+      664 +  scheduleSave();
+      665 +}
+      666 +
+      667  // ═══════════════════════════════════════════════════════
+      668  // FRAME NODE
+      669  // ═══════════════════════════════════════════════════════
+
+⏺ Step 9: テキスト選択 mouseup ハンドラに "Attach tail" ボタン追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 9 lines
+      1941      selectNode(newNode.id);
+      1942      startEdit(newNode.id);
+      1943    };
+      1944 +
+      1945 +  const selBubble = S.sel != null ? S.nodes.find(n => n.id === S.sel && n.type === 'bubble') : null;
+      1946 +  linkTipAttachTail.style.display = selBubble ? '' : 'none';
+      1947 +  linkTipAttachTail.onclick = () => {
+      1948 +    if (!selBubble) return;
+      1949 +    sel.removeAllRanges();
+      1950 +    linkTip.style.display = 'none';
+      1951 +    attachTailToText(selBubble, fromId, text);
+      1952 +  };
+      1953  });
+      1954
+      1955  // hide tooltip on outside click (but not when starting a text selection in code)
+
+⏺ Step 10: snapshotForUndo / undo に taid 追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2381      nodes: structuredClone(S.nodes),
+      2382      links: structuredClone(S.links),
+      2383      freeLines: structuredClone(S.freeLines),
+      2384 -    nid: S.nid, lid: S.lid, flid: S.flid,
+      2384 +    nid: S.nid, lid: S.lid, flid: S.flid, taid: S.taid,
+      2385    };
+      2386  }
+      2387
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2403    if (_ull) while (_ull.firstChild) _ull.removeChild(_ull.firstChild);
+      2404    // Restore state
+      2405    S.sel = null; S.selLine = null; S.multiSel.clear();
+      2406 -  S.nid = snap.nid; S.lid = snap.lid; S.flid = snap.flid;
+      2406 +  S.nid = snap.nid; S.lid = snap.lid; S.flid = snap.flid; S.taid = snap.taid ?? S.taid;
+      2407    S.nodes = [];
+      2408    S.links = snap.links.map(l => ({ ...l }));
+      2409    S.freeLines = snap.freeLines.map(l => ({ ...l, points: l.points.map(p => ({ ...p })) }));
+
+⏺ Step 11: saveState — bubble ブランチに新フィールド追加 + taid シリアライズ
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 2 lines
+      2465      canvasTitle: canvasTitleEl.value,
+      2466      nodes: S.nodes.map(n => {
+      2467        if (n.type === 'bubble') {
+      2468 -        const { id, type, x, y, w, h, text, tailX, tailY, color, showTail } = n;
+      2469 -        return { id, type, x, y, w, h, text, tailX, tailY, color, showTail };
+      2468 +        const { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+      2469 +                tailAnchorId, tailAnchorText, tailAnchorFromId } = n;
+      2470 +        return { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+      2471 +                 tailAnchorId, tailAnchorText, tailAnchorFromId };
+      2472        }
+      2473        if (n.type === 'frame') {
+      2474          const { id, type, x, y, w, h, label, color } = n;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2484      nid: S.nid,
+      2485      lid: S.lid,
+      2486      flid: S.flid,
+      2487 +    taid: S.taid,
+      2488      vp: { ...S.vp },
+      2489      globalConfig: { description: S.globalConfig.description, repositories: S.globalConfig.repositories.map(r => ({ ...r })) },
+      2490    };
+
+⏺ Step 12: loadState — bubble ブランチに新フィールド復元 + taid 復元
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2519    S.nid = data.nid ?? 1;
+      2520    S.lid = data.lid ?? 1;
+      2521    S.flid = data.flid ?? 1;
+      2522 +  S.taid = data.taid ?? 1;
+      2523    if (data.vp) Object.assign(S.vp, data.vp);
+      2524    if (!data.dataVersion || data.dataVersion < '2.0') {
+      2525      // migrate pre-2.0: gitConfig (single repo) → repositories array
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 1 line
+      2557      if (nd.type === 'bubble') {
+      2558        n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      2559              text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
+      2560 -            color: nd.color ?? 'green', showTail: nd.showTail ?? true };
+      2560 +            color: nd.color ?? 'green', showTail: nd.showTail ?? true,
+      2561 +            tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      2562 +            tailAnchorFromId: nd.tailAnchorFromId ?? null };
+      2563      } else if (nd.type === 'frame') {
+      2564        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      2565              label: nd.label ?? '', color: nd.color ?? 'blue' };
+
+⏺ Step 13: removeNode にクリーンアップ追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 19 lines, removed 1 line
+      1031
+      1032  function removeNode(id) {
+      1033    pushUndo();
+      1034 +  const removed = S.nodes.find(n => n.id === id);
+      1035 +
+      1036    // Collect source nodes whose link-anchor spans must be cleared
+      1037    const affectedFromIds = S.links
+      1038      .filter(l => l.toId === id)
+      1039      .map(l => l.fromId);
+      1040
+      1041 +  // If removing a bubble with a tail anchor, re-render the code node to clear the span
+      1042 +  if (removed?.type === 'bubble' && removed.tailAnchorFromId != null) {
+      1043 +    if (!affectedFromIds.includes(removed.tailAnchorFromId))
+      1044 +      affectedFromIds.push(removed.tailAnchorFromId);
+      1045 +  }
+      1046 +
+      1047    S.nodes = S.nodes.filter(n => n.id !== id);
+      1048    S.links = S.links.filter(l => l.fromId !== id && l.toId !== id);
+      1049 +
+      1050 +  // If removing a code node, clear tail anchors on bubbles that pointed into it
+      1051 +  if (!removed?.type || removed.type === 'code') {
+      1052 +    S.nodes.forEach(n => {
+      1053 +      if (n.type === 'bubble' && n.tailAnchorFromId === id) {
+      1054 +        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      1055 +      }
+      1056 +    });
+      1057 +  }
+      1058 +
+      1059    const el = ndEl(id);
+      1060    if (el) el.remove();
+      1061    if (S.sel === id)     S.sel = null;
+      1062    if (S.editing === id) S.editing = null;
+      1063    S.multiSel.delete(id);
+      1064
+      1047 -  // Re-render source nodes to remove stale link-anchor spans
+      1065 +  // Re-render source nodes to remove stale link-anchor / tail-anchor spans
+      1066    affectedFromIds.forEach(fromId => {
+      1067      const fn = S.nodes.find(n => n.id === fromId);
+      1068      if (fn) renderNode(fn);
+
+⏺ Step 14: pasteNodes — ペースト時にアンカーをクリア
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      1191        if (n.type === 'bubble') {
+      1192          n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+      1193          n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+      1194 +        // Pasted bubbles start with a free tail — no anchor collision risk
+      1195 +        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      1196        }
+      1197        S.nodes.push(n);
+      1198        const el = document.createElement('div');
+
+⏺ Step 15: btn-clear に taid リセット追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2764    if (!confirm('Clear the entire canvas?')) return;
+      2765    localStorage.removeItem(STORAGE_KEY);
+      2766    S.nodes.forEach(n => ndEl(n.id)?.remove());
+      2767 -  S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1;
+      2767 +  S.nodes = []; S.links = []; S.freeLines = []; S.nid = 1; S.lid = 1; S.flid = 1; S.taid = 1;
+      2768    S.sel = null; S.selLine = null; S.editing = null;
+      2769    S.multiSel.clear(); S.clipboard = [];
+      2770    S.globalConfig = { description: '', repositories: [] };
+
+⏺ Step 16: canvas.html — ボタン追加
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      306  <div id="link-tip">
+      307    <button id="link-tip-link">🔗 Create link from here</button>
+      308    <button id="link-tip-newblock">📄 Create new block and link</button>
+      309 +  <button id="link-tip-attach-tail">📌 Attach bubble tail here</button>
+      310  </div>
+      311  <div id="anchor-ctx">
+      312    <button id="anchor-ctx-link">🔗 Create link from here</button>
+
+⏺ Step 17: canvas.css — .tail-anchor スタイル追加
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 7 lines
+      246  }
+      247  .link-anchor:hover { background: rgba(56,139,253,0.35); }
+      248
+      249 +.tail-anchor {
+      250 +  background: rgba(57,197,207,0.18);
+      251 +  border-bottom: 1.5px solid #39c5cf;
+      252 +  border-radius: 2px; padding: 0 1px;
+      253 +}
+      254 +.tail-anchor:hover { background: rgba(57,197,207,0.35); }
+      255 +
+      256  /* ── SVG links ── */
+      257  .link-path {
+      258    fill: none;
+
+⏺ テストを実行して確認します:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (66 tests) 16ms
+     stderr | tests/canvas-interactions.test.js > Edit mode (btn-edit click) > clicking "Edit" on a code node sets S.editing and shows a textarea
+     … +122 lines (ctrl+o to see all)
+
+⏺ テストは 189/189 パスしています。エラーは anchorCtx の null アクセスで、私の変更とは無関係です。テストセットアップに link-tip-attach-tail
+  ボタンが含まれているか確認します:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ テストセットアップの mock HTML に新ボタンを追加します:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line
+      65      <div id="link-tip">
+      66        <button id="link-tip-link"></button>
+      67        <button id="link-tip-newblock"></button>
+      68 +      <button id="link-tip-attach-tail"></button>
+      69      </div>
+      70      <div id="link-ctx">
+      71        <button id="link-ctx-del"></button>
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (66 tests) 14ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 432ms
+     … +122 lines (ctrl+o to see all)
+
+⏺ 189/189 テストパス。anchorCtx の null エラーは私の変更前から存在する既知の問題です（setup-dom.js に anchor-ctx 要素がない）。念のため確認:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 確認できました — anchor-ctx は元から setup-dom.js に入っていないため、これは既存の問題です。
+
+  実装完了です。変更内容のまとめ:
+
+  ---
+  使い方
+
+  1. Bubble ノードをクリックして選択する
+  2. コードブロック内のテキストをドラッグして選択する
+  3. 表示されるツールチップの "📌 Attach bubble tail here" をクリック
+  4. バブルの尻尾がそのテキストに吸着（テキストがシアン色のアンダーラインで強調表示される）
+  5. 尻尾ハンドルをドラッグすると自動的に切り離せる
+
+  変更ファイル
+  - canvas-utils.js — injectTailAnchor() 追加、DATA_VERSION を 3.1 へバンプ
+  - canvas.js — S.taid カウンター、attachTailToText()、renderAnchoredBubbleTails()、renderBubbleTail
+  のアンカー位置解決、ハンドルドラッグ時のデタッチ、セーブ/ロード/undo、removeNode クリーンアップ、ペースト時のアンカークリア
+  - canvas.html — ツールチップにボタン追加
+  - canvas.css — .tail-anchor シアンスタイル追加
+  - tests/setup-dom.js — モック HTML に新ボタン追加
+
+✻ Crunched for 10m 41s
+
+❯ setup-dom.jsにanchor-ctxがなくてテストが失敗する件についても修正お願いします
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 5 lines
+      67        <button id="link-tip-newblock"></button>
+      68        <button id="link-tip-attach-tail"></button>
+      69      </div>
+      70 +    <div id="anchor-ctx">
+      71 +      <button id="anchor-ctx-link"></button>
+      72 +      <button id="anchor-ctx-newblock"></button>
+      73 +      <button id="anchor-ctx-del-all"></button>
+      74 +    </div>
+      75      <div id="link-ctx">
+      76        <button id="link-ctx-del"></button>
+      77        <div id="link-ctx-colors"></div>
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 189/189 パス、エラーゼロになりました。
+```
+
+```
+❯ Bubbleノードをクリックした後、テキストを選択するとBubble選択が外れてしまいます。Bubble tailのattach操作方法を見直してください
+
+⏺ 問題を把握しました。まず linkMode の実装を確認して同じパターンを踏襲します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 全体像が掴めました。linkMode と同じパターンで tailAttachMode を実装します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ これで全体把握完了。実装します。
+
+  Step 1: S に tailAttachMode / tailPending 追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      23    spaceDown: false,
+      24    mode: 'select',   // 'select' | 'hand'
+      25    linkMode: false,
+      26 +  tailAttachMode: false,
+      27 +  tailPending: null,  // { fromId, text } — set while waiting for user to click a bubble
+      28    clipboard: [],    // copied items: node or freeline snapshots (tagged with _clipType)
+      29    pending: null,    // { fromId, text }
+      30    globalConfig: { description: '', repositories: [] },
+
+⏺ Step 2: enterTailAttachMode / exitTailAttachMode 関数を LINK MODE セクションの直後に追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 17 lines
+      1407  }
+      1408
+      1409  // ═══════════════════════════════════════════════════════
+      1410 +// TAIL ATTACH MODE
+      1411 +// ═══════════════════════════════════════════════════════
+      1412 +function enterTailAttachMode(fromId, text) {
+      1413 +  S.tailAttachMode = true;
+      1414 +  S.tailPending = { fromId, text };
+      1415 +  document.body.classList.add('tail-attach-mode');
+      1416 +  setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
+      1417 +}
+      1418 +
+      1419 +function exitTailAttachMode() {
+      1420 +  S.tailAttachMode = false;
+      1421 +  S.tailPending = null;
+      1422 +  document.body.classList.remove('tail-attach-mode');
+      1423 +  setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+      1424 +}
+      1425 +
+      1426 +// ═══════════════════════════════════════════════════════
+      1427  // LINK CONTEXT MENU
+      1428  // ═══════════════════════════════════════════════════════
+      1429  const LINK_COLORS = [
+
+⏺ Step 3: setupNodeEvents の mousedown に tail-attach-mode ハンドラ追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines
+      873        return;
+      874      }
+      875
+      876 +    // ── tail-attach-mode: clicking a bubble attaches its tail ──
+      877 +    if (S.tailAttachMode) {
+      878 +      if (S.tailPending && n.type === 'bubble') {
+      879 +        attachTailToText(n, S.tailPending.fromId, S.tailPending.text);
+      880 +        exitTailAttachMode();
+      881 +      }
+      882 +      e.stopPropagation();
+      883 +      return;
+      884 +    }
+      885 +
+      886      // Ctrl/Cmd + drag = zoom (let it bubble to wrap handler)
+      887      if (e.ctrlKey || e.metaKey) return;
+      888
+
+⏺ Step 4: Escape ハンドラに tailAttachMode 追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2348    if (e.code === 'Escape') {
+      2349      if (S.lineDrawMode) exitLineDrawMode();
+      2350      else if (S.linkMode) exitLinkMode();
+      2351 +    else if (S.tailAttachMode) exitTailAttachMode();
+      2352      else if (S.editing) stopEdit();
+      2353    }
+      2354    if ((e.code === 'Delete' || e.code === 'Backspace') && !isInput && !S.editing) {
+
+⏺ Step 5: テキスト選択 mouseup ハンドラを書き換え — selBubble 条件を削除し enterTailAttachMode を呼ぶ
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 4 lines
+      1991      startEdit(newNode.id);
+      1992    };
+      1993
+      1994 -  const selBubble = S.sel != null ? S.nodes.find(n => n.id === S.sel && n.type === 'bubble') : null;
+      1995 -  linkTipAttachTail.style.display = selBubble ? '' : 'none';
+      1994 +  linkTipAttachTail.style.display = '';
+      1995    linkTipAttachTail.onclick = () => {
+      1997 -    if (!selBubble) return;
+      1996      sel.removeAllRanges();
+      1997      linkTip.style.display = 'none';
+      2000 -    attachTailToText(selBubble, fromId, text);
+      1998 +    enterTailAttachMode(fromId, text);
+      1999    };
+      2000  });
+      2001
+
+⏺ Step 6: mouseup ハンドラの冒頭で tailAttachMode 中はスキップ (linkMode と同様)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1946  // TEXT SELECTION → LINK
+      1947  // ═══════════════════════════════════════════════════════
+      1948  document.addEventListener('mouseup', e => {
+      1949 -  if (S.linkMode) return;
+      1949 +  if (S.linkMode || S.tailAttachMode) return;
+      1950
+      1951    const sel  = window.getSelection();
+      1952    const text = sel?.toString().trim();
+
+⏺ Step 7: CSS で tail-attach-mode 時のカーソル設定
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 11 lines
+      527    box-shadow: 0 0 0 3px rgba(63,185,80,0.22) !important;
+      528  }
+      529
+      530 +/* ── Tail attach mode ── */
+      531 +body.tail-attach-mode #status {
+      532 +  background: #061a1d; border-color: #39c5cf; color: #39c5cf;
+      533 +}
+      534 +body.tail-attach-mode #wrap { cursor: crosshair !important; }
+      535 +body.tail-attach-mode .bubble-node { cursor: pointer !important; }
+      536 +body.tail-attach-mode .bubble-node:hover {
+      537 +  border-color: #39c5cf !important;
+      538 +  box-shadow: 0 0 0 3px rgba(57,197,207,0.22) !important;
+      539 +}
+      540 +
+      541  /* ── Mode indicator ── */
+      542  #mode-indicator {
+      543    font-size: 11px; color: #6e7681;
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 189/189 パス、エラーゼロです。
+
+  ---
+  変更後の操作フロー:
+
+  1. コードブロック内のテキストをドラッグして選択
+  2. ツールチップの "📌 Attach bubble tail here" をクリック（バブルを事前に選択不要）
+  3. ステータスバーが 📌 Click a bubble to attach its tail to "..." (Esc to cancel) に変わり、バブルノードがシアン色でハイライト
+  4. アタッチしたいバブルをクリック → 尻尾がそのテキストに吸着
+  5. Esc でキャンセル可能
+
+✻ Crunched for 1m 35s
+
+❯ Bubble tailに接続ずみの選択テキストで右クリックすると、メニューを出してBubble tailの接続を解除できるようにしてください
+
+⏺ 既存の anchor-ctx メニューの実装を確認します。
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ 次に右クリックイベントがどこでハンドルされているかを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 全体像が掴めました。link-anchor スパンのイベント登録と同じ場所に tail-anchor の右クリックメニューを追加します。
+
+  Step 1: canvas.html に tail-anchor-ctx メニュー追加
+
+⏺ Update(canvas.html)
+  ⎿  Added 3 lines
+      314    <div class="link-ctx-sep"></div>
+      315    <button id="anchor-ctx-del-all">🗑 Delete all links from this text</button>
+      316  </div>
+      317 +<div id="tail-anchor-ctx">
+      318 +  <button id="tail-anchor-ctx-detach">📌 Detach bubble tail</button>
+      319 +</div>
+      320  <div id="line-ctx">
+      321    <div class="link-ctx-row">
+      322      <span class="link-ctx-label">Color</span>
+
+⏺ Step 2: canvas.js に DOM refs 追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      57  const anchorCtxLink     = document.getElementById('anchor-ctx-link');
+      58  const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
+      59  const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
+      60 +const tailAnchorCtx        = document.getElementById('tail-anchor-ctx');
+      61 +const tailAnchorCtxDetach  = document.getElementById('tail-anchor-ctx-detach');
+      62  const linkCtxColors  = document.getElementById('link-ctx-colors');
+      63  const linkCtxWidths  = document.getElementById('link-ctx-widths');
+      64  const linkCtxDashes  = document.getElementById('link-ctx-dashes');
+
+⏺ Step 3: showAnchorCtx / hideAnchorCtx の直後に showTailAnchorCtx / hideTailAnchorCtx を追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 31 lines
+      1606    if (!e.target.closest('#anchor-ctx')) hideAnchorCtx();
+      1607  });
+      1608
+      1609 +// ── Tail-anchor context menu (right-click on tail-anchor span) ──
+      1610 +function showTailAnchorCtx(bubbleId, x, y) {
+      1611 +  tailAnchorCtxDetach.onclick = () => {
+      1612 +    hideTailAnchorCtx();
+      1613 +    const bubble = S.nodes.find(n => n.id === bubbleId && n.type === 'bubble');
+      1614 +    if (!bubble) return;
+      1615 +    pushUndo();
+      1616 +    const oldFromId = bubble.tailAnchorFromId;
+      1617 +    bubble.tailAnchorId = null; bubble.tailAnchorText = null; bubble.tailAnchorFromId = null;
+      1618 +    if (oldFromId != null) {
+      1619 +      const cn = S.nodes.find(n => n.id === oldFromId);
+      1620 +      if (cn) renderNode(cn);
+      1621 +    }
+      1622 +    renderBubbleTail(bubble);
+      1623 +    scheduleSave();
+      1624 +  };
+      1625 +  tailAnchorCtx.style.display = 'block';
+      1626 +  const cw = tailAnchorCtx.offsetWidth || 200;
+      1627 +  const ch = tailAnchorCtx.offsetHeight || 40;
+      1628 +  tailAnchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      1629 +  tailAnchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      1630 +}
+      1631 +
+      1632 +function hideTailAnchorCtx() {
+      1633 +  tailAnchorCtx.style.display = 'none';
+      1634 +}
+      1635 +
+      1636 +document.addEventListener('mousedown', e => {
+      1637 +  if (!e.target.closest('#tail-anchor-ctx')) hideTailAnchorCtx();
+      1638 +});
+      1639 +
+      1640  // ═══════════════════════════════════════════════════════
+      1641  // FREE LINES
+      1642  // ═══════════════════════════════════════════════════════
+
+⏺ Step 4: renderNode の view モードで tail-anchor スパンに contextmenu イベントを登録
+
+⏺ Update(canvas.js)
+  ⎿  Added 11 lines
+      327      el.querySelector('.btn-del').addEventListener('click', e => {
+      328        e.stopPropagation(); removeNode(n.id);
+      329      });
+      330 +    el.querySelectorAll('.tail-anchor').forEach(a => {
+      331 +      a.addEventListener('contextmenu', e => {
+      332 +        e.preventDefault();
+      333 +        e.stopPropagation();
+      334 +        const taid = +a.dataset.taid;
+      335 +        const bubble = S.nodes.find(nb => nb.type === 'bubble' && nb.tailAnchorId === taid);
+      336 +        if (!bubble) return;
+      337 +        showTailAnchorCtx(bubble.id, e.clientX, e.clientY);
+      338 +      });
+      339 +    });
+      340 +
+      341      el.querySelectorAll('.link-anchor').forEach(a => {
+      342        a.addEventListener('click', e => {
+      343          e.stopPropagation();
+
+⏺ Step 5: canvas.css に tail-anchor-ctx スタイル追加
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 16 lines
+      507  }
+      508  #anchor-ctx button:hover { background: #1f6feb; color: #fff; }
+      509
+      510 +#tail-anchor-ctx {
+      511 +  position: fixed; z-index: 300;
+      512 +  background: #061a1d; border: 1px solid #144a50;
+      513 +  border-radius: 6px; padding: 4px;
+      514 +  box-shadow: 0 3px 12px rgba(0,0,0,0.55);
+      515 +  display: none; white-space: nowrap;
+      516 +  pointer-events: auto;
+      517 +}
+      518 +#tail-anchor-ctx button {
+      519 +  display: block; width: 100%;
+      520 +  background: none; border: none; color: #56d4dd;
+      521 +  padding: 6px 14px; font-size: 12px; text-align: left;
+      522 +  border-radius: 4px; cursor: pointer; white-space: nowrap;
+      523 +}
+      524 +#tail-anchor-ctx button:hover { background: #39c5cf; color: #0d1117; }
+      525 +
+      526  /* ── Status bar ── */
+      527  #status {
+      528    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+
+⏺ Step 6: setup-dom.js に tail-anchor-ctx 追加
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 3 lines
+      72        <button id="anchor-ctx-newblock"></button>
+      73        <button id="anchor-ctx-del-all"></button>
+      74      </div>
+      75 +    <div id="tail-anchor-ctx">
+      76 +      <button id="tail-anchor-ctx-detach"></button>
+      77 +    </div>
+      78      <div id="link-ctx">
+      79        <button id="link-ctx-del"></button>
+      80        <div id="link-ctx-colors"></div>
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 189/189 パス。
+
+  操作方法:
+  - Bubble tail が接続されているテキスト（シアン下線）を右クリック
+  - 📌 Detach bubble tail をクリック → 接続解除、尻尾は自由な状態に戻る（Undo 対応）
+
+✻ Cooked for 1m 19s
+
+❯ Bubble tailを選択テキストに接続した後、そのBubbleや接続先のブロックを動かすと、tailが選択テキストに追随するようにしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ドラッグ開始時の otailX/otailY の保存箇所も確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 原因が分かりました。ドラッグ・リサイズ中に renderAnchoredBubbleTails() が呼ばれておらず、アンカー付きバブルでは不要な tailX/tailY
+  の更新も行われています。修正します。
+
+  ドラッグ中の tailX/tailY 更新スキップ + renderAnchoredBubbleTails() 呼び出し追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 2 lines
+      2180          if (mn) {
+      2181            mn.x = ox + dx;
+      2182            mn.y = oy + dy;
+      2183 -          if (mn.type === 'bubble' && otailX !== undefined) {
+      2183 +          if (mn.type === 'bubble' && otailX !== undefined && !mn.tailAnchorId) {
+      2184              mn.tailX = otailX + dx;
+      2185              mn.tailY = otailY + dy;
+      2186            }
+     ...
+      2194        if (n) {
+      2195          n.x = S.drag.ox + dx;
+      2196          n.y = S.drag.oy + dy;
+      2197 -        if (n.type === 'bubble' && S.drag.otailX !== undefined) {
+      2197 +        if (n.type === 'bubble' && S.drag.otailX !== undefined && !n.tailAnchorId) {
+      2198            n.tailX = S.drag.otailX + dx;
+      2199            n.tailY = S.drag.otailY + dy;
+      2200          }
+     ...
+      2203        }
+      2204      }
+      2205      renderLinks();
+      2206 +    renderAnchoredBubbleTails();
+      2207    } else if (S.tailDrag) {
+      2208      const n = S.nodes.find(n => n.id === S.tailDrag.id);
+      2209      if (n) {
+
+⏺ リサイズ中も renderAnchoredBubbleTails() 呼び出し追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2248        }
+      2249        if (n.type === 'bubble') renderBubbleTail(n);
+      2250        renderLinks();
+      2251 +      renderAnchoredBubbleTails();
+      2252      }
+      2253    } else if (S.marquee) {
+      2254      S.marquee.ex = e.clientX;
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 189/189 パス。
+
+  修正内容:
+
+  - バブル自身をドラッグ: アンカー付きの場合 tailX/tailY を更新せず、renderAnchoredBubbleTails() で尻尾を再描画 → 尻尾がテキストに追随
+  - コードブロックをドラッグ: ドラッグ中に renderAnchoredBubbleTails() を呼ぶ → そのブロック内のアンカーを向いている尻尾が追随
+  - リサイズ: 同様に renderAnchoredBubbleTails() を追加
+  - マルチ選択ドラッグ: 複数ノードを同時に動かす場合も同様に対応
+
+✻ Crunched for 1m 17s
+
+❯ Bubble tailを選択テキストに接続した後、ブラウザをリロードすると接続が外れます。直してください
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 原因は loadState のノード描画ループ内の順序問題です。コードノードが描画される時点ではバブルノードがまだ S.nodes
+  に追加されていないため、buildCodeHTML が tail-anchor スパンを注入できません。
+
+  ループ終了後にアンカー付きコードノードを再描画するパスを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 13 lines, removed 1 line
+      2686    }));
+      2687    renderLinks();
+      2688    renderFreeLines();
+      2689 -  applyVP();
+      2689 +  // Re-render code nodes that need tail-anchor spans injected.
+      2690 +  // Bubble nodes may appear after their target code node in the saved array,
+      2691 +  // so buildCodeHTML above found no bubbles yet and skipped injection.
+      2692 +  const anchoredFromIds = new Set(
+      2693 +    S.nodes
+      2694 +      .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
+      2695 +      .map(n => n.tailAnchorFromId)
+      2696 +  );
+      2697 +  for (const fromId of anchoredFromIds) {
+      2698 +    const cn = S.nodes.find(n => n.id === fromId);
+      2699 +    if (cn) renderNode(cn);
+      2700 +  }
+      2701 +  applyVP(); // also calls renderAnchoredBubbleTails
+      2702  }
+      2703
+      2704  // Remove localStorage entries older than STALE_DAYS that belong to closed tabs.
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 189/189 パス。
+
+  原因と修正:
+
+  loadState ではノードを配列順に1件ずつ描画するため、コードノードが描画される時点でバブルノードがまだ S.nodes に存在せず、buildCodeHTML が
+  tail-anchor スパンを注入できていませんでした。
+
+  修正として、全ノードのロードが完了した後に「tail anchor の接続先コードノード」を再描画するパスを追加しました。その後 applyVP() が
+  renderAnchoredBubbleTails() を呼ぶため、バブルの尻尾も正しい位置に描画されます。
+
+✻ Cooked for 55s
+```
