@@ -548,8 +548,11 @@ function renderBubbleTail(n) {
   if (n.tailAnchorId != null) {
     const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
     if (anchorEl) {
-      const r = anchorEl.getBoundingClientRect();
-      const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+      const anchorRect = anchorEl.getBoundingClientRect();
+      const anchorCenter = { x: anchorRect.left + anchorRect.width / 2, y: anchorRect.top + anchorRect.height / 2 };
+      const { side } = targetEntryPoint(anchorCenter, n);
+      const screenTip = anchorFpFromSide(anchorRect, side);
+      const cp = s2c(screenTip.x, screenTip.y);
       tipX = cp.x; tipY = cp.y;
     }
   }

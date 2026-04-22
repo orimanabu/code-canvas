@@ -20764,3 +20764,48 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Crunched for 2m 2s
 ```
+
+```
+❯ Bubble tailを選択テキストに接続する場合、選択テキストのバウンディングボックスのどこに接続するかを変更したいです。具体的には、コードブロックをリン
+クｓるうときと同じように、Bubbleと選択テキストの位置関係によって接続先を変えるようにしてください
+
+  Searched for 6 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at how anchorFpFromSide is used for regular link rendering:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ I now understand the issue. In renderBubbleTail (line 548-554), when there's a tailAnchorId, it uses the center of the anchor element as the tip.
+  The fix is to use targetEntryPoint + anchorFpFromSide (exactly like link arrows do) to pick the edge of the anchor facing the bubble.
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines, removed 2 lines
+      548    if (n.tailAnchorId != null) {
+      549      const anchorEl = document.querySelector(`.tail-anchor[data-taid="${n.tailAnchorId}"]`);
+      550      if (anchorEl) {
+      551 -      const r = anchorEl.getBoundingClientRect();
+      552 -      const cp = s2c(r.left + r.width / 2, r.top + r.height / 2);
+      551 +      const anchorRect = anchorEl.getBoundingClientRect();
+      552 +      const anchorCenter = { x: anchorRect.left + anchorRect.width / 2, y: anchorRect.top + anchorRect.height / 2 };
+      553 +      const { side } = targetEntryPoint(anchorCenter, n);
+      554 +      const screenTip = anchorFpFromSide(anchorRect, side);
+      555 +      const cp = s2c(screenTip.x, screenTip.y);
+      556        tipX = cp.x; tipY = cp.y;
+      557      }
+      558    }
+
+⏺ これで動作の仕組みは：
+
+  1. アンカー要素（選択テキスト）の中心点をスクリーン座標で取得
+  2. targetEntryPoint(anchorCenter, n) で「アンカーからバブルへ向かう矢印がバブルのどの辺に入るか」を判定 → side を取得
+  3. anchorFpFromSide(anchorRect, side) でアンカー要素のバブル側のエッジ点を取得（リンク矢印と同じロジック）
+  4. キャンバス座標に変換してテール先端として使用
+
+  つまり：
+  - バブルが右にある → アンカーの右端に接続
+  - バブルが左にある → アンカーの左端に接続
+  - バブルが上にある → アンカーの上端に接続
+  - バブルが下にある → アンカーの下端に接続
+
+✻ Brewed for 2m 10s
+```
