@@ -494,6 +494,7 @@ function initCodeSnippetdDialog() {
   const useCtagsEl       = document.getElementById('csd-use-ctags');
   let   currentApiType   = 'snippets';
   const contextEl        = document.getElementById('csd-context');
+  const tagsEl           = document.getElementById('csd-tags');
   const keywordEl        = document.getElementById('csd-keyword');
   const noteEl           = document.getElementById('csd-note');
   const fetchBtn         = document.getElementById('csd-fetch');
@@ -561,8 +562,10 @@ function initCodeSnippetdDialog() {
   function updateApiTypeUI() {
     const isPipe = currentApiType === 'pipe';
     contextEl.disabled = isPipe;
+    tagsEl.disabled    = isPipe;
     keywordEl.disabled = isPipe;
     contextEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
+    tagsEl.closest('.git-form-row').style.opacity    = isPipe ? '0.4' : '';
     keywordEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
     useCtagsEl.disabled = !isPipe;
     useCtagsEl.parentElement.style.opacity = isPipe ? '' : '0.4';
@@ -645,8 +648,12 @@ function initCodeSnippetdDialog() {
     if (currentApiType !== 'pipe') keywordEl.focus();
   };
 
-  async function fetchAndInsert(endpoint, keyword, index) {
-    const url = `http://${endpoint}/snippets/${encodeURIComponent(keyword)}`;
+  async function fetchAndInsert(endpoint, keyword, index, context, tags) {
+    let url = `http://${endpoint}/snippets/${encodeURIComponent(keyword)}`;
+    const qp = new URLSearchParams();
+    if (context) qp.set('context', context);
+    if (tags)    qp.set('tags', tags);
+    if (qp.toString()) url += `?${qp.toString()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const list = await res.json();
@@ -701,7 +708,7 @@ function initCodeSnippetdDialog() {
         const index = parseInt(row.dataset.index, 10);
         setResultsNote('⏳ Fetching snippet…', '');
         try {
-          await fetchAndInsert(pendingFetch.endpoint, pendingFetch.keyword, index);
+          await fetchAndInsert(pendingFetch.endpoint, pendingFetch.keyword, index, pendingFetch.context, pendingFetch.tags);
         } catch (e) {
           setResultsNote(`✗ Failed: ${e.message}`, 'err');
         }
@@ -752,32 +759,36 @@ function initCodeSnippetdDialog() {
 
     // /snippets mode
     const context  = contextEl.value.trim();
+    const tags     = tagsEl.value.trim();
     const keyword  = keywordEl.value.trim();
     if (!keyword) { setNote('⚠ Keyword is required.', 'err'); return; }
 
     let tagsUrl = `http://${endpoint}/tags/${encodeURIComponent(keyword)}`;
-    if (context) tagsUrl += `?context=${encodeURIComponent(context)}`;
+    const qParams = new URLSearchParams();
+    if (context) qParams.set('context', context);
+    if (tags)    qParams.set('tags', tags);
+    if (qParams.toString()) tagsUrl += `?${qParams.toString()}`;
 
     fetchBtn.disabled = true;
     setNote('⏳ Fetching…', '');
     try {
       const res = await fetch(tagsUrl);
       if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      const tags = await res.json();
-      if (!Array.isArray(tags)) throw new Error('Expected a JSON array from /tags');
+      const tagList = await res.json();
+      if (!Array.isArray(tagList)) throw new Error('Expected a JSON array from /tags');
 
-      if (tags.length === 0) {
+      if (tagList.length === 0) {
         setNote('⚠ No snippets found for this keyword.', 'warn');
         fetchBtn.disabled = false;
         return;
       }
 
-      if (tags.length === 1) {
-        await fetchAndInsert(endpoint, keyword, 0);
+      if (tagList.length === 1) {
+        await fetchAndInsert(endpoint, keyword, 0, context, tags);
       } else {
-        pendingFetch = { endpoint, keyword };
+        pendingFetch = { endpoint, keyword, context, tags };
         setResultsNote('', '');
-        buildResultsTable(tags);
+        buildResultsTable(tagList);
         showResults();
       }
     } catch (e) {
