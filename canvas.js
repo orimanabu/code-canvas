@@ -317,7 +317,7 @@ function renderNode(n, el) {
     }
     bindZOrderButtons(n, el);
 
-    ta.focus();
+    ta.focus({ preventScroll: true });
   } else {
     const { html, lang } = n.code
       ? buildCodeHTML(n.code, n.id)
@@ -498,7 +498,7 @@ function renderBubbleContent(n, el) {
       menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
     }
     bindZOrderButtons(n, el);
-    ta.focus();
+    ta.focus({ preventScroll: true });
   } else {
     el.innerHTML = bubbleViewHTML(n);
     el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });

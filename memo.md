@@ -20809,3 +20809,88 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Brewed for 2m 10s
 ```
+
+```
+❯ ブロックを作成していると、リンク接続の描画がおかしくなる場合があります。具体的には、リンク元が期待した選択テキストではなく、どこにも接続しない状態になる場合があります。原因を調
+査してください。選択テキストを右クリックして"Create new block and link"をクリックした際、新規ブロックが配置され、画面が新規ブロックがおさまるように移動します。その際にリンク元の描
+画がおかしくなっている(リンク元の座標変換がおかしくなっている)かもしれません
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at addNode and createLink to understand what happens with the viewport after adding a node.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at startEdit and selectNode to see if they pan/transform the viewport.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me check if anything scrolls the viewport when a new node is added or selected.
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at buildCodeHTML and injectAnchor to understand how link anchors are injected.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at the CSS for the wrap and canvas elements.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me check what applyVP does and whether it re-renders links.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Let me look at the edgePoint function and how renderLinks uses coordinates.
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+⏺ Let me look at how the link tip is shown and anchorRect is captured.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題が分かりました。原因を特定できました。
+
+  addNode → startEdit → renderNode 内で ta.focus() を呼ぶと、ブラウザ（特にChrome）が overflow: hidden の #wrap 要素をスクロールして textarea を表示しようとします。これにより：
+
+  1. #wrap がスクロールされ、内部要素の getBoundingClientRect() の値がずれる
+  2. その後 createLink → renderLinks() が実行される際、リンク始点は getBoundingClientRect()（スクロール後の値）で計算され、リンク終点は c2s()（CSS transform
+  のみ参照、スクロールを考慮しない）で計算される
+  3. 両端の座標系がずれ、リンクが正しく描画されない
+
+  修正は ta.focus({ preventScroll: true }) を使うことです。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      317      }
+      318      bindZOrderButtons(n, el);
+      319
+      320 -    ta.focus();
+      320 +    ta.focus({ preventScroll: true });
+      321    } else {
+      322      const { html, lang } = n.code
+      323        ? buildCodeHTML(n.code, n.id)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      498        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      499      }
+      500      bindZOrderButtons(n, el);
+      501 -    ta.focus();
+      501 +    ta.focus({ preventScroll: true });
+      502    } else {
+      503      el.innerHTML = bubbleViewHTML(n);
+      504      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+
+⏺ 修正しました。
+
+  根本原因: Chromeは overflow: hidden の要素でも、element.focus() がトリガーされると自動的にスクロールして focused 要素を表示しようとします。#wrap (position: fixed; overflow:
+  hidden) がスクロールされると、内部要素の getBoundingClientRect() の値がずれます。その後 renderLinks() がリンク始点（getBoundingClientRect() ベース = スクロール込み）と終点（c2s()
+   ベース = CSS transform のみ、スクロール非考慮）を混在させるため、リンクが正しく描画されません。
+
+  修正: 2箇所の ta.focus() を ta.focus({ preventScroll: true }) に変更。これでフォーカス時のスクロールが抑制され、#wrap のスクロール位置が変化しなくなります。
+
+✻ Sautéed for 7m 54s
+```
