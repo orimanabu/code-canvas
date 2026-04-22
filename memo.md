@@ -21222,3 +21222,224 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Brewed for 11m 28s
 ```
+
+```
+❯ dataVersionは変えなくても大丈夫ですか
+
+⏺ DATA_VERSION がどのように使われているか確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 大丈夫です。DATA_VERSION を上げる必要はありません。
+
+  理由：
+
+  - anchorMatchIdx はリンクオブジェクトへの追加フィールドであり、古いデータにはこのフィールドがない（undefined）
+  - 読み込み時は lnk.anchorMatchIdx ?? -1 で undefined → -1 にフォールバックするため、旧データも正常に動作（従来通り最初のマッチがリンク元になる）
+  - 旧バージョンのコードが新データを読んでも、未知のフィールドを無視するだけ
+
+  DATA_VERSION の変更が必要なのは、「移行処理（マイグレーション）が必要なデータ構造の破壊的変更」のときです。今回は単純な追加フィールドで双方向互換
+  性があるため、バージョンアップ不要です。
+
+❯ README.mdに現状を反映してください。おそらく実際の実装よりも少し古い内容になっていると思います
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Let me check the actual files and recent features more carefully:
+
+⏺ Bash(ls *.go *.py 2>/dev/null; git log --oneline -20)
+  ⎿  serve.go
+     serve.py
+     e938a5f feat: use the actually selected occurrence as the link arrow source point
+     … +19 lines (ctrl+o to expand)
+
+  Searched for 4 patterns, read 1 file (ctrl+o to expand)
+
+⏺ I also noticed anchorMatchIdx is not being serialized in saveState(). Let me fix that first, then update the README:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      2629        const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color } = n;
+      2630        return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color };
+      2631      }),
+      2632 -    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash }) => ({ id, fromId, text, toId, stroke, strokeWidth,
+           - dash })),
+      2632 +    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, stro
+           +ke, strokeWidth, dash, anchorMatchIdx })),
+      2633      freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
+      2634        id, points: points.map(p => ({ x: p.x, y: p.y })), lineStyle, stroke, strokeWidth, dash,
+      2635      })),
+
+⏺ Now let me check serve.py to understand its role, and look at the toolbar for the Jump button:
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+⏺ Now I have a complete picture of what's changed. Let me update the README:
+
+⏺ Write(README.md)
+  ⎿  Added 30 lines, removed 11 lines
+      10
+      11  - **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path.
+      12  - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
+      13 -- **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. Click to jum
+         -p to the target. Right-click a link to change its color, width, and dash style.
+      14 -- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox.
+      13 +- **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurren
+         +ces of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selec
+         +ted. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to ch
+         +ange its color, width, and dash style.
+      14 +- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail ti
+         +p can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip
+         +.
+      15  - **Frames**: Group related nodes visually with a labeled frame rectangle.
+      16  - **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and das
+          h style are configurable via right-click menu.
+      17 +- **Jump**: The "☰ Jump" toolbar button opens a navigator panel listing all code blocks, bubbles, and frames. Click an entry to scr
+         +oll the canvas to that node.
+      18  - **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
+      19  - **Infinite canvas**: Miro-style navigation (drag to pan, Cmd+drag to zoom, v/h to switch modes).
+      20  - **Multi-tab isolation**: Each browser tab stores its own canvas independently in localStorage. Stale entries from closed tabs are
+           purged automatically after 30 days.
+     ...
+      23
+      24  # Running the Web Server
+      25
+      25 -`serve.py` starts a local HTTP server so that the WASM binary (`ctags-wasm.wasm`) can be loaded directly by the browser, without th
+         -e CORS restrictions of the `file://` protocol.
+      26 +Both `serve.go` (Go) and `serve.py` (Python 3) provide an equivalent local HTTP server. Using a server avoids the CORS restrictions
+         + of the `file://` protocol.
+      27
+      27 -**Requirements**: Go 1.21+ (no external dependencies)
+      28 +**Go server** — requires Go 1.21+, no external dependencies:
+      29
+      30  ```bash
+      31  # Run directly with go run
+     ...
+      42  go run serve.go --port 9000 my-notes.json
+      43  ```
+      44
+      45 +**Python server** — requires Python 3, no external dependencies:
+      46 +
+      47 +```bash
+      48 +python3 serve.py
+      49 +python3 serve.py my-notes.json
+      50 +python3 serve.py --port 9000 my-notes.json
+      51 +```
+      52 +
+      53  The server opens `http://localhost:8765/code-canvas/canvas.html` in the browser automatically.
+      54
+      55  When a JSON file is specified, its contents are loaded into the canvas on startup and also written to `localStorage`, so the state
+          is preserved across page refreshes.
+     ...
+      75
+      76  | Field | Type | Description |
+      77  |---|---|---|
+      69 -| `dataVersion` | string | Format version (currently `"3.0"`) |
+      78 +| `dataVersion` | string | Format version (currently `"3.1"`) |
+      79  | `canvasTitle` | string | Title of the entire canvas |
+      80  | `nodes` | Node[] | Array of code blocks, bubbles, and frames |
+      81  | `links` | Link[] | Array of links |
+     ...
+      83  | `nid` | number | Counter for the next node ID to assign |
+      84  | `lid` | number | Counter for the next link ID to assign |
+      85  | `flid` | number | Counter for the next free-line ID to assign |
+      86 +| `taid` | number | Counter for the next tail-anchor ID to assign |
+      87  | `vp` | Viewport | Viewport state |
+      88  | `globalConfig` | GlobalConfig | Canvas description and list of associated Git repositories |
+      89
+     ...
+      119  | `w` | number | Width of the bubble body |
+      120  | `h` | number | Height of the bubble body |
+      121  | `text` | string | Text inside the bubble |
+      112 -| `tailX` | number | X coordinate of the tail tip on the canvas (movable independently of the body) |
+      113 -| `tailY` | number | Y coordinate of the tail tip on the canvas (movable independently of the body) |
+      122 +| `tailX` | number | X coordinate of the tail tip on the canvas (used when not anchored) |
+      123 +| `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
+      124  | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+      125  | `showTail` | boolean | Whether to show the tail (default: `true`) |
+      126 +| `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+          +k). `null` when not anchored. |
+      127 +| `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+      128 +| `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
+      129
+      130  ## Node object (frame)
+      131
+     ...
+      153  | `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
+      154  | `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
+      155  | `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
+      156 +| `anchorMatchIdx` | number | 0-based index of which occurrence of `text` in the source block is the arrow origin. `-1` means unse
+          +t (first occurrence is used). |
+      157
+      158  ## FreeLine object
+      159
+     ...
+      178
+      179  ## GlobalConfig object
+      180
+      167 -Canvas-level metadata and a list of associated Git repositories. Configured via the "⚙ Config" button in the toolbar.
+      181 +Canvas-level metadata and a list of associated Git repositories. Configured via the "⎇ Global Config" button in the toolbar.
+      182
+      183  | Field | Type | Description |
+      184  |---|---|---|
+     ...
+      203
+      204  ```json
+      205  {
+      192 -  "dataVersion": "3.0",
+      206 +  "dataVersion": "3.1",
+      207    "canvasTitle": "crun_code_reading",
+      208    "nodes": [
+      209      {
+     ...
+      231        "tailX": 250.0,
+      232        "tailY": 220.0,
+      233        "color": "green",
+      220 -      "showTail": true
+      234 +      "showTail": true,
+      235 +      "tailAnchorId": null,
+      236 +      "tailAnchorFromId": null,
+      237 +      "tailAnchorText": null
+      238      },
+      239      {
+      240        "id": 3,
+     ...
+      255        "toId": 3,
+      256        "stroke": "#388bfd",
+      257        "strokeWidth": 1.5,
+      241 -      "dash": ""
+      258 +      "dash": "",
+      259 +      "anchorMatchIdx": 0
+      260      }
+      261    ],
+      262    "freeLines": [
+     ...
+      272    "nid": 7,
+      273    "lid": 6,
+      274    "flid": 2,
+      275 +  "taid": 1,
+      276    "vp": {
+      277      "x": 76.9,
+      278      "y": -6.8,
+
+⏺ Bash(npm test 2>&1 | tail -8)
+  ⎿   ✓ tests/canvas-integration.test.js (26 tests) 457ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 469ms
+     … +4 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容：
+
+  README.md の更新点:
+  - dataVersion: "3.0" → "3.1"
+  - サーバー説明: serve.py とだけ書いていたのを serve.go（Go）と serve.py（Python）の両方を説明
+  - Features: Jump ボタン、バブルテールのテキストアンカー機能、リンクアンカー右クリックメニュー、選択箇所からリンク矢印を引く機能を追記
+  - トップレベルフィールド表: taid を追記
+  - バブルノードフィールド表: tailAnchorId, tailAnchorFromId, tailAnchorText を追記
+  - リンクオブジェクト表: anchorMatchIdx を追記
+  - サンプル JSON: dataVersion を "3.1" に、taid を追加、バブルにテールアンカーフィールドを追加、リンクに anchorMatchIdx を追加
+
+  canvas.js のバグ修正:
+  - saveState() で anchorMatchIdx がシリアライズされていなかったのを修正
+
+✻ Churned for 2m 24s
+```

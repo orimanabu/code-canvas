@@ -10,10 +10,11 @@ A browser-based tool for reading and understanding source code. Visually organiz
 
 - **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path.
 - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
-- **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. Click to jump to the target. Right-click a link to change its color, width, and dash style.
-- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox.
+- **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurrences of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selected. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to change its color, width, and dash style.
+- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail tip can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip.
 - **Frames**: Group related nodes visually with a labeled frame rectangle.
 - **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and dash style are configurable via right-click menu.
+- **Jump**: The "☰ Jump" toolbar button opens a navigator panel listing all code blocks, bubbles, and frames. Click an entry to scroll the canvas to that node.
 - **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
 - **Infinite canvas**: Miro-style navigation (drag to pan, Cmd+drag to zoom, v/h to switch modes).
 - **Multi-tab isolation**: Each browser tab stores its own canvas independently in localStorage. Stale entries from closed tabs are purged automatically after 30 days.
@@ -22,9 +23,9 @@ A browser-based tool for reading and understanding source code. Visually organiz
 
 # Running the Web Server
 
-`serve.py` starts a local HTTP server so that the WASM binary (`ctags-wasm.wasm`) can be loaded directly by the browser, without the CORS restrictions of the `file://` protocol.
+Both `serve.go` (Go) and `serve.py` (Python 3) provide an equivalent local HTTP server. Using a server avoids the CORS restrictions of the `file://` protocol.
 
-**Requirements**: Go 1.21+ (no external dependencies)
+**Go server** — requires Go 1.21+, no external dependencies:
 
 ```bash
 # Run directly with go run
@@ -39,6 +40,14 @@ go run serve.go my-notes.json
 
 # Specify a custom port (default: 8765)
 go run serve.go --port 9000 my-notes.json
+```
+
+**Python server** — requires Python 3, no external dependencies:
+
+```bash
+python3 serve.py
+python3 serve.py my-notes.json
+python3 serve.py --port 9000 my-notes.json
 ```
 
 The server opens `http://localhost:8765/code-canvas/canvas.html` in the browser automatically.
@@ -66,7 +75,7 @@ When a JSON file is specified, its contents are loaded into the canvas on startu
 
 | Field | Type | Description |
 |---|---|---|
-| `dataVersion` | string | Format version (currently `"3.0"`) |
+| `dataVersion` | string | Format version (currently `"3.1"`) |
 | `canvasTitle` | string | Title of the entire canvas |
 | `nodes` | Node[] | Array of code blocks, bubbles, and frames |
 | `links` | Link[] | Array of links |
@@ -74,6 +83,7 @@ When a JSON file is specified, its contents are loaded into the canvas on startu
 | `nid` | number | Counter for the next node ID to assign |
 | `lid` | number | Counter for the next link ID to assign |
 | `flid` | number | Counter for the next free-line ID to assign |
+| `taid` | number | Counter for the next tail-anchor ID to assign |
 | `vp` | Viewport | Viewport state |
 | `globalConfig` | GlobalConfig | Canvas description and list of associated Git repositories |
 
@@ -109,10 +119,13 @@ A node is a bubble when `type` is `"bubble"`.
 | `w` | number | Width of the bubble body |
 | `h` | number | Height of the bubble body |
 | `text` | string | Text inside the bubble |
-| `tailX` | number | X coordinate of the tail tip on the canvas (movable independently of the body) |
-| `tailY` | number | Y coordinate of the tail tip on the canvas (movable independently of the body) |
+| `tailX` | number | X coordinate of the tail tip on the canvas (used when not anchored) |
+| `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
 | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
 | `showTail` | boolean | Whether to show the tail (default: `true`) |
+| `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code block). `null` when not anchored. |
+| `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+| `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
 
 ## Node object (frame)
 
@@ -140,6 +153,7 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
 | `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
 | `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
+| `anchorMatchIdx` | number | 0-based index of which occurrence of `text` in the source block is the arrow origin. `-1` means unset (first occurrence is used). |
 
 ## FreeLine object
 
@@ -164,7 +178,7 @@ Freehand line drawn directly on the canvas.
 
 ## GlobalConfig object
 
-Canvas-level metadata and a list of associated Git repositories. Configured via the "⚙ Config" button in the toolbar.
+Canvas-level metadata and a list of associated Git repositories. Configured via the "⎇ Global Config" button in the toolbar.
 
 | Field | Type | Description |
 |---|---|---|
@@ -189,7 +203,7 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
 
 ```json
 {
-  "dataVersion": "3.0",
+  "dataVersion": "3.1",
   "canvasTitle": "crun_code_reading",
   "nodes": [
     {
@@ -217,7 +231,10 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "tailX": 250.0,
       "tailY": 220.0,
       "color": "green",
-      "showTail": true
+      "showTail": true,
+      "tailAnchorId": null,
+      "tailAnchorFromId": null,
+      "tailAnchorText": null
     },
     {
       "id": 3,
@@ -238,7 +255,8 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "toId": 3,
       "stroke": "#388bfd",
       "strokeWidth": 1.5,
-      "dash": ""
+      "dash": "",
+      "anchorMatchIdx": 0
     }
   ],
   "freeLines": [
@@ -254,6 +272,7 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
   "nid": 7,
   "lid": 6,
   "flid": 2,
+  "taid": 1,
   "vp": {
     "x": 76.9,
     "y": -6.8,
