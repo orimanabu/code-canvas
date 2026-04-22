@@ -1171,6 +1171,7 @@ function copyNodes() {
   }
   if (items.length === 0) return;
   S.clipboard = items;
+  localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
   setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
 }
 
@@ -1192,10 +1193,15 @@ function cutNodes() {
   _suppressUndo = false;
   if (items.length === 0) return;
   S.clipboard = items;
+  localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
   setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
 }
 
 function pasteNodes() {
+  const stored = localStorage.getItem('code-canvas-clipboard');
+  if (stored) {
+    try { S.clipboard = JSON.parse(stored); } catch { /* keep S.clipboard as-is */ }
+  }
   if (S.clipboard.length === 0) return;
   pushUndo();
   clearMultiSel();

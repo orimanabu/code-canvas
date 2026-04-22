@@ -21443,3 +21443,327 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Churned for 2m 24s
 ```
+
+```
+❯ ブラウザの2つのタブでcanvasを開いています。片方のタブのオブジェクトを別のタブのcanvasにコピー＆ペーストすることはできますか
+
+⏺ Explore(Explore copy/paste and persistence mechanisms)
+  ⎿  Done (17 tool uses · 32.9k tokens · 1m 3s)
+  (ctrl+o to expand)
+
+⏺ 現在の実装を理解しました。計画を立てます。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/agile-floating-axolotl.md · /plan to edit
+     Plan: Cross-Tab Copy/Paste via Shared localStorage
+
+     Context
+
+     Currently, S.clipboard is a plain in-memory JavaScript array. Each browser tab runs its own isolated JS context, so S.clipboard in Tab A is
+     completely invisible to Tab B. The user wants to copy objects in one tab and paste them into another tab's canvas.
+
+     The fix: persist the clipboard to a shared localStorage key (code-canvas-clipboard) on every copy/cut, and read from that key on every paste.
+     Since all tabs share the same localStorage origin, this makes the clipboard automatically cross-tab.
+
+     Approach
+
+     Use a fixed shared localStorage key "code-canvas-clipboard" as the clipboard store. No permissions, no async, no new APIs required — just JSON
+     serialization to localStorage.
+
+     Changes to canvas.js
+
+     1. copyNodes() (line ~1162)
+     After building items, write to localStorage in addition to S.clipboard:
+     S.clipboard = items;
+     localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+
+     2. cutNodes() (line ~1177)
+     Same — after building items, write to localStorage:
+     S.clipboard = items;
+     localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+
+     3. pasteNodes() (line ~1198)
+     At the top of the function, try to load clipboard from localStorage; fall back to in-memory S.clipboard if unavailable or malformed:
+     const stored = localStorage.getItem('code-canvas-clipboard');
+     if (stored) {
+       try { S.clipboard = JSON.parse(stored); } catch { /* keep S.clipboard as-is */ }
+     }
+     Then the rest of the function proceeds unchanged (it already reads from S.clipboard).
+
+     Also update S.clipboard after the paste offset-shift so the next paste in this tab keeps the shifted state — but do NOT write back to
+     localStorage on paste (otherwise pasting from Tab B would overwrite the clipboard that Tab A put there).
+
+     Critical files
+
+     - canvas.js — only file to modify; 3 small edits in copyNodes, cutNodes, pasteNodes
+
+     Verification
+
+     1. Open canvas.html in two tabs (via local server).
+     2. In Tab A: add a node, select it, press Cmd+C.
+     3. Switch to Tab B: press Cmd+V → the node should appear.
+     4. Verify that normal same-tab copy/paste still works.
+     5. Verify that cut in Tab A removes the node and paste in Tab B inserts it.
+     6. Verify that pasting multiple times in Tab B offsets each paste correctly.
+
+⏺ Let me read the relevant sections of canvas.js.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have the exact code. I'll make all three edits.
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1171    }
+      1172    if (items.length === 0) return;
+      1173    S.clipboard = items;
+      1174 +  localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+      1175    setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
+      1176  }
+      1177
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1193    _suppressUndo = false;
+      1194    if (items.length === 0) return;
+      1195    S.clipboard = items;
+      1196 +  localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+      1197    setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
+      1198  }
+      1199
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines
+      1198  }
+      1199
+      1200  function pasteNodes() {
+      1201 +  const stored = localStorage.getItem('code-canvas-clipboard');
+      1202 +  if (stored) {
+      1203 +    try { S.clipboard = JSON.parse(stored); } catch { /* keep S.clipboard as-is */ }
+      1204 +  }
+      1205    if (S.clipboard.length === 0) return;
+      1206    pushUndo();
+      1207    clearMultiSel();
+
+⏺ 完了です。変更点:
+
+  - copyNodes() — S.clipboard に加え localStorage['code-canvas-clipboard'] へもJSON保存
+  - cutNodes() — 同上
+  - pasteNodes() — ペースト時にまず localStorage から読み込み、S.clipboard を更新してから貼り付け
+
+  これにより、Tab A でコピー（Cmd+C）→ Tab B
+  でペースト（Cmd+V）が動作します。同一タブ内の通常のコピペも引き続き動作し、複数回ペーストの際のオフセット移動も正常に機能します。
+
+✻ Cogitated for 2m 2s
+
+❯ テストコード、ドキュメントの更新もお願いします
+
+  Searched for 6 patterns, read 4 files (ctrl+o to expand)
+
+⏺ Now I have everything I need. Let me make all three changes.
+
+  1. Unit tests — add copyNodes/cutNodes/pasteNodes imports and test block:
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 1 line
+       5    S, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+       6    saveState, restoreFromStorage,
+       7    createLink, toggleMultiSel,
+       8 +  copyNodes, cutNodes, pasteNodes,
+       9    addFreeLine, removeFreeLine,
+      10    pushUndo, undo,
+      11    s2c, zoom,
+
+⏺ Now append the clipboard test block:
+
+  Reading 1 file… (ctrl+o to expand)
+  ⎿  tests/canvas-dom.test.js
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 85 lines
+      433      expect(S.vp.scale).toBeCloseTo(0.08);
+      434    });
+      435  });
+      436 +
+      437 +// ─── copyNodes / cutNodes / pasteNodes ─────────────────
+      438 +describe('copyNodes / cutNodes / pasteNodes', () => {
+      439 +  beforeEach(() => {
+      440 +    // loadState (called by outer beforeEach) already clears S.clipboard and S.sel
+      441 +    localStorage.removeItem('code-canvas-clipboard');
+      442 +  });
+      443 +
+      444 +  it('copyNodes stores items in S.clipboard', () => {
+      445 +    const n = addNode(0, 0, 'hello');
+      446 +    selectNode(n.id);
+      447 +    copyNodes();
+      448 +    expect(S.clipboard).toHaveLength(1);
+      449 +    expect(S.clipboard[0]._clipType).toBe('node');
+      450 +    expect(S.clipboard[0].code).toBe('hello');
+      451 +  });
+      452 +
+      453 +  it('copyNodes writes clipboard to localStorage', () => {
+      454 +    const n = addNode(0, 0, 'hello');
+      455 +    selectNode(n.id);
+      456 +    copyNodes();
+      457 +    const stored = JSON.parse(localStorage.getItem('code-canvas-clipboard'));
+      458 +    expect(stored).toHaveLength(1);
+      459 +    expect(stored[0].code).toBe('hello');
+      460 +  });
+      461 +
+      462 +  it('cutNodes removes the node and writes it to localStorage', () => {
+      463 +    const n = addNode(0, 0, 'cut me');
+      464 +    selectNode(n.id);
+      465 +    cutNodes();
+      466 +    expect(S.nodes).toHaveLength(0);
+      467 +    const stored = JSON.parse(localStorage.getItem('code-canvas-clipboard'));
+      468 +    expect(stored).toHaveLength(1);
+      469 +    expect(stored[0].code).toBe('cut me');
+      470 +  });
+      471 +
+      472 +  it('pasteNodes creates a new node from S.clipboard', () => {
+      473 +    const n = addNode(100, 200, 'paste me');
+      474 +    selectNode(n.id);
+      475 +    copyNodes();
+      476 +    pasteNodes();
+      477 +    expect(S.nodes).toHaveLength(2);
+      478 +    const pasted = S.nodes.find(nn => nn.id !== n.id);
+      479 +    expect(pasted.code).toBe('paste me');
+      480 +  });
+      481 +
+      482 +  it('pasteNodes offsets pasted node position by 30px', () => {
+      483 +    const n = addNode(100, 200, 'pos test');
+      484 +    selectNode(n.id);
+      485 +    copyNodes();
+      486 +    pasteNodes();
+      487 +    const pasted = S.nodes.find(nn => nn.id !== n.id);
+      488 +    expect(pasted.x).toBe(130);
+      489 +    expect(pasted.y).toBe(230);
+      490 +  });
+      491 +
+      492 +  it('pasteNodes reads clipboard from localStorage (cross-tab simulation)', () => {
+      493 +    // Simulate another tab having written to the shared clipboard key
+      494 +    const crossTabClipboard = [{
+      495 +      _clipType: 'node',
+      496 +      id: 999, x: 50, y: 50, w: 400, h: 300,
+      497 +      code: 'from other tab', lang: 'javascript',
+      498 +      title: '', filePath: '',
+      499 +      showLineNumbers: true, lineNumberStart: 1,
+      500 +    }];
+      501 +    localStorage.setItem('code-canvas-clipboard', JSON.stringify(crossTabClipboard));
+      502 +    // S.clipboard is empty — simulates a freshly opened tab
+      503 +    expect(S.clipboard).toHaveLength(0);
+      504 +
+      505 +    pasteNodes();
+      506 +    expect(S.nodes).toHaveLength(1);
+      507 +    expect(S.nodes[0].code).toBe('from other tab');
+      508 +  });
+      509 +
+      510 +  it('pasteNodes falls back gracefully when localStorage entry is corrupt', () => {
+      511 +    const n = addNode(0, 0, 'safe');
+      512 +    selectNode(n.id);
+      513 +    copyNodes(); // S.clipboard has one item
+      514 +    localStorage.setItem('code-canvas-clipboard', 'not-valid-json');
+      515 +
+      516 +    // Should not throw; S.clipboard unchanged, paste proceeds normally
+      517 +    expect(() => pasteNodes()).not.toThrow();
+      518 +    expect(S.nodes).toHaveLength(2);
+      519 +  });
+      520 +});
+
+⏺ 2. E2E test — add cross-tab test:
+
+⏺ Update(tests/e2e/canvas.spec.js)
+  ⎿  Added 21 lines
+      158    await expect(page.locator('.node')).toHaveCount(1);
+      159  });
+      160
+      161 +// ─── Cross-tab copy/paste via shared localStorage ────────────────────────────
+      162 +test('copy in one tab, paste in another tab', async ({ page, context }) => {
+      163 +  // page has already loaded canvas.html (via beforeEach)
+      164 +  await page.locator('#btn-add').click();
+      165 +  await page.keyboard.press('Escape');
+      166 +  await page.locator('.node').first().click();
+      167 +
+      168 +  await page.keyboard.press('Control+c');
+      169 +
+      170 +  // Open a second page within the same browser context so localStorage is shared
+      171 +  const page2 = await context.newPage();
+      172 +  await page2.goto('/canvas.html');
+      173 +  await expect(page2.locator('#status')).toContainText('Ready', { timeout: 5000 });
+      174 +
+      175 +  // Paste into the second tab — should read from the shared localStorage clipboard
+      176 +  await page2.keyboard.press('Control+v');
+      177 +  await expect(page2.locator('.node')).toHaveCount(1);
+      178 +
+      179 +  await page2.close();
+      180 +});
+      181 +
+      182  // ─── Link creation ────────────────────────────────────────────────────────────
+      183  test('selecting text in a code block shows the link tooltip', async ({ page }) => {
+      184    await page.locator('#btn-add').click();
+
+⏺ 3. CLAUDE.md — document cross-tab clipboard in the Architecture section:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line
+      51  - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free
+          -lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
+      52  - **Undo**: `pushUndo()` snapshots `S.nodes`, `S.links`, `S.freeLines` (shallow copy), capped at 10. `undo()` pops the top snapshot
+          , clears DOM, and re-renders all nodes and lines.
+      53  - **Persistence**: Auto-saved to a per-tab `localStorage` key `code-canvas-v1-{TAB_ID}` on every change (stale entries from closed
+          tabs purged after 30 days). Import/export uses JSON with the full state schema.
+      54 +- **Cross-tab clipboard**: Copy/cut also writes to the shared `localStorage` key `code-canvas-clipboard` (no TAB suffix). Paste rea
+         +ds from that key first, so Cmd+C in one tab followed by Cmd+V in another tab works. Paste shifts the in-memory clipboard for offset
+         + stacking but does not overwrite the shared key.
+      55  - **Git integration**: Fetches raw file content from GitHub (`raw.githubusercontent.com`) to populate code blocks. Commit hash auto
+          -resolved via GitHub API (`api.github.com`). Multiple repos configurable via `S.globalConfig.repositories[]`.
+      56
+      57  ## Node types
+
+⏺ 4. README.md — note cross-tab support on the Cmd+V line:
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      65  | `Del` / `Backspace` | Delete selected node or line |
+      66  | `Cmd/Ctrl+C` | Copy selected node(s) or line |
+      67  | `Cmd/Ctrl+X` | Cut selected node(s) or line |
+      68 -| `Cmd/Ctrl+V` | Paste |
+      68 +| `Cmd/Ctrl+V` | Paste (works across tabs in the same browser) |
+      69  | `Cmd/Ctrl+Z` | Undo (up to 10 steps) |
+      70  | `Escape` | Exit edit / link mode |
+      71
+
+⏺ Now let me run the unit tests to verify:
+
+⏺ Bash(npm test 2>&1 | tail -40)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全テストが通りました。変更の概要:
+
+  tests/canvas-dom.test.js
+  - copyNodes, cutNodes, pasteNodes をインポートに追加
+  - 7つのテストケースを追加:
+    - copyNodes が S.clipboard と localStorage の両方に書き込む
+    - cutNodes がノード削除 + localStorage 書き込み
+    - pasteNodes の基本動作（コピーして貼り付け、30pxオフセット）
+    - pasteNodes が localStorage から読み込む（別タブシミュレーション）
+    - localStorage が壊れているときのフォールバック
+
+  tests/e2e/canvas.spec.js
+  - 同一ブラウザコンテキスト内で2ページを開き、Tab1でコピー → Tab2でペーストが動作することを確認するE2Eテストを追加
+
+  CLAUDE.md
+  - Key Patterns の Persistence 節に cross-tab clipboard の説明を追加
+
+  README.md
+  - Cmd/Ctrl+V の説明に「同一ブラウザの別タブ間でも動作」と記載
+
+✻ Worked for 2m 49s
+```

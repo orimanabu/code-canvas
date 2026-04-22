@@ -158,6 +158,27 @@ test('canvas state persists across page reloads', async ({ page }) => {
   await expect(page.locator('.node')).toHaveCount(1);
 });
 
+// ─── Cross-tab copy/paste via shared localStorage ────────────────────────────
+test('copy in one tab, paste in another tab', async ({ page, context }) => {
+  // page has already loaded canvas.html (via beforeEach)
+  await page.locator('#btn-add').click();
+  await page.keyboard.press('Escape');
+  await page.locator('.node').first().click();
+
+  await page.keyboard.press('Control+c');
+
+  // Open a second page within the same browser context so localStorage is shared
+  const page2 = await context.newPage();
+  await page2.goto('/canvas.html');
+  await expect(page2.locator('#status')).toContainText('Ready', { timeout: 5000 });
+
+  // Paste into the second tab — should read from the shared localStorage clipboard
+  await page2.keyboard.press('Control+v');
+  await expect(page2.locator('.node')).toHaveCount(1);
+
+  await page2.close();
+});
+
 // ─── Link creation ────────────────────────────────────────────────────────────
 test('selecting text in a code block shows the link tooltip', async ({ page }) => {
   await page.locator('#btn-add').click();

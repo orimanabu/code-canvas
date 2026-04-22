@@ -5,6 +5,7 @@ const {
   S, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
   saveState, restoreFromStorage,
   createLink, toggleMultiSel,
+  copyNodes, cutNodes, pasteNodes,
   addFreeLine, removeFreeLine,
   pushUndo, undo,
   s2c, zoom,
@@ -430,5 +431,90 @@ describe('Viewport math (s2c / zoom)', () => {
   it('zoom clamps scale to the minimum (0.08x)', () => {
     zoom(0.001, 0, 0);
     expect(S.vp.scale).toBeCloseTo(0.08);
+  });
+});
+
+// ─── copyNodes / cutNodes / pasteNodes ─────────────────
+describe('copyNodes / cutNodes / pasteNodes', () => {
+  beforeEach(() => {
+    // loadState (called by outer beforeEach) already clears S.clipboard and S.sel
+    localStorage.removeItem('code-canvas-clipboard');
+  });
+
+  it('copyNodes stores items in S.clipboard', () => {
+    const n = addNode(0, 0, 'hello');
+    selectNode(n.id);
+    copyNodes();
+    expect(S.clipboard).toHaveLength(1);
+    expect(S.clipboard[0]._clipType).toBe('node');
+    expect(S.clipboard[0].code).toBe('hello');
+  });
+
+  it('copyNodes writes clipboard to localStorage', () => {
+    const n = addNode(0, 0, 'hello');
+    selectNode(n.id);
+    copyNodes();
+    const stored = JSON.parse(localStorage.getItem('code-canvas-clipboard'));
+    expect(stored).toHaveLength(1);
+    expect(stored[0].code).toBe('hello');
+  });
+
+  it('cutNodes removes the node and writes it to localStorage', () => {
+    const n = addNode(0, 0, 'cut me');
+    selectNode(n.id);
+    cutNodes();
+    expect(S.nodes).toHaveLength(0);
+    const stored = JSON.parse(localStorage.getItem('code-canvas-clipboard'));
+    expect(stored).toHaveLength(1);
+    expect(stored[0].code).toBe('cut me');
+  });
+
+  it('pasteNodes creates a new node from S.clipboard', () => {
+    const n = addNode(100, 200, 'paste me');
+    selectNode(n.id);
+    copyNodes();
+    pasteNodes();
+    expect(S.nodes).toHaveLength(2);
+    const pasted = S.nodes.find(nn => nn.id !== n.id);
+    expect(pasted.code).toBe('paste me');
+  });
+
+  it('pasteNodes offsets pasted node position by 30px', () => {
+    const n = addNode(100, 200, 'pos test');
+    selectNode(n.id);
+    copyNodes();
+    pasteNodes();
+    const pasted = S.nodes.find(nn => nn.id !== n.id);
+    expect(pasted.x).toBe(130);
+    expect(pasted.y).toBe(230);
+  });
+
+  it('pasteNodes reads clipboard from localStorage (cross-tab simulation)', () => {
+    // Simulate another tab having written to the shared clipboard key
+    const crossTabClipboard = [{
+      _clipType: 'node',
+      id: 999, x: 50, y: 50, w: 400, h: 300,
+      code: 'from other tab', lang: 'javascript',
+      title: '', filePath: '',
+      showLineNumbers: true, lineNumberStart: 1,
+    }];
+    localStorage.setItem('code-canvas-clipboard', JSON.stringify(crossTabClipboard));
+    // S.clipboard is empty — simulates a freshly opened tab
+    expect(S.clipboard).toHaveLength(0);
+
+    pasteNodes();
+    expect(S.nodes).toHaveLength(1);
+    expect(S.nodes[0].code).toBe('from other tab');
+  });
+
+  it('pasteNodes falls back gracefully when localStorage entry is corrupt', () => {
+    const n = addNode(0, 0, 'safe');
+    selectNode(n.id);
+    copyNodes(); // S.clipboard has one item
+    localStorage.setItem('code-canvas-clipboard', 'not-valid-json');
+
+    // Should not throw; S.clipboard unchanged, paste proceeds normally
+    expect(() => pasteNodes()).not.toThrow();
+    expect(S.nodes).toHaveLength(2);
   });
 });

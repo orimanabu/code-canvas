@@ -65,7 +65,7 @@ When a JSON file is specified, its contents are loaded into the canvas on startu
 | `Del` / `Backspace` | Delete selected node or line |
 | `Cmd/Ctrl+C` | Copy selected node(s) or line |
 | `Cmd/Ctrl+X` | Cut selected node(s) or line |
-| `Cmd/Ctrl+V` | Paste |
+| `Cmd/Ctrl+V` | Paste (works across tabs in the same browser) |
 | `Cmd/Ctrl+Z` | Undo (up to 10 steps) |
 | `Escape` | Exit edit / link mode |
 

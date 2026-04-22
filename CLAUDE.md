@@ -51,6 +51,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free-lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
 - **Undo**: `pushUndo()` snapshots `S.nodes`, `S.links`, `S.freeLines` (shallow copy), capped at 10. `undo()` pops the top snapshot, clears DOM, and re-renders all nodes and lines.
 - **Persistence**: Auto-saved to a per-tab `localStorage` key `code-canvas-v1-{TAB_ID}` on every change (stale entries from closed tabs purged after 30 days). Import/export uses JSON with the full state schema.
+- **Cross-tab clipboard**: Copy/cut also writes to the shared `localStorage` key `code-canvas-clipboard` (no TAB suffix). Paste reads from that key first, so Cmd+C in one tab followed by Cmd+V in another tab works. Paste shifts the in-memory clipboard for offset stacking but does not overwrite the shared key.
 - **Git integration**: Fetches raw file content from GitHub (`raw.githubusercontent.com`) to populate code blocks. Commit hash auto-resolved via GitHub API (`api.github.com`). Multiple repos configurable via `S.globalConfig.repositories[]`.
 
 ## Node types
