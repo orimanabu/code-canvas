@@ -19193,3 +19193,251 @@ parameterが設定されていないように見えます。クエリパラメ�
 
 ✻ Churned for 4m 31s
 ```
+
+```
+❯ div id="codesnippetd-main-form"の/snippet入力において、今はcontextとtagsの入力フォームがあります。これを以下のように変更してください
+- 「登録リポジトリから選択」「直接入力」のどちらか選択
+- 「登録リポジトリから選択」の場合は、Global Configで設定したリポジトリのnicnameが選択肢に現れる。選択したnicnameのcontextとtag
+pathをクエリパラメータに指定する
+- 「直接入力」の場合は今までどおり、contextとtagsの入力フォームから直接入力する
+
+⏺ まず Global Config のリポジトリデータ構造と、ダイアログの現在の実装を確認します。
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ リポジトリの全フィールドを確認します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ リポジトリの localTree → context、tagsFile → tags と対応すると理解しました。現在のCSS・HTML構造を確認します：
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 構造が把握できました。実装します。
+
+  変更方針：
+  - Context/Tags 行を「ソース選択ラジオ」＋「リポジトリセクション（select）」＋「直接入力セクション」に置き換え
+  - リポジトリ選択時は localTree → context、tagsFile → tags を使用
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ HTML を変更します：
+
+⏺ Update(canvas.html)
+  ⎿  Added 24 lines, removed 7 lines
+      195            Auto-extract block title using ctags-wasm
+      196          </label>
+      197        </div>
+      198 -      <div class="git-form-row">
+      199 -        <label class="git-form-label" for="csd-context">Context</label>
+      200 -        <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      198 +      <div id="csd-source-area">
+      199 +        <div class="git-form-row">
+      200 +          <label class="git-form-label">Source</label>
+      201 +          <div class="csd-source-radios">
+      202 +            <label class="csd-source-radio"><input type="radio" name="csd-source" value="repo" checked> Select from registered rep
+          +ositories</label>
+      203 +            <label class="csd-source-radio"><input type="radio" name="csd-source" value="manual"> Direct input</label>
+      204 +          </div>
+      205 +        </div>
+      206 +        <div id="csd-repo-section">
+      207 +          <div class="git-form-row">
+      208 +            <label class="git-form-label" for="csd-repo-select">Repository</label>
+      209 +            <select class="git-form-input" id="csd-repo-select"></select>
+      210 +          </div>
+      211 +        </div>
+      212 +        <div id="csd-manual-section" style="display:none;">
+      213 +          <div class="git-form-row">
+      214 +            <label class="git-form-label" for="csd-context">Context</label>
+      215 +            <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      216 +          </div>
+      217 +          <div class="git-form-row">
+      218 +            <label class="git-form-label" for="csd-tags">Tags</label>
+      219 +            <input class="git-form-input" id="csd-tags" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      220 +          </div>
+      221 +        </div>
+      222        </div>
+      223        <div class="git-form-row">
+      203 -        <label class="git-form-label" for="csd-tags">Tags</label>
+      204 -        <input class="git-form-input" id="csd-tags" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      205 -      </div>
+      206 -      <div class="git-form-row">
+      224          <label class="git-form-label" for="csd-keyword">Keyword</label>
+      225          <input class="git-form-input" id="csd-keyword" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      226        </div>
+
+⏺ CSS を追加します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 6 lines
+      785
+      786  /* ── Codesnippetd Dialog ── */
+      787  .csd-dialog { width: 560px; }
+      788 +.csd-source-radios { display: flex; flex-direction: column; gap: 6px; }
+      789 +.csd-source-radio {
+      790 +  display: flex; align-items: center; gap: 6px;
+      791 +  font-size: 13px; color: #e6edf3; cursor: pointer;
+      792 +}
+      793 +.csd-source-radio input[type="radio"] { cursor: pointer; }
+      794  .csd-tabs {
+      795    display: flex;
+      796    border-bottom: 1px solid #30363d;
+
+⏺ 次に JS を変更します。まず現在の initCodeSnippetdDialog 全体の構造を確認：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全体の構造が把握できました。JS の変更を一気に実装します：
+
+  1. 要素参照の更新（updateApiTypeUI の前後を含めて）：
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 5 lines
+      493    const apiTabsEl        = document.getElementById('csd-api-tabs');
+      494    const useCtagsEl       = document.getElementById('csd-use-ctags');
+      495    let   currentApiType   = 'snippets';
+      496 +  const sourceAreaEl     = document.getElementById('csd-source-area');
+      497 +  const sourceRadios     = document.querySelectorAll('input[name="csd-source"]');
+      498 +  const repoSectionEl    = document.getElementById('csd-repo-section');
+      499 +  const manualSectionEl  = document.getElementById('csd-manual-section');
+      500 +  const repoSelectEl     = document.getElementById('csd-repo-select');
+      501    const contextEl        = document.getElementById('csd-context');
+      502    const tagsEl           = document.getElementById('csd-tags');
+      503    const keywordEl        = document.getElementById('csd-keyword');
+
+⏺ 2. updateApiTypeUI を置き換えて、ソース切り替え関数を追加：
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 15 lines, removed 4 lines
+      564    }
+      565    // ───────────────────────────────────────────────────────────────────
+      566
+      567 +  function getSourceMode() {
+      568 +    return document.querySelector('input[name="csd-source"]:checked')?.value ?? 'repo';
+      569 +  }
+      570 +
+      571 +  function updateSourceUI() {
+      572 +    const isRepo = getSourceMode() === 'repo';
+      573 +    repoSectionEl.style.display   = isRepo ? '' : 'none';
+      574 +    manualSectionEl.style.display = isRepo ? 'none' : '';
+      575 +  }
+      576 +
+      577 +  sourceRadios.forEach(r => r.addEventListener('change', updateSourceUI));
+      578 +
+      579    function updateApiTypeUI() {
+      580      const isPipe = currentApiType === 'pipe';
+      569 -    contextEl.disabled = isPipe;
+      570 -    tagsEl.disabled    = isPipe;
+      581 +    sourceAreaEl.style.opacity = isPipe ? '0.4' : '';
+      582 +    sourceAreaEl.querySelectorAll('input, select').forEach(el => el.disabled = isPipe);
+      583      keywordEl.disabled = isPipe;
+      572 -    contextEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
+      573 -    tagsEl.closest('.git-form-row').style.opacity    = isPipe ? '0.4' : '';
+      584      keywordEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
+      585      useCtagsEl.disabled = !isPipe;
+      586      useCtagsEl.parentElement.style.opacity = isPipe ? '' : '0.4';
+      587      fetchBtn.disabled = false;
+      588 +    if (!isPipe) updateSourceUI();
+      589    }
+      590
+      591    apiTabsEl.addEventListener('click', e => {
+
+⏺ 3. openCodeSnippetdDialog でリポジトリ選択肢を動的に生成：
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 9 lines
+      658      targetNodeId = nodeId;
+      659      pendingFetch = null;
+      660      setNote('', '');
+      661 +    // Populate repo dropdown from globalConfig
+      662 +    const repos = S.globalConfig.repositories || [];
+      663 +    if (repos.length === 0) {
+      664 +      repoSelectEl.innerHTML = '<option value="">— No repositories configured —</option>';
+      665 +    } else {
+      666 +      repoSelectEl.innerHTML = repos.map((r, i) =>
+      667 +        `<option value="${i}">${esc(r.nickname)}</option>`
+      668 +      ).join('');
+      669 +    }
+      670      updateApiTypeUI();
+      671      showMain();
+      672      overlay.style.display = 'flex';
+
+⏺ 4. フェッチハンドラで context/tags の取得ロジックを更新：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 11 lines, removed 2 lines
+      783      }
+      784
+      785      // /snippets mode
+      786 -    const context  = contextEl.value.trim();
+      787 -    const tags     = tagsEl.value.trim();
+      786 +    let context, tags;
+      787 +    if (getSourceMode() === 'repo') {
+      788 +      const repos = S.globalConfig.repositories || [];
+      789 +      if (repos.length === 0) { setNote('⚠ No repositories configured. Please add one via "⎇ Global Config".', 'err'); return; }
+      790 +      const repo = repos[repoSelectEl.selectedIndex] ?? repos[0];
+      791 +      context = repo.localTree || '';
+      792 +      tags    = repo.tagsFile  || '';
+      793 +    } else {
+      794 +      context = contextEl.value.trim();
+      795 +      tags    = tagsEl.value.trim();
+      796 +    }
+      797      const keyword  = keywordEl.value.trim();
+      798      if (!keyword) { setNote('⚠ Keyword is required.', 'err'); return; }
+      799
+
+⏺ 5. テスト用モック HTML を更新：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 7 lines, removed 1 line
+      123            <button class="csd-tab" data-value="pipe">/pipe</button>
+      124          </div>
+      125          <input type="checkbox" id="csd-use-ctags" checked>
+      126 -        <input id="csd-context"><input id="csd-tags"><input id="csd-keyword">
+      126 +        <div id="csd-source-area">
+      127 +          <input type="radio" name="csd-source" value="repo" checked>
+      128 +          <input type="radio" name="csd-source" value="manual">
+      129 +          <div id="csd-repo-section"><select id="csd-repo-select"></select></div>
+      130 +          <div id="csd-manual-section"><input id="csd-context"><input id="csd-tags"></div>
+      131 +        </div>
+      132 +        <input id="csd-keyword">
+      133          <div id="csd-note"></div>
+      134          <button id="csd-fetch"></button><button id="csd-cancel"></button>
+      135        </div>
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿  - The error was thrown, while Vitest was running this test.
+     - If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+     ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+     … +6 lines (ctrl+o to expand)
+
+⏺ 全189テスト通過、エラー数も変わらず。
+
+  ---
+  実装内容まとめ：
+
+  HTML (canvas.html):
+  - Context/Tags の2行を #csd-source-area でラップした構造に置き換え
+    - ラジオボタン行（「Select from registered repositories」/「Direct input」）
+    - #csd-repo-section: nickname の <select> ドロップダウン（デフォルト表示）
+    - #csd-manual-section: 従来の Context/Tags テキスト入力（デフォルト非表示）
+
+  CSS (canvas.css):
+  - .csd-source-radios / .csd-source-radio スタイルを追加
+
+  JS (canvas-dialogs.js):
+  - getSourceMode(): 選択中のラジオ値を返す
+  - updateSourceUI(): ラジオ切り替えで repo/manual セクションを表示切替
+  - openCodeSnippetdDialog(): ダイアログを開くたびに S.globalConfig.repositories から nickname を <select> に反映
+  - フェッチ時:
+    - リポジトリ選択: 選択 repo の localTree → context、tagsFile → tags として使用
+    - 直接入力: 従来通りテキスト入力から取得
+
+✻ Brewed for 2m 47s
+```

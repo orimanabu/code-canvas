@@ -493,6 +493,11 @@ function initCodeSnippetdDialog() {
   const apiTabsEl        = document.getElementById('csd-api-tabs');
   const useCtagsEl       = document.getElementById('csd-use-ctags');
   let   currentApiType   = 'snippets';
+  const sourceAreaEl     = document.getElementById('csd-source-area');
+  const sourceRadios     = document.querySelectorAll('input[name="csd-source"]');
+  const repoSectionEl    = document.getElementById('csd-repo-section');
+  const manualSectionEl  = document.getElementById('csd-manual-section');
+  const repoSelectEl     = document.getElementById('csd-repo-select');
   const contextEl        = document.getElementById('csd-context');
   const tagsEl           = document.getElementById('csd-tags');
   const keywordEl        = document.getElementById('csd-keyword');
@@ -559,17 +564,28 @@ function initCodeSnippetdDialog() {
   }
   // ───────────────────────────────────────────────────────────────────
 
+  function getSourceMode() {
+    return document.querySelector('input[name="csd-source"]:checked')?.value ?? 'repo';
+  }
+
+  function updateSourceUI() {
+    const isRepo = getSourceMode() === 'repo';
+    repoSectionEl.style.display   = isRepo ? '' : 'none';
+    manualSectionEl.style.display = isRepo ? 'none' : '';
+  }
+
+  sourceRadios.forEach(r => r.addEventListener('change', updateSourceUI));
+
   function updateApiTypeUI() {
     const isPipe = currentApiType === 'pipe';
-    contextEl.disabled = isPipe;
-    tagsEl.disabled    = isPipe;
+    sourceAreaEl.style.opacity = isPipe ? '0.4' : '';
+    sourceAreaEl.querySelectorAll('input, select').forEach(el => el.disabled = isPipe);
     keywordEl.disabled = isPipe;
-    contextEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
-    tagsEl.closest('.git-form-row').style.opacity    = isPipe ? '0.4' : '';
     keywordEl.closest('.git-form-row').style.opacity = isPipe ? '0.4' : '';
     useCtagsEl.disabled = !isPipe;
     useCtagsEl.parentElement.style.opacity = isPipe ? '' : '0.4';
     fetchBtn.disabled = false;
+    if (!isPipe) updateSourceUI();
   }
 
   apiTabsEl.addEventListener('click', e => {
@@ -642,6 +658,15 @@ function initCodeSnippetdDialog() {
     targetNodeId = nodeId;
     pendingFetch = null;
     setNote('', '');
+    // Populate repo dropdown from globalConfig
+    const repos = S.globalConfig.repositories || [];
+    if (repos.length === 0) {
+      repoSelectEl.innerHTML = '<option value="">— No repositories configured —</option>';
+    } else {
+      repoSelectEl.innerHTML = repos.map((r, i) =>
+        `<option value="${i}">${esc(r.nickname)}</option>`
+      ).join('');
+    }
     updateApiTypeUI();
     showMain();
     overlay.style.display = 'flex';
@@ -758,8 +783,17 @@ function initCodeSnippetdDialog() {
     }
 
     // /snippets mode
-    const context  = contextEl.value.trim();
-    const tags     = tagsEl.value.trim();
+    let context, tags;
+    if (getSourceMode() === 'repo') {
+      const repos = S.globalConfig.repositories || [];
+      if (repos.length === 0) { setNote('⚠ No repositories configured. Please add one via "⎇ Global Config".', 'err'); return; }
+      const repo = repos[repoSelectEl.selectedIndex] ?? repos[0];
+      context = repo.localTree || '';
+      tags    = repo.tagsFile  || '';
+    } else {
+      context = contextEl.value.trim();
+      tags    = tagsEl.value.trim();
+    }
     const keyword  = keywordEl.value.trim();
     if (!keyword) { setNote('⚠ Keyword is required.', 'err'); return; }
 

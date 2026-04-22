@@ -195,13 +195,30 @@
           Auto-extract block title using ctags-wasm
         </label>
       </div>
-      <div class="git-form-row">
-        <label class="git-form-label" for="csd-context">Context</label>
-        <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
-      </div>
-      <div class="git-form-row">
-        <label class="git-form-label" for="csd-tags">Tags</label>
-        <input class="git-form-input" id="csd-tags" type="text" placeholder="" spellcheck="false" autocomplete="off">
+      <div id="csd-source-area">
+        <div class="git-form-row">
+          <label class="git-form-label">Source</label>
+          <div class="csd-source-radios">
+            <label class="csd-source-radio"><input type="radio" name="csd-source" value="repo" checked> Select from registered repositories</label>
+            <label class="csd-source-radio"><input type="radio" name="csd-source" value="manual"> Direct input</label>
+          </div>
+        </div>
+        <div id="csd-repo-section">
+          <div class="git-form-row">
+            <label class="git-form-label" for="csd-repo-select">Repository</label>
+            <select class="git-form-input" id="csd-repo-select"></select>
+          </div>
+        </div>
+        <div id="csd-manual-section" style="display:none;">
+          <div class="git-form-row">
+            <label class="git-form-label" for="csd-context">Context</label>
+            <input class="git-form-input" id="csd-context" type="text" placeholder="" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="git-form-row">
+            <label class="git-form-label" for="csd-tags">Tags</label>
+            <input class="git-form-input" id="csd-tags" type="text" placeholder="" spellcheck="false" autocomplete="off">
+          </div>
+        </div>
       </div>
       <div class="git-form-row">
         <label class="git-form-label" for="csd-keyword">Keyword</label>

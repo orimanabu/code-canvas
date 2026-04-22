@@ -785,6 +785,12 @@ body.link-mode .node:hover {
 
 /* ── Codesnippetd Dialog ── */
 .csd-dialog { width: 560px; }
+.csd-source-radios { display: flex; flex-direction: column; gap: 6px; }
+.csd-source-radio {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #e6edf3; cursor: pointer;
+}
+.csd-source-radio input[type="radio"] { cursor: pointer; }
 .csd-tabs {
   display: flex;
   border-bottom: 1px solid #30363d;

@@ -123,7 +123,13 @@ if (typeof document === 'undefined') {
           <button class="csd-tab" data-value="pipe">/pipe</button>
         </div>
         <input type="checkbox" id="csd-use-ctags" checked>
-        <input id="csd-context"><input id="csd-tags"><input id="csd-keyword">
+        <div id="csd-source-area">
+          <input type="radio" name="csd-source" value="repo" checked>
+          <input type="radio" name="csd-source" value="manual">
+          <div id="csd-repo-section"><select id="csd-repo-select"></select></div>
+          <div id="csd-manual-section"><input id="csd-context"><input id="csd-tags"></div>
+        </div>
+        <input id="csd-keyword">
         <div id="csd-note"></div>
         <button id="csd-fetch"></button><button id="csd-cancel"></button>
       </div>
