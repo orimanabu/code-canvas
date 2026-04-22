@@ -20644,3 +20644,123 @@ pathをクエリパラメータに指定する
 
 ✻ Cooked for 55s
 ```
+
+```
+❯ ブロックのテキストを選択して"Create new block and link"をクリックした後、div
+id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文字列を自動的に入力しておいてください
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ Now let me look at the codesnippetd dialog to understand the keyword field:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now let me look at how openCodeSnippetdDialog is called and exported:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Let me see the full openCodeSnippetdDialog function:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have a clear picture. The plan is:
+
+  1. Add an optional keyword parameter to openCodeSnippetdDialog
+  2. If provided, set keywordEl.value = keyword when opening the dialog
+  3. Pass the selected text from both linkTipNewBlock.onclick and anchorCtxNewBlock.onclick to openCodeSnippetdDialog after creating the new node
+
+  But currently, "Create new block and link" calls startEdit(newNode.id) and doesn't open the codesnippetd dialog. The user's intent is that the
+  keyword in the codesnippetd dialog should be pre-filled with the selected text. So I need to store the selected text on the new node and use it
+  when the dialog is opened.
+
+  The cleanest approach: add an optional initialKeyword parameter to openCodeSnippetdDialog, and store the selected text as newNode.pendingKeyword
+  so that when btn-codesnippetd is clicked for that node, it passes the stored text.
+
+  Let me look at how openCodeSnippetdDialog is called from the button click:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me check renderNode to understand the n reference in the edit mode setup:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now I have everything I need. The plan:
+
+  1. In linkTipNewBlock.onclick and anchorCtxNewBlock.onclick, store text as newNode.pendingKeyword
+  2. In the btnCsdEdit click handler, pass n.pendingKeyword to openCodeSnippetdDialog and then clear it
+  3. In openCodeSnippetdDialog, accept an initialKeyword param and pre-fill keywordEl.value
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      309      if (btnCsdEdit) {
+      310        btnCsdEdit.addEventListener('mousedown', e => e.stopPropagation());
+      311        btnCsdEdit.addEventListener('click', e => {
+      312 -        e.stopPropagation(); menuWrap.classList.remove('open'); openCodeSnippetdDialog(n.id);
+      312 +        e.stopPropagation(); menuWrap.classList.remove('open');
+      313 +        const kw = n.pendingKeyword;
+      314 +        n.pendingKeyword = undefined;
+      315 +        openCodeSnippetdDialog(n.id, kw);
+      316        });
+      317      }
+      318      bindZOrderButtons(n, el);
+
+⏺ Now add newNode.pendingKeyword = text in both "Create new block and link" handlers. Let me read those sections:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2032      const nx = fn ? fn.x + fn.w + 60 : 100;
+      2033      const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      2034      const newNode = addNode(nx, ny);
+      2035 +    newNode.pendingKeyword = text;
+      2036      createLink(fromId, text, newNode.id);
+      2037      renderLinks();
+      2038      selectNode(newNode.id);
+
+⏺ Now the anchorCtxNewBlock.onclick handler:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1588      const nx = fn ? fn.x + fn.w + 60 : 100;
+      1589      const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      1590      const newNode = addNode(nx, ny);
+      1591 +    newNode.pendingKeyword = text;
+      1592      createLink(fromId, text, newNode.id);
+      1593      renderLinks();
+      1594      selectNode(newNode.id);
+
+⏺ Now update openCodeSnippetdDialog in canvas-dialogs.js to accept and use initialKeyword:
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 2 lines, removed 1 line
+      654        `<table class="csd-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+      655    }
+      656
+      657 -  window.openCodeSnippetdDialog = function (nodeId) {
+      657 +  window.openCodeSnippetdDialog = function (nodeId, initialKeyword) {
+      658      targetNodeId = nodeId;
+      659      pendingFetch = null;
+      660      setNote('', '');
+     ...
+      667          `<option value="${i}">${esc(r.nickname)}</option>`
+      668        ).join('');
+      669      }
+      670 +    if (initialKeyword) keywordEl.value = initialKeyword;
+      671      updateApiTypeUI();
+      672      showMain();
+      673      overlay.style.display = 'flex';
+
+⏺ Done. Here's what was changed:
+
+  - canvas-dialogs.js: openCodeSnippetdDialog now accepts an optional initialKeyword param. If provided, it sets keywordEl.value to that string
+  before showing the dialog.
+  - canvas.js (two places — linkTipNewBlock.onclick and anchorCtxNewBlock.onclick): After addNode(), the selected text (text) is stored as
+  newNode.pendingKeyword.
+  - canvas.js (btnCsdEdit click handler): Reads n.pendingKeyword, clears it, and passes it to openCodeSnippetdDialog.
+
+  Now when you select text in a code block → "Create new block and link" → the new block enters edit mode → click the codesnippetd button → the
+  keyword field will already contain the selected text.
+
+✻ Crunched for 2m 2s
+```

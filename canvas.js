@@ -309,7 +309,10 @@ function renderNode(n, el) {
     if (btnCsdEdit) {
       btnCsdEdit.addEventListener('mousedown', e => e.stopPropagation());
       btnCsdEdit.addEventListener('click', e => {
-        e.stopPropagation(); menuWrap.classList.remove('open'); openCodeSnippetdDialog(n.id);
+        e.stopPropagation(); menuWrap.classList.remove('open');
+        const kw = n.pendingKeyword;
+        n.pendingKeyword = undefined;
+        openCodeSnippetdDialog(n.id, kw);
       });
     }
     bindZOrderButtons(n, el);
@@ -1585,6 +1588,7 @@ function showAnchorCtx(fromId, text, anchorEl, x, y) {
     const nx = fn ? fn.x + fn.w + 60 : 100;
     const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
     const newNode = addNode(nx, ny);
+    newNode.pendingKeyword = text;
     createLink(fromId, text, newNode.id);
     renderLinks();
     selectNode(newNode.id);
@@ -2029,6 +2033,7 @@ document.addEventListener('mouseup', e => {
     const nx = fn ? fn.x + fn.w + 60 : 100;
     const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
     const newNode = addNode(nx, ny);
+    newNode.pendingKeyword = text;
     createLink(fromId, text, newNode.id);
     renderLinks();
     selectNode(newNode.id);

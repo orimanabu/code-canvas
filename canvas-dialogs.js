@@ -654,7 +654,7 @@ function initCodeSnippetdDialog() {
       `<table class="csd-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
   }
 
-  window.openCodeSnippetdDialog = function (nodeId) {
+  window.openCodeSnippetdDialog = function (nodeId, initialKeyword) {
     targetNodeId = nodeId;
     pendingFetch = null;
     setNote('', '');
@@ -667,6 +667,7 @@ function initCodeSnippetdDialog() {
         `<option value="${i}">${esc(r.nickname)}</option>`
       ).join('');
     }
+    if (initialKeyword) keywordEl.value = initialKeyword;
     updateApiTypeUI();
     showMain();
     overlay.style.display = 'flex';
