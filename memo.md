@@ -21767,3 +21767,165 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Worked for 2m 49s
 ```
+
+```
+❯ コピーしたオブジェクトをペーストするときは、コピーしたオブジェクトが画面外にあるときは、画面内の中央付近にペーストするようにしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me understand the viewport coordinate system.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now I have enough context. I'll modify pasteNodes() to detect if pasted objects are off-screen and, if so, shift them to the visible center.
+
+⏺ Update(canvas.js)
+  ⎿  Added 45 lines, removed 6 lines
+      1207    clearMultiSel();
+      1208    selectNode(null);
+      1209    const offset = 30;
+      1210 +
+      1211 +  // Compute candidate positions (with offset) and their bounding box
+      1212 +  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      1213 +  for (const data of S.clipboard) {
+      1214 +    if (data._clipType === 'freeline') {
+      1215 +      for (const p of data.points) {
+      1216 +        minX = Math.min(minX, p.x + offset); minY = Math.min(minY, p.y + offset);
+      1217 +        maxX = Math.max(maxX, p.x + offset); maxY = Math.max(maxY, p.y + offset);
+      1218 +      }
+      1219 +    } else {
+      1220 +      const x = data.x + offset, y = data.y + offset;
+      1221 +      const w = data.w || 0, h = data.h || 0;
+      1222 +      minX = Math.min(minX, x); minY = Math.min(minY, y);
+      1223 +      maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+      1224 +    }
+      1225 +  }
+      1226 +
+      1227 +  // Visible canvas area in canvas coordinates
+      1228 +  const vw = window.innerWidth, vh = window.innerHeight;
+      1229 +  const visLeft  = -S.vp.x / S.vp.scale;
+      1230 +  const visTop   = -S.vp.y / S.vp.scale;
+      1231 +  const visRight  = (vw - S.vp.x) / S.vp.scale;
+      1232 +  const visBottom = (vh - S.vp.y) / S.vp.scale;
+      1233 +
+      1234 +  // If the bounding box does not intersect the visible area, shift to visible center
+      1235 +  let dx = 0, dy = 0;
+      1236 +  const offScreen = maxX < visLeft || minX > visRight || maxY < visTop || minY > visBottom;
+      1237 +  if (offScreen) {
+      1238 +    const groupCX = (minX + maxX) / 2;
+      1239 +    const groupCY = (minY + maxY) / 2;
+      1240 +    const visCX = (visLeft + visRight) / 2;
+      1241 +    const visCY = (visTop + visBottom) / 2;
+      1242 +    dx = visCX - groupCX;
+      1243 +    dy = visCY - groupCY;
+      1244 +  }
+      1245 +
+      1246    let pastedLineId = null;
+      1247
+      1248    for (const data of S.clipboard) {
+      1249      if (data._clipType === 'freeline') {
+      1250        const line = {
+      1251          id: S.flid++,
+      1216 -        points: data.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+      1252 +        points: data.points.map(p => ({ x: p.x + offset + dx, y: p.y + offset + dy })),
+      1253          lineStyle: data.lineStyle || 'polyline',
+      1254          stroke: data.stroke || '#e6edf3',
+      1255          strokeWidth: data.strokeWidth || 2,
+     ...
+      1259        pastedLineId = line.id;
+      1260      } else {
+      1261        // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
+      1226 -      const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+      1262 +      const n = { ...data, id: S.nid++, x: data.x + offset + dx, y: data.y + offset + dy };
+      1263        delete n._clipType;
+      1264        if (n.type === 'bubble') {
+      1229 -        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
+      1230 -        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+      1265 +        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+      1266 +        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+      1267          // Pasted bubbles start with a free tail — no anchor collision risk
+      1268          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      1269        }
+     ...
+      1291    }
+      1292
+      1293    // Shift clipboard so the next paste lands further offset
+      1294 +  // If we relocated to center this time, base the next paste from the relocated position
+      1295 +  const nextOffsetX = offset + dx;
+      1296 +  const nextOffsetY = offset + dy;
+      1297    S.clipboard = S.clipboard.map(d => {
+      1298      if (d._clipType === 'freeline') {
+      1260 -      return { ...d, points: d.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+      1299 +      return { ...d, points: d.points.map(p => ({ x: p.x + nextOffsetX, y: p.y + nextOffsetY })) };
+      1300      }
+      1262 -    return { ...d, x: d.x + offset, y: d.y + offset };
+      1301 +    return { ...d, x: d.x + nextOffsetX, y: d.y + nextOffsetY };
+      1302    });
+      1303    setStatus(`${S.clipboard.length} object(s) pasted`);
+      1304    scheduleSave();
+
+⏺ 変更内容:
+
+  - ペースト前にオブジェクト群のバウンディングボックスを計算
+  - 現在の表示領域（ビューポート）とバウンディングボックスが交差しない場合（= 画面外）、オブジェクト群の中心が表示領域の中央に来るようにシフト量
+  (dx, dy) を算出
+  - そのシフト量をノード・フリーラインの座標に適用してペースト
+  - 次回ペースト時のオフセット計算もリロケート後の位置を基準にするよう調整
+
+✻ Worked for 56s
+
+❯ ペーストするときは、z-orderを一番手前にして
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ z-order は S.nodes[] の末尾 + DOM 末尾が「最前面」です。ペースト後に各ノードを明示的に最前面へ移動させます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Let me check how addFrame() and addNode() handle z-order to understand the current behavior better.
+
+  Searched for 3 patterns, read 2 files (ctrl+o to expand)
+
+⏺ S.nodes.push() と canvas.appendChild()
+  で既に末尾（最前面）に追加されていますが、複数ノードをペーストした場合にも相互の順序を維持しつつ最前面を保証するよう、ループ後に明示的に
+  reorderNode('front') 相当の処理を入れます。
+
+⏺ Update(canvas.js)
+  ⎿  Added 12 lines
+      1244    }
+      1245
+      1246    let pastedLineId = null;
+      1247 +  const pastedNodeIds = [];
+      1248
+      1249    for (const data of S.clipboard) {
+      1250      if (data._clipType === 'freeline') {
+     ...
+      1279        renderNode(n, el);
+      1280        S.multiSel.add(n.id);
+      1281        ndEl(n.id)?.classList.add('multi-selected');
+      1282 +      pastedNodeIds.push(n.id);
+      1283      }
+      1284    }
+      1285
+      1286 +  // Bring all pasted nodes to the front, preserving their relative order
+      1287 +  for (const id of pastedNodeIds) {
+      1288 +    const idx = S.nodes.findIndex(n => n.id === id);
+      1289 +    if (idx >= 0 && idx < S.nodes.length - 1) {
+      1290 +      S.nodes.push(S.nodes.splice(idx, 1)[0]);
+      1291 +    }
+      1292 +    const el = ndEl(id);
+      1293 +    if (el) canvas.appendChild(el);
+      1294 +  }
+      1295 +
+      1296    if (pastedLineId !== null) {
+      1297      // Show pasted line; select it only when no nodes were pasted alongside
+      1298      renderFreeLines();
+
+⏺ ペーストした全ノードを最前面（S.nodes[] 末尾 + DOM 末尾）に確実に移動するよう変更しました。
+
+  - pastedNodeIds にペーストしたノードの id を収集
+  - ループ後、その順序を維持しながら各ノードを S.nodes.push(splice(...)) + canvas.appendChild() で最前面へ移動
+  - フレームノード（CSS z-index: 0）はコードノード（z-index: 1）より常に後ろになるため、フレームを含む場合も正しく動作します
+
+✻ Worked for 2m 33s
+```

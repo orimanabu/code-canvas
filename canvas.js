@@ -1207,13 +1207,50 @@ function pasteNodes() {
   clearMultiSel();
   selectNode(null);
   const offset = 30;
+
+  // Compute candidate positions (with offset) and their bounding box
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const data of S.clipboard) {
+    if (data._clipType === 'freeline') {
+      for (const p of data.points) {
+        minX = Math.min(minX, p.x + offset); minY = Math.min(minY, p.y + offset);
+        maxX = Math.max(maxX, p.x + offset); maxY = Math.max(maxY, p.y + offset);
+      }
+    } else {
+      const x = data.x + offset, y = data.y + offset;
+      const w = data.w || 0, h = data.h || 0;
+      minX = Math.min(minX, x); minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+    }
+  }
+
+  // Visible canvas area in canvas coordinates
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const visLeft  = -S.vp.x / S.vp.scale;
+  const visTop   = -S.vp.y / S.vp.scale;
+  const visRight  = (vw - S.vp.x) / S.vp.scale;
+  const visBottom = (vh - S.vp.y) / S.vp.scale;
+
+  // If the bounding box does not intersect the visible area, shift to visible center
+  let dx = 0, dy = 0;
+  const offScreen = maxX < visLeft || minX > visRight || maxY < visTop || minY > visBottom;
+  if (offScreen) {
+    const groupCX = (minX + maxX) / 2;
+    const groupCY = (minY + maxY) / 2;
+    const visCX = (visLeft + visRight) / 2;
+    const visCY = (visTop + visBottom) / 2;
+    dx = visCX - groupCX;
+    dy = visCY - groupCY;
+  }
+
   let pastedLineId = null;
+  const pastedNodeIds = [];
 
   for (const data of S.clipboard) {
     if (data._clipType === 'freeline') {
       const line = {
         id: S.flid++,
-        points: data.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+        points: data.points.map(p => ({ x: p.x + offset + dx, y: p.y + offset + dy })),
         lineStyle: data.lineStyle || 'polyline',
         stroke: data.stroke || '#e6edf3',
         strokeWidth: data.strokeWidth || 2,
@@ -1223,11 +1260,11 @@ function pasteNodes() {
       pastedLineId = line.id;
     } else {
       // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
-      const n = { ...data, id: S.nid++, x: data.x + offset, y: data.y + offset };
+      const n = { ...data, id: S.nid++, x: data.x + offset + dx, y: data.y + offset + dy };
       delete n._clipType;
       if (n.type === 'bubble') {
-        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset;
-        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset;
+        n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+        n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
         // Pasted bubbles start with a free tail — no anchor collision risk
         n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
       }
@@ -1242,7 +1279,18 @@ function pasteNodes() {
       renderNode(n, el);
       S.multiSel.add(n.id);
       ndEl(n.id)?.classList.add('multi-selected');
+      pastedNodeIds.push(n.id);
     }
+  }
+
+  // Bring all pasted nodes to the front, preserving their relative order
+  for (const id of pastedNodeIds) {
+    const idx = S.nodes.findIndex(n => n.id === id);
+    if (idx >= 0 && idx < S.nodes.length - 1) {
+      S.nodes.push(S.nodes.splice(idx, 1)[0]);
+    }
+    const el = ndEl(id);
+    if (el) canvas.appendChild(el);
   }
 
   if (pastedLineId !== null) {
@@ -1255,11 +1303,14 @@ function pasteNodes() {
   }
 
   // Shift clipboard so the next paste lands further offset
+  // If we relocated to center this time, base the next paste from the relocated position
+  const nextOffsetX = offset + dx;
+  const nextOffsetY = offset + dy;
   S.clipboard = S.clipboard.map(d => {
     if (d._clipType === 'freeline') {
-      return { ...d, points: d.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+      return { ...d, points: d.points.map(p => ({ x: p.x + nextOffsetX, y: p.y + nextOffsetY })) };
     }
-    return { ...d, x: d.x + offset, y: d.y + offset };
+    return { ...d, x: d.x + nextOffsetX, y: d.y + nextOffsetY };
   });
   setStatus(`${S.clipboard.length} object(s) pasted`);
   scheduleSave();
