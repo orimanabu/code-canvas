@@ -1161,9 +1161,16 @@ function getSelectedIds() {
 
 function copyNodes() {
   const items = [];
-  for (const id of getSelectedIds()) {
+  const selectedIdSet = new Set(getSelectedIds());
+  for (const id of selectedIdSet) {
     const n = S.nodes.find(nn => nn.id === id);
     if (n) items.push({ _clipType: 'node', ...n });
+  }
+  // Include links where both endpoints are in the selection
+  for (const lnk of S.links) {
+    if (selectedIdSet.has(lnk.fromId) && selectedIdSet.has(lnk.toId)) {
+      items.push({ _clipType: 'link', ...lnk });
+    }
   }
   if (S.selLine !== null) {
     const line = S.freeLines.find(l => l.id === S.selLine);
@@ -1172,16 +1179,24 @@ function copyNodes() {
   if (items.length === 0) return;
   S.clipboard = items;
   localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
-  setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
+  const nodeCount = items.filter(i => i._clipType === 'node').length;
+  setStatus(`${nodeCount} object(s) copied (Cmd/Ctrl+V to paste)`);
 }
 
 function cutNodes() {
   pushUndo();
   const items = [];
   const ids = getSelectedIds();
+  const idSet = new Set(ids);
   for (const id of ids) {
     const n = S.nodes.find(nn => nn.id === id);
     if (n) items.push({ _clipType: 'node', ...n });
+  }
+  // Include links where both endpoints are in the selection
+  for (const lnk of S.links) {
+    if (idSet.has(lnk.fromId) && idSet.has(lnk.toId)) {
+      items.push({ _clipType: 'link', ...lnk });
+    }
   }
   _suppressUndo = true;
   ids.forEach(id => removeNode(id));
@@ -1194,7 +1209,8 @@ function cutNodes() {
   if (items.length === 0) return;
   S.clipboard = items;
   localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
-  setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
+  const nodeCount = items.filter(i => i._clipType === 'node').length;
+  setStatus(`${nodeCount} object(s) cut (Cmd/Ctrl+V to paste)`);
 }
 
 function pasteNodes() {
@@ -1211,6 +1227,7 @@ function pasteNodes() {
   // Compute candidate positions (with offset) and their bounding box
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const data of S.clipboard) {
+    if (data._clipType === 'link') continue; // links have no position
     if (data._clipType === 'freeline') {
       for (const p of data.points) {
         minX = Math.min(minX, p.x + offset); minY = Math.min(minY, p.y + offset);
@@ -1245,6 +1262,7 @@ function pasteNodes() {
 
   let pastedLineId = null;
   const pastedNodeIds = [];
+  const oldToNewId = new Map(); // old node id → new node id
 
   for (const data of S.clipboard) {
     if (data._clipType === 'freeline') {
@@ -1260,7 +1278,10 @@ function pasteNodes() {
       pastedLineId = line.id;
     } else {
       // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
+      if (data._clipType === 'link') continue; // handled after nodes
+      const oldId = data.id;
       const n = { ...data, id: S.nid++, x: data.x + offset + dx, y: data.y + offset + dy };
+      oldToNewId.set(oldId, n.id);
       delete n._clipType;
       if (n.type === 'bubble') {
         n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
@@ -1282,6 +1303,26 @@ function pasteNodes() {
       pastedNodeIds.push(n.id);
     }
   }
+
+  // Recreate links between pasted nodes using remapped IDs
+  for (const data of S.clipboard) {
+    if (data._clipType !== 'link') continue;
+    const newFrom = oldToNewId.get(data.fromId);
+    const newTo   = oldToNewId.get(data.toId);
+    if (newFrom !== undefined && newTo !== undefined) {
+      S.links.push({
+        id: S.lid++,
+        fromId: newFrom,
+        text: data.text,
+        toId: newTo,
+        stroke: data.stroke || '#388bfd',
+        strokeWidth: data.strokeWidth || 1.5,
+        dash: data.dash || '',
+        anchorMatchIdx: data.anchorMatchIdx ?? -1,
+      });
+    }
+  }
+  renderLinks();
 
   // Bring all pasted nodes to the front, preserving their relative order
   for (const id of pastedNodeIds) {
@@ -1307,12 +1348,14 @@ function pasteNodes() {
   const nextOffsetX = offset + dx;
   const nextOffsetY = offset + dy;
   S.clipboard = S.clipboard.map(d => {
+    if (d._clipType === 'link') return d; // links carry no position
     if (d._clipType === 'freeline') {
       return { ...d, points: d.points.map(p => ({ x: p.x + nextOffsetX, y: p.y + nextOffsetY })) };
     }
     return { ...d, x: d.x + nextOffsetX, y: d.y + nextOffsetY };
   });
-  setStatus(`${S.clipboard.length} object(s) pasted`);
+  const pastedNodeCount = pastedNodeIds.length;
+  setStatus(`${pastedNodeCount} object(s) pasted`);
   scheduleSave();
 }
 

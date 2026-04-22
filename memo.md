@@ -21929,3 +21929,182 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Worked for 2m 33s
 ```
+
+```
+❯ 複数のオブジェクトをまとめてコピー＆ペーストするときは、選択したオブジェクトの間のリンク関係も保存した状態でペーストしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at the link structure:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now I have a clear picture. Here's the plan:
+  1. In copyNodes() and cutNodes(), include links where both fromId and toId are among the selected nodes
+  2. In pasteNodes(), build an old→new ID map for nodes, then recreate the links with remapped IDs
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 2 lines
+      1161
+      1162  function copyNodes() {
+      1163    const items = [];
+      1164 -  for (const id of getSelectedIds()) {
+      1164 +  const selectedIdSet = new Set(getSelectedIds());
+      1165 +  for (const id of selectedIdSet) {
+      1166      const n = S.nodes.find(nn => nn.id === id);
+      1167      if (n) items.push({ _clipType: 'node', ...n });
+      1168    }
+      1169 +  // Include links where both endpoints are in the selection
+      1170 +  for (const lnk of S.links) {
+      1171 +    if (selectedIdSet.has(lnk.fromId) && selectedIdSet.has(lnk.toId)) {
+      1172 +      items.push({ _clipType: 'link', ...lnk });
+      1173 +    }
+      1174 +  }
+      1175    if (S.selLine !== null) {
+      1176      const line = S.freeLines.find(l => l.id === S.selLine);
+      1177      if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+     ...
+      1179    if (items.length === 0) return;
+      1180    S.clipboard = items;
+      1181    localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+      1175 -  setStatus(`${S.clipboard.length} object(s) copied (Cmd/Ctrl+V to paste)`);
+      1182 +  const nodeCount = items.filter(i => i._clipType === 'node').length;
+      1183 +  setStatus(`${nodeCount} object(s) copied (Cmd/Ctrl+V to paste)`);
+      1184  }
+      1185
+      1186  function cutNodes() {
+
+⏺ Update(canvas.js)
+  ⎿  Added 9 lines, removed 1 line
+      1187    pushUndo();
+      1188    const items = [];
+      1189    const ids = getSelectedIds();
+      1190 +  const idSet = new Set(ids);
+      1191    for (const id of ids) {
+      1192      const n = S.nodes.find(nn => nn.id === id);
+      1193      if (n) items.push({ _clipType: 'node', ...n });
+      1194    }
+      1195 +  // Include links where both endpoints are in the selection
+      1196 +  for (const lnk of S.links) {
+      1197 +    if (idSet.has(lnk.fromId) && idSet.has(lnk.toId)) {
+      1198 +      items.push({ _clipType: 'link', ...lnk });
+      1199 +    }
+      1200 +  }
+      1201    _suppressUndo = true;
+      1202    ids.forEach(id => removeNode(id));
+      1203    if (S.selLine !== null) {
+     ...
+      1209    if (items.length === 0) return;
+      1210    S.clipboard = items;
+      1211    localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+      1205 -  setStatus(`${S.clipboard.length} object(s) cut (Cmd/Ctrl+V to paste)`);
+      1212 +  const nodeCount = items.filter(i => i._clipType === 'node').length;
+      1213 +  setStatus(`${nodeCount} object(s) cut (Cmd/Ctrl+V to paste)`);
+      1214  }
+      1215
+      1216  function pasteNodes() {
+
+⏺ Now update pasteNodes() to remap link IDs and create them:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1261
+      1262    let pastedLineId = null;
+      1263    const pastedNodeIds = [];
+      1264 +  const oldToNewId = new Map(); // old node id → new node id
+      1265
+      1266    for (const data of S.clipboard) {
+      1267      if (data._clipType === 'freeline') {
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines
+      1277        pastedLineId = line.id;
+      1278      } else {
+      1279        // node (code block, bubble, frame) — _clipType may be 'node' or absent (legacy)
+      1280 +      if (data._clipType === 'link') continue; // handled after nodes
+      1281 +      const oldId = data.id;
+      1282        const n = { ...data, id: S.nid++, x: data.x + offset + dx, y: data.y + offset + dy };
+      1283 +      oldToNewId.set(oldId, n.id);
+      1284        delete n._clipType;
+      1285        if (n.type === 'bubble') {
+      1286          n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+
+⏺ Now add the link-creation step after all nodes are pasted. Let me find where to insert it:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 20 lines
+      1303      }
+      1304    }
+      1305
+      1306 +  // Recreate links between pasted nodes using remapped IDs
+      1307 +  for (const data of S.clipboard) {
+      1308 +    if (data._clipType !== 'link') continue;
+      1309 +    const newFrom = oldToNewId.get(data.fromId);
+      1310 +    const newTo   = oldToNewId.get(data.toId);
+      1311 +    if (newFrom !== undefined && newTo !== undefined) {
+      1312 +      S.links.push({
+      1313 +        id: S.lid++,
+      1314 +        fromId: newFrom,
+      1315 +        text: data.text,
+      1316 +        toId: newTo,
+      1317 +        stroke: data.stroke || '#388bfd',
+      1318 +        strokeWidth: data.strokeWidth || 1.5,
+      1319 +        dash: data.dash || '',
+      1320 +        anchorMatchIdx: data.anchorMatchIdx ?? -1,
+      1321 +      });
+      1322 +    }
+      1323 +  }
+      1324 +  renderLinks();
+      1325 +
+      1326    // Bring all pasted nodes to the front, preserving their relative order
+      1327    for (const id of pastedNodeIds) {
+      1328      const idx = S.nodes.findIndex(n => n.id === id);
+
+⏺ Now fix the clipboard shift at the bottom — it should skip _clipType: 'link' items from position shifting (links don't have x/y):
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 1 line
+      1347    const nextOffsetX = offset + dx;
+      1348    const nextOffsetY = offset + dy;
+      1349    S.clipboard = S.clipboard.map(d => {
+      1350 +    if (d._clipType === 'link') return d; // links carry no position
+      1351      if (d._clipType === 'freeline') {
+      1352        return { ...d, points: d.points.map(p => ({ x: p.x + nextOffsetX, y: p.y + nextOffsetY })) };
+      1353      }
+      1354      return { ...d, x: d.x + nextOffsetX, y: d.y + nextOffsetY };
+      1355    });
+      1355 -  setStatus(`${S.clipboard.length} object(s) pasted`);
+      1356 +  const pastedNodeCount = pastedNodeIds.length;
+      1357 +  setStatus(`${pastedNodeCount} object(s) pasted`);
+      1358    scheduleSave();
+      1359  }
+      1360
+
+⏺ Also fix the bounding box computation in pasteNodes() to skip link items:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1227    // Compute candidate positions (with offset) and their bounding box
+      1228    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      1229    for (const data of S.clipboard) {
+      1230 +    if (data._clipType === 'link') continue; // links have no position
+      1231      if (data._clipType === 'freeline') {
+      1232        for (const p of data.points) {
+      1233          minX = Math.min(minX, p.x + offset); minY = Math.min(minY, p.y + offset);
+
+⏺ 変更内容をまとめると：
+
+  - copyNodes() — 選択ノードのセットを作り、S.links の中で両端点が選択に含まれるリンクを { _clipType: 'link', ...lnk } としてクリップボードに追加
+  - cutNodes() — 同様にリンクをクリップボードに追加（ノード削除時に removeNode がリンクを自動削除するので別途削除不要）
+  - pasteNodes() — ノードペースト時に oldId → newId のマップを構築し、クリップボード中の _clipType: 'link' アイテムを走査して fromId/toId
+  を新IDにリマップして S.links に追加・renderLinks() を呼び出す
+  - バウンディングボックス計算やクリップボードシフトのループでは _clipType: 'link' をスキップ
+
+✻ Brewed for 1m 20s
+```
