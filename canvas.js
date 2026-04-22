@@ -149,7 +149,7 @@ function buildCodeHTML(code, nodeId) {
   const nodeLinks = S.links.filter(l => l.fromId === nodeId)
                             .sort((a, b) => b.text.length - a.text.length);
   for (const lnk of nodeLinks) {
-    html = injectAnchor(html, lnk.text, lnk.id);
+    html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
   }
   const tailBubbles = S.nodes
     .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
@@ -885,7 +885,7 @@ function setupNodeEvents(n, el) {
     // ── link-mode: clicking a node creates a link ──
     if (S.linkMode) {
       if (S.pending && S.pending.fromId !== n.id) {
-        createLink(S.pending.fromId, S.pending.text, n.id);
+        createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorMatchIdx ?? -1);
         exitLinkMode();
       }
       e.stopPropagation();
@@ -1305,14 +1305,14 @@ function jumpTo(id) {
 // ═══════════════════════════════════════════════════════
 // LINKS
 // ═══════════════════════════════════════════════════════
-function createLink(fromId, text, toId) {
+function createLink(fromId, text, toId, anchorMatchIdx = -1) {
   // avoid duplicate
   if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
     setStatus(`⚠ A link from "${text}" to this block already exists`);
     return;
   }
   pushUndo();
-  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '' });
+  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorMatchIdx });
   renderNode(S.nodes.find(n => n.id === fromId));
   renderLinks();
   scheduleSave();
@@ -1361,9 +1361,11 @@ function renderLinks() {
     if (!fn || !tn) continue;
 
     // Start point: anchor element position if available, else node edge.
-    // When two links share the same text from the same node, injectAnchor only
-    // creates one span (for the first link); fall back to that sibling's span.
-    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+    // Prefer the span marked data-lid-primary (the selected occurrence); fall
+    // back to the first span for this link, then to a sibling link's span when
+    // two links share the same text from the same node.
+    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
+                || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
     if (!anchorEl) {
       const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
       if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
@@ -1419,9 +1421,9 @@ function svgE(tag, attrs = {}) {
 // ═══════════════════════════════════════════════════════
 // LINK MODE
 // ═══════════════════════════════════════════════════════
-function enterLinkMode(fromId, text, anchorRect = null) {
+function enterLinkMode(fromId, text, anchorRect = null, anchorMatchIdx = -1) {
   S.linkMode = true;
-  S.pending = { fromId, text, anchorRect };
+  S.pending = { fromId, text, anchorRect, anchorMatchIdx };
   document.body.classList.add('link-mode');
   setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
 }
@@ -1996,6 +1998,42 @@ wrap.addEventListener('mousemove', e => {
 // ═══════════════════════════════════════════════════════
 // TEXT SELECTION → LINK
 // ═══════════════════════════════════════════════════════
+
+// Returns the character offset of (startNode, startOffset) within the
+// pre element's code text, excluding .ln-num text nodes (line numbers).
+function getCodeTextOffset(pre, startNode, startOffset) {
+  const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return node.parentElement?.closest('.ln-num')
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  let total = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node === startNode) return total + startOffset;
+    total += node.textContent.length;
+  }
+  return -1;
+}
+
+// Returns the 0-based occurrence index of text in code at charOffset,
+// using the same word-boundary matching as injectAnchor.
+function getOccurrenceIdx(code, text, charOffset) {
+  const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /\w/.test(text[0])                  ? '\\b' : '';
+  const suffix = /\w/.test(text[text.length - 1])    ? '\\b' : '';
+  const re = new RegExp(prefix + pat + suffix, 'g');
+  let idx = 0;
+  let m;
+  while ((m = re.exec(code)) !== null) {
+    if (charOffset >= m.index && charOffset < m.index + text.length) return idx;
+    idx++;
+  }
+  return 0;
+}
+
 document.addEventListener('mouseup', e => {
   if (S.linkMode || S.tailAttachMode) return;
 
@@ -2016,6 +2054,18 @@ document.addEventListener('mouseup', e => {
   const range  = sel.getRangeAt(0);
   const rect   = range.getBoundingClientRect();
 
+  // Determine which occurrence of the selected text was actually selected,
+  // so the link arrow starts from that specific occurrence rather than the first.
+  let anchorMatchIdx = -1;
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    const pre = el.querySelector('.node-body pre');
+    const codeNode = S.nodes.find(n => n.id === fromId);
+    if (pre && codeNode?.code != null) {
+      const charOffset = getCodeTextOffset(pre, range.startContainer, range.startOffset);
+      if (charOffset >= 0) anchorMatchIdx = getOccurrenceIdx(codeNode.code, text, charOffset);
+    }
+  }
+
   const tipHeight = 80; // approximate height of two-button tip
   linkTip.style.display = 'block';
   linkTip.style.left    = (rect.left + rect.width / 2) + 'px';
@@ -2026,7 +2076,7 @@ document.addEventListener('mouseup', e => {
   linkTipLink.onclick = () => {
     sel.removeAllRanges();
     linkTip.style.display = 'none';
-    enterLinkMode(fromId, text, anchorRect);
+    enterLinkMode(fromId, text, anchorRect, anchorMatchIdx);
   };
 
   linkTipNewBlock.onclick = () => {
@@ -2037,7 +2087,7 @@ document.addEventListener('mouseup', e => {
     const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
     const newNode = addNode(nx, ny);
     newNode.pendingKeyword = text;
-    createLink(fromId, text, newNode.id);
+    createLink(fromId, text, newNode.id, anchorMatchIdx);
     renderLinks();
     selectNode(newNode.id);
     startEdit(newNode.id);

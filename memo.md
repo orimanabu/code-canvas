@@ -20894,3 +20894,331 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Sautéed for 7m 54s
 ```
+
+```
+❯
+ブロック内でテキスト選択してリンクを作成すると、正規表現でマッチする同じ文字列は全てクリックできるようになり、ブロック内の最初のマッチ文字列がリン
+ク元になります。これを、実際に選択した箇所をリンク元にすることはできますか。(正規表現でマッチする部分が全てクリックできるようになる動きはそのままで
+)
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at how links are created from text selection and how anchorMatchIndex or similar concepts work:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Let me look at createLink body and enterLinkMode more carefully:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me find where injectAnchor is called in canvas.js:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me check addLineNumbers to understand what's in pre.textContent:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ Let me see how showAnchorCtx is called:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at the renderNode structure to find how to get the pre element:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at the full selectionchange handler:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Let me check if there are tests for injectAnchor:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now I have a clear picture. Let me read the exact lines I need to modify:
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Now I have everything I need. Here's the plan:
+
+  - When text is selected, compute which occurrence number (0-based) was selected by walking text nodes in the pre (excluding line number spans) to   get the char offset, then counting occurrences in n.code
+  - Store anchorMatchIdx in the link object                                                                                                           - In injectAnchor, add data-lid-primary="1" to the N-th injected span
+  - In renderLinks, prefer the primary span for the link source point
+
+  Let me implement:
+
+⏺ Update(canvas-utils.js)                                                                                                                             ⎿  Added 38 lines, removed 8 lines
+      87  // escape before building the regex pattern and use the escaped form in the replacement too.                                                    88  // Matches in the first line of the block (before the first \n) are intentionally skipped
+      89  // so that function/type signatures at the top of a code block are never used as anchor points.                                                 90 -export function injectAnchor(html, rawText, linkId) {
+      90 +export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      91    const escapedText = esc(rawText);
+      92    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      93    // Add word-boundary assertions on whichever sides of the pattern begin/end
+     ...
+      105    let insideLinkAnchor = false;
+      106    // Skip the first line: do not inject anchors until we have seen the first \n.
+      107    let firstLinePassed = false;
+      108 +  // Global match counter across all text segments (including first-line ones
+      109 +  // that are counted but not replaced). Used to mark the selected occurrence
+      110 +  // with data-lid-primary when anchorMatchIdx >= 0.
+      111 +  let matchCount = 0;
+      112 +
+      113 +  // Replace all regex matches in str with link-anchor spans, tracking matchCount.
+      114 +  // The match at position anchorMatchIdx gets data-lid-primary="1".
+      115 +  function replaceSegment(str) {
+      116 +    const cre = new RegExp(re.source, re.flags);
+      117 +    let out = '';
+      118 +    let last = 0;
+      119 +    let m;
+      120 +    while ((m = cre.exec(str)) !== null) {
+      121 +      out += str.slice(last, m.index);
+      122 +      const primary = anchorMatchIdx >= 0 && matchCount === anchorMatchIdx
+      123 +        ? ' data-lid-primary="1"' : '';
+      124 +      out += `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      125 +      last = m.index + m[0].length;
+      126 +      matchCount++;
+      127 +    }
+      128 +    return out + str.slice(last);
+      129 +  }
+      130 +
+      131 +  // Count matches in str without replacing (for first-line segments that are
+      132 +  // skipped for injection but still advance the global matchCount).
+      133 +  function countSegment(str) {
+      134 +    const cre = new RegExp(re.source, re.flags);
+      135 +    while (cre.exec(str) !== null) matchCount++;
+      136 +  }
+      137 +
+      138    return parts.map((p, i) => {
+      139      if (i % 2 === 1) { // tag segment
+      140        if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
+     ...
+      143      }
+      144      if (!firstLinePassed) {
+      145        const nlIdx = p.indexOf('\n');
+      116 -      if (nlIdx === -1) return p; // still on first line, no replacement
+      146 +      if (nlIdx === -1) {
+      147 +        countSegment(p); // still on first line: count but don't replace
+      148 +        return p;
+      149 +      }
+      150        // The newline marks the end of the first line; only replace after it.
+      151        firstLinePassed = true;
+      152        const before = p.slice(0, nlIdx + 1);
+      153        const after  = p.slice(nlIdx + 1);
+      154 +      countSegment(before); // first-line portion: count but don't replace
+      155        if (insideLinkAnchor) return p;
+      122 -      return before + after.replace(re, () =>
+      123 -        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+      124 -      );
+      156 +      return before + replaceSegment(after);
+      157      }
+      158      if (insideLinkAnchor) return p; // skip text already owned by another anchor
+      127 -    return p.replace(re, () =>
+      128 -      `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
+      129 -    );
+      159 +    return replaceSegment(p);
+      160    }).join('');
+      161  }
+      162
+
+⏺ Now update buildCodeHTML to pass anchorMatchIdx:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      149    const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+      150                              .sort((a, b) => b.text.length - a.text.length);
+      151    for (const lnk of nodeLinks) {
+      152 -    html = injectAnchor(html, lnk.text, lnk.id);
+      152 +    html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
+      153    }
+      154    const tailBubbles = S.nodes
+      155      .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+
+⏺ Now update createLink to accept and store anchorMatchIdx:
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      1305  // ═══════════════════════════════════════════════════════
+      1306  // LINKS
+      1307  // ═══════════════════════════════════════════════════════
+      1308 -function createLink(fromId, text, toId) {
+      1308 +function createLink(fromId, text, toId, anchorMatchIdx = -1) {
+      1309    // avoid duplicate
+      1310    if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
+      1311      setStatus(`⚠ A link from "${text}" to this block already exists`);
+      1312      return;
+      1313    }
+      1314    pushUndo();
+      1315 -  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '' });
+      1315 +  S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorMatchIdx });
+      1316    renderNode(S.nodes.find(n => n.id === fromId));
+      1317    renderLinks();
+      1318    scheduleSave();
+
+⏺ Update enterLinkMode to accept and store anchorMatchIdx:
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      1419  // ═══════════════════════════════════════════════════════
+      1420  // LINK MODE
+      1421  // ═══════════════════════════════════════════════════════
+      1422 -function enterLinkMode(fromId, text, anchorRect = null) {
+      1422 +function enterLinkMode(fromId, text, anchorRect = null, anchorMatchIdx = -1) {
+      1423    S.linkMode = true;
+      1424 -  S.pending = { fromId, text, anchorRect };
+      1424 +  S.pending = { fromId, text, anchorRect, anchorMatchIdx };
+      1425    document.body.classList.add('link-mode');
+      1426    setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
+      1427  }
+
+⏺ Update the node click handler in link mode to pass anchorMatchIdx:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      885      // ── link-mode: clicking a node creates a link ──
+      886      if (S.linkMode) {
+      887        if (S.pending && S.pending.fromId !== n.id) {
+      888 -        createLink(S.pending.fromId, S.pending.text, n.id);
+      888 +        createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorMatchIdx ?? -1);
+      889          exitLinkMode();
+      890        }
+      891        e.stopPropagation();
+
+⏺ Update renderLinks to prefer the primary anchor span:
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines, removed 3 lines
+      1361      if (!fn || !tn) continue;
+      1362
+      1363      // Start point: anchor element position if available, else node edge.
+      1364 -    // When two links share the same text from the same node, injectAnchor only
+      1365 -    // creates one span (for the first link); fall back to that sibling's span.
+      1366 -    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+      1364 +    // Prefer the span marked data-lid-primary (the selected occurrence); fall
+      1365 +    // back to the first span for this link, then to a sibling link's span when
+      1366 +    // two links share the same text from the same node.
+      1367 +    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
+      1368 +                || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+      1369      if (!anchorEl) {
+      1370        const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+      1371        if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+
+⏺ Now add the two helper functions and update the mouseup handler. First, let me find a good place to add the helpers:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 50 lines, removed 2 lines
+      1998  // ═══════════════════════════════════════════════════════
+      1999  // TEXT SELECTION → LINK
+      2000  // ═══════════════════════════════════════════════════════
+      2001 +
+      2002 +// Returns the character offset of (startNode, startOffset) within the
+      2003 +// pre element's code text, excluding .ln-num text nodes (line numbers).
+      2004 +function getCodeTextOffset(pre, startNode, startOffset) {
+      2005 +  const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, {
+      2006 +    acceptNode(node) {
+      2007 +      return node.parentElement?.closest('.ln-num')
+      2008 +        ? NodeFilter.FILTER_REJECT
+      2009 +        : NodeFilter.FILTER_ACCEPT;
+      2010 +    },
+      2011 +  });
+      2012 +  let total = 0;
+      2013 +  let node;
+      2014 +  while ((node = walker.nextNode())) {
+      2015 +    if (node === startNode) return total + startOffset;
+      2016 +    total += node.textContent.length;
+      2017 +  }
+      2018 +  return -1;
+      2019 +}
+      2020 +
+      2021 +// Returns the 0-based occurrence index of text in code at charOffset,
+      2022 +// using the same word-boundary matching as injectAnchor.
+      2023 +function getOccurrenceIdx(code, text, charOffset) {
+      2024 +  const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      2025 +  const prefix = /\w/.test(text[0])                  ? '\\b' : '';
+      2026 +  const suffix = /\w/.test(text[text.length - 1])    ? '\\b' : '';
+      2027 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      2028 +  let idx = 0;
+      2029 +  let m;
+      2030 +  while ((m = re.exec(code)) !== null) {
+      2031 +    if (charOffset >= m.index && charOffset < m.index + text.length) return idx;
+      2032 +    idx++;
+      2033 +  }
+      2034 +  return 0;
+      2035 +}
+      2036 +
+      2037  document.addEventListener('mouseup', e => {
+      2038    if (S.linkMode || S.tailAttachMode) return;
+      2039
+     ...
+      2054    const range  = sel.getRangeAt(0);
+      2055    const rect   = range.getBoundingClientRect();
+      2056
+      2057 +  // Determine which occurrence of the selected text was actually selected,
+      2058 +  // so the link arrow starts from that specific occurrence rather than the first.
+      2059 +  let anchorMatchIdx = -1;
+      2060 +  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      2061 +    const pre = el.querySelector('.node-body pre');
+      2062 +    const codeNode = S.nodes.find(n => n.id === fromId);
+      2063 +    if (pre && codeNode?.code != null) {
+      2064 +      const charOffset = getCodeTextOffset(pre, range.startContainer, range.startOffset);
+      2065 +      if (charOffset >= 0) anchorMatchIdx = getOccurrenceIdx(codeNode.code, text, charOffset);
+      2066 +    }
+      2067 +  }
+      2068 +
+      2069    const tipHeight = 80; // approximate height of two-button tip
+      2070    linkTip.style.display = 'block';
+      2071    linkTip.style.left    = (rect.left + rect.width / 2) + 'px';
+     ...
+      2076    linkTipLink.onclick = () => {
+      2077      sel.removeAllRanges();
+      2078      linkTip.style.display = 'none';
+      2031 -    enterLinkMode(fromId, text, anchorRect);
+      2079 +    enterLinkMode(fromId, text, anchorRect, anchorMatchIdx);
+      2080    };
+      2081
+      2082    linkTipNewBlock.onclick = () => {
+     ...
+      2087      const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      2088      const newNode = addNode(nx, ny);
+      2089      newNode.pendingKeyword = text;
+      2042 -    createLink(fromId, text, newNode.id);
+      2090 +    createLink(fromId, text, newNode.id, anchorMatchIdx);
+      2091      renderLinks();
+      2092      selectNode(newNode.id);
+      2093      startEdit(newNode.id);
+
+⏺ Now run the tests to make sure nothing is broken:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ All 189 tests pass. Let me verify the key changes are correct by reviewing the modified sections:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ The implementation is complete and all tests pass. Here's a summary of what was changed and why:
+
+  ---
+  変更内容:
+
+  canvas-utils.js — injectAnchor:
+  - 新パラメータ anchorMatchIdx = -1 を追加
+  - matchCount で全テキストセグメントのマッチ数を追跡（最初の行のスキップ分も含む）
+  - replaceSegment(): マッチをスパンに置換し、matchCount === anchorMatchIdx のものに data-lid-primary="1" を付与
+  - countSegment(): 最初の行など、置換しないがカウントだけする箇所で使用
+
+  canvas.js:
+  - getCodeTextOffset(pre, startNode, startOffset): TreeWalker で行番号スパン (.ln-num) を除外しながら、選択開始位置のコード内文字オフセットを計算
+  - getOccurrenceIdx(code, text, charOffset): injectAnchor と同じ単語境界マッチングで、その文字オフセットが何番目の出現か（0始まり）を返す
+  - mouseup ハンドラ: 上記2関数で anchorMatchIdx を計算し、enterLinkMode と createLink に渡す
+  - enterLinkMode / createLink: anchorMatchIdx パラメータを追加、S.pending とリンクオブジェクトに保存
+  - buildCodeHTML: lnk.anchorMatchIdx ?? -1 を injectAnchor に渡す
+  - renderLinks: [data-lid-primary] 付きスパンを優先して使用し、なければ従来の最初のスパンにフォールバック
+
+  全てのマッチがクリック可能な動作はそのままで、矢印の起点だけが実際に選択した箇所になります。
+
+✻ Brewed for 11m 28s
+```

@@ -87,7 +87,7 @@ export const NODE_COLORS = [
 // escape before building the regex pattern and use the escaped form in the replacement too.
 // Matches in the first line of the block (before the first \n) are intentionally skipped
 // so that function/type signatures at the top of a code block are never used as anchor points.
-export function injectAnchor(html, rawText, linkId) {
+export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // Add word-boundary assertions on whichever sides of the pattern begin/end
@@ -105,6 +105,36 @@ export function injectAnchor(html, rawText, linkId) {
   let insideLinkAnchor = false;
   // Skip the first line: do not inject anchors until we have seen the first \n.
   let firstLinePassed = false;
+  // Global match counter across all text segments (including first-line ones
+  // that are counted but not replaced). Used to mark the selected occurrence
+  // with data-lid-primary when anchorMatchIdx >= 0.
+  let matchCount = 0;
+
+  // Replace all regex matches in str with link-anchor spans, tracking matchCount.
+  // The match at position anchorMatchIdx gets data-lid-primary="1".
+  function replaceSegment(str) {
+    const cre = new RegExp(re.source, re.flags);
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = cre.exec(str)) !== null) {
+      out += str.slice(last, m.index);
+      const primary = anchorMatchIdx >= 0 && matchCount === anchorMatchIdx
+        ? ' data-lid-primary="1"' : '';
+      out += `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      last = m.index + m[0].length;
+      matchCount++;
+    }
+    return out + str.slice(last);
+  }
+
+  // Count matches in str without replacing (for first-line segments that are
+  // skipped for injection but still advance the global matchCount).
+  function countSegment(str) {
+    const cre = new RegExp(re.source, re.flags);
+    while (cre.exec(str) !== null) matchCount++;
+  }
+
   return parts.map((p, i) => {
     if (i % 2 === 1) { // tag segment
       if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
@@ -113,20 +143,20 @@ export function injectAnchor(html, rawText, linkId) {
     }
     if (!firstLinePassed) {
       const nlIdx = p.indexOf('\n');
-      if (nlIdx === -1) return p; // still on first line, no replacement
+      if (nlIdx === -1) {
+        countSegment(p); // still on first line: count but don't replace
+        return p;
+      }
       // The newline marks the end of the first line; only replace after it.
       firstLinePassed = true;
       const before = p.slice(0, nlIdx + 1);
       const after  = p.slice(nlIdx + 1);
+      countSegment(before); // first-line portion: count but don't replace
       if (insideLinkAnchor) return p;
-      return before + after.replace(re, () =>
-        `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
-      );
+      return before + replaceSegment(after);
     }
     if (insideLinkAnchor) return p; // skip text already owned by another anchor
-    return p.replace(re, () =>
-      `<span class="link-anchor" data-lid="${linkId}">${escapedText}</span>`
-    );
+    return replaceSegment(p);
   }).join('');
 }
 
