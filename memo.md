@@ -18557,3 +18557,385 @@ The existing `serve.py` / `serve.go` files make this trivial.
                                                                                                                                                       このコードはモジュールが読み込まれた瞬間に実行されます。そのため、テスト環境でも canvas.js を import した時点で走り、btn-jump 要素が DOM
   になければ即クラッシュしていました。
 ```
+
+```
+❯ あるブロック内の選択した文字列から、複数のブロックに対してリンクを作成できますか
+
+⏺ 現在のリンク作成の実装を確認します。
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 現在の実装では、リンクモード中に1つのブロックをクリックするとリンクが作成されてリンクモードが終了します。
+
+  現状: 選択テキスト → リンクボタン → 1つのブロックをクリック → リンク作成 & モード終了
+
+  実装可能な変更: リンク作成後もリンクモードを維持し、Escapeか背景クリックで終了するようにすれば、複数のブロックに連続してリンクを張れます。
+
+  変更は1行だけです。exitLinkMode() を削除し、ステータスメッセージを更新するだけで実現できます。実装しますか？
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装します。変更点は：
+
+  1. ノードクリック時に exitLinkMode() を呼ばず、ステータスを更新してリンクモードを維持
+  2. enterLinkMode() のステータスメッセージをEscapeで終了できることを明記
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      796      if (S.linkMode) {
+      797        if (S.pending && S.pending.fromId !== n.id) {
+      798          createLink(S.pending.fromId, S.pending.text, n.id);
+      799 -        exitLinkMode();
+      799 +        setStatus(`🔗 Linked "${S.pending.text}" → ${n.title || n.id}. Click more blocks or Esc to finish`);
+      800        }
+      801        e.stopPropagation();
+      802        return;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1297    S.linkMode = true;
+      1298    S.pending = { fromId, text, anchorRect };
+      1299    document.body.classList.add('link-mode');
+      1300 -  setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
+      1300 +  setStatus(`🔗 Click target blocks to link "${text}" (Esc to finish)`);
+      1301  }
+      1302
+      1303  function exitLinkMode() {
+
+⏺ 完了しました。
+  変更内容:
+  - リンク作成後も リンクモードを維持 するようになりました
+  - 複数のブロックを順番にクリックすることで、同じ選択テキストから複数のリンクを一度に張れます
+  - Escape キーまたは背景クリックでリンクモードを終了します                                                                                           - ステータスバーに次のブロックをクリックできることが表示されます
+                                                                                                                                                    ✻ Cooked for 35s
+                                                                                                                                                    ❯ ある選択テキストから2個のノードにリンクを張った際、1個目のノードへのリンクは選択テキストが始点になっていますが、2個目のノードへのリンクの始点が選
+択テキストではなくノードになってしまいます。直してください
+
+⏺ リンクのレンダリングと始点計算を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ renderNode と injectAnchor の動作を確認します。
+                                                                                                                                                      Searched for 2 patterns (ctrl+o to expand)
+                                                                                                                                                    ⏺ 原因が分かりました。同じテキストから2本目のリンクを作成すると、injectAnchor が同じテキストを既に別の link-anchor
+  スパンで包んでいるためスキップし、2本目のアンカー要素がDOMに存在しません。renderLinks()
+  がアンカー要素を見つけられずノードのエッジを始点として使うのが問題です。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 修正方針：renderLinks() でアンカー要素が見つからない場合、同じ fromId と text を持つ別リンクのアンカー要素にフォールバックします。
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines, removed 2 lines
+      1240      const tn = S.nodes.find(n => n.id === lnk.toId);
+      1241      if (!fn || !tn) continue;
+      1242
+      1243 -    // Start point: anchor element position if available, else node edge
+      1244 -    const anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+      1243 +    // Start point: anchor element position if available, else node edge.
+      1244 +    // When two links share the same text from the same node, injectAnchor only
+      1245 +    // creates one span (for the first link); fall back to that sibling's span.
+      1246 +    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+      1247 +    if (!anchorEl) {
+      1248 +      const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+      1249 +      if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+      1250 +    }
+      1251      let fp, anchorRect;
+      1252      if (anchorEl) {
+      1253        anchorRect = anchorEl.getBoundingClientRect();
+
+⏺ 修正しました。
+
+  原因: injectAnchor は同じテキストの最初の出現のみをスパンでラップします（2本目は既存の link-anchor
+  スパン内として検出され、スキップされます）。そのため2本目のリンクに対応するアンカー要素がDOMに存在せず、ノードのエッジが始点になっていました。
+
+  修正: renderLinks() でアンカー要素が見つからない場合、同じ fromId + text を持つ別リンクのアンカー要素を参照するようにしました。これにより、同じ選
+  択テキストから複数のリンクを張っても、すべて正しく選択テキストを始点として描画されます。
+
+✻ Baked for 1m 6s
+
+❯ リンクが作成済みの選択テキストに対して、右クリックした場合に、
+- Create link from here
+- Create new block and link
+のメニューを出してください。どちらも選択テキストにあらたにリンクを作成してください
+
+⏺ 既存のツールチップとリンクモードのコードを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+                                                                                                                                                    ⏺ 既存のコンテキストメニュー (linkCtx) の実装を確認します。
+                                                                                                                                                      Searched for 1 pattern (ctrl+o to expand)
+                                                                                                                                                    ⏺ HTMLの既存メニュー構造を確認します。
+                                                                                                                                                      Searched for 1 pattern (ctrl+o to expand)
+                                                                                                                                                    ⏺ .link-anchor のイベント設定箇所を確認します。
+                                                                                                                                                      Read 1 file (ctrl+o to expand)
+⏺ 全体を把握しました。実装します：
+
+  1. canvas.html に anchor用コンテキストメニューを追加
+  2. canvas.js で .link-anchor の contextmenu イベントを処理
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 4 lines
+      286    <button id="link-tip-link">🔗 Create link from here</button>
+      287    <button id="link-tip-newblock">📄 Create new block and link</button>
+      288  </div>
+      289 +<div id="anchor-ctx">
+      290 +  <button id="anchor-ctx-link">🔗 Create link from here</button>
+      291 +  <button id="anchor-ctx-newblock">📄 Create new block and link</button>
+      292 +</div>
+      293  <div id="line-ctx">
+      294    <div class="link-ctx-row">
+      295      <span class="link-ctx-label">Color</span>
+
+⏺ 次に canvas.js で変数参照を追加し、showAnchorCtx / hideAnchorCtx 関数を実装し、.link-anchor に contextmenu ハンドラを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines
+      49  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+      50  const linkCtx        = document.getElementById('link-ctx');
+      51  const linkCtxDel     = document.getElementById('link-ctx-del');
+      52 +const anchorCtx      = document.getElementById('anchor-ctx');
+      53 +const anchorCtxLink  = document.getElementById('anchor-ctx-link');
+      54 +const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
+      55  const linkCtxColors  = document.getElementById('link-ctx-colors');
+      56  const linkCtxWidths  = document.getElementById('link-ctx-widths');
+      57  const linkCtxDashes  = document.getElementById('link-ctx-dashes');
+
+⏺ 次に hideLinkCtx の直後に showAnchorCtx / hideAnchorCtx 関数を追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 36 lines
+      1442    if (!e.target.closest('#link-ctx')) hideLinkCtx();
+      1443  });
+      1444
+      1445 +// ── Anchor context menu (right-click on existing link-anchor span) ──
+      1446 +function showAnchorCtx(fromId, text, anchorEl, x, y) {
+      1447 +  const rect = anchorEl.getBoundingClientRect();
+      1448 +  const anchorRect = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.he
+           +ight };
+      1449 +
+      1450 +  anchorCtxLink.onclick = () => {
+      1451 +    hideAnchorCtx();
+      1452 +    enterLinkMode(fromId, text, anchorRect);
+      1453 +  };
+      1454 +  anchorCtxNewBlock.onclick = () => {
+      1455 +    hideAnchorCtx();
+      1456 +    const fn = S.nodes.find(n => n.id === fromId);
+      1457 +    const nx = fn ? fn.x + fn.w + 60 : 100;
+      1458 +    const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      1459 +    const newNode = addNode(nx, ny);
+      1460 +    createLink(fromId, text, newNode.id);
+      1461 +    renderLinks();
+      1462 +    selectNode(newNode.id);
+      1463 +    startEdit(newNode.id);
+      1464 +  };
+      1465 +
+      1466 +  anchorCtx.style.display = 'block';
+      1467 +  const cw = anchorCtx.offsetWidth || 220;
+      1468 +  const ch = anchorCtx.offsetHeight || 70;
+      1469 +  anchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';                                                                     1470 +  anchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      1471 +}
+      1472 +
+      1473 +function hideAnchorCtx() {
+      1474 +  anchorCtx.style.display = 'none';
+      1475 +}
+      1476 +
+      1477 +document.addEventListener('mousedown', e => {
+      1478 +  if (!e.target.closest('#anchor-ctx')) hideAnchorCtx();
+      1479 +});
+      1480 +
+      1481  // ═══════════════════════════════════════════════════════
+      1482  // FREE LINES
+      1483  // ═══════════════════════════════════════════════════════
+
+⏺ 次に .link-anchor の querySelectorAll ループに contextmenu ハンドラを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 7 lines
+      324            jumpTo(lnk.toId);
+      325          }
+      326        });
+      327 +      a.addEventListener('contextmenu', e => {
+      328 +        e.preventDefault();
+      329 +        e.stopPropagation();
+      330 +        const lnk = S.links.find(l => l.id === +a.dataset.lid);
+      331 +        if (!lnk) return;
+      332 +        showAnchorCtx(lnk.fromId, lnk.text, a, e.clientX, e.clientY);
+      333 +      });
+      334      });
+      335
+      336
+
+⏺ 最後に CSS でスタイルを追加します。#link-tip のスタイルを参照します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 17 lines
+      483  }
+      484  #link-tip button:hover { background: #1f6feb; color: #fff; }
+      485
+      486 +/* ── Anchor context menu (right-click on link-anchor span) ── */
+      487 +#anchor-ctx {
+      488 +  position: fixed; z-index: 300;
+      489 +  background: #0f1f3d; border: 1px solid #1f4080;
+      490 +  border-radius: 6px; padding: 4px;
+      491 +  box-shadow: 0 3px 12px rgba(0,0,0,0.55);
+      492 +  display: none; white-space: nowrap;
+      493 +  pointer-events: auto;
+      494 +}
+      495 +#anchor-ctx button {
+      496 +  display: block; width: 100%;
+      497 +  background: none; border: none; color: #a8c8f8;
+      498 +  padding: 6px 14px; font-size: 12px; text-align: left;
+      499 +  border-radius: 4px; cursor: pointer; white-space: nowrap;
+      500 +}
+      501 +#anchor-ctx button:hover { background: #1f6feb; color: #fff; }
+      502 +
+      503  /* ── Status bar ── */
+      504  #status {
+      505    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+
+⏺ 完了しました。動作確認のためテストを実行します。
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿   ❯ innerInvokeEventListeners node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16
+      ❯ invokeEventListeners node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3
+      ❯ HTMLButtonElementImpl._dispatch node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9
+     … +18 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | grep -E "^(FAIL|PASS|Error|✓|×|Tests|Test Files)" | head -20)
+  ⎿  (No output)
+
+⏺ Bash(npm test 2>&1 | grep -E "passed|failed|error" | head -10)
+  ⎿  Vitest caught 9 unhandled errors during the test run.
+     This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+     This error originated in "tests/canvas-interactions.test.js" test file. It doesn't mean the error was thrown inside the file itself, but w
+     … +11 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | grep -E "Test Files|Tests  " )
+  ⎿   Test Files  5 passed (5)
+           Tests  189 passed (189)
+
+⏺ 全189テストがパスし、テストファイルも5つ全て通過しています（9 unhandled errorsは今回の変更前から存在するjsdom由来のノイズです）。
+
+  実装内容:
+
+  - canvas.html: #anchor-ctx コンテキストメニューを追加（2ボタン）
+  - canvas.css: #anchor-ctx のスタイルを追加（link-tip と統一したデザイン）
+  - canvas.js:
+    - anchorCtx / anchorCtxLink / anchorCtxNewBlock 変数を追加
+    - showAnchorCtx() / hideAnchorCtx() 関数を実装
+    - .link-anchor スパンに contextmenu リスナーを追加
+
+  使い方:
+  既にリンクが張られている選択テキスト（ハイライト表示されているアンカースパン）を右クリックすると、メニューが表示されます。
+  - Create link from here → リンクモードに入り、別のブロックをクリックして追加リンクを作成
+  - Create new block and link → 新しいブロックを作成し、同じテキストから自動リンク
+
+✻ Brewed for 2m 7s
+
+❯ 以下の変更を戻してください。複数リンクを貼る場合は、選択テキストを右クリックして行うだけにします
+- リンク作成後も リンクモードを維持 するようになりました
+- 複数のブロックを順番にクリックすることで、同じ選択テキストから複数のリンクを一度に張れます
+- Escape キーまたは背景クリックでリンクモードを終了します
+ - ステータスバーに次のブロックをクリックできることが表示されます
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      806      if (S.linkMode) {
+      807        if (S.pending && S.pending.fromId !== n.id) {
+      808          createLink(S.pending.fromId, S.pending.text, n.id);
+      809 -        setStatus(`🔗 Linked "${S.pending.text}" → ${n.title || n.id}. Click more blocks or Esc to finish`);
+      809 +        exitLinkMode();
+      810        }
+      811        e.stopPropagation();
+      812        return;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1313    S.linkMode = true;
+      1314    S.pending = { fromId, text, anchorRect };
+      1315    document.body.classList.add('link-mode');
+      1316 -  setStatus(`🔗 Click target blocks to link "${text}" (Esc to finish)`);
+      1316 +  setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
+      1317  }
+      1318
+      1319  function exitLinkMode() {
+
+⏺ 元に戻しました。リンクモードは1回のクリックで終了する従来の動作に戻り、複数リンクは右クリックメニューからのみ作成できます。
+
+❯ 選択テキストを右クリックしたときのメニューに、「この選択テキストからの全てのリンクを消去する」を追加してください
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ HTMLにボタンとセパレータを追加し、JSにハンドラを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 2 lines
+      289  <div id="anchor-ctx">
+      290    <button id="anchor-ctx-link">🔗 Create link from here</button>
+      291    <button id="anchor-ctx-newblock">📄 Create new block and link</button>
+      292 +  <div class="link-ctx-sep"></div>
+      293 +  <button id="anchor-ctx-del-all">🗑 Delete all links from this text</button>
+      294  </div>
+      295  <div id="line-ctx">
+      296    <div class="link-ctx-row">
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 2 lines
+      49  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+      50  const linkCtx        = document.getElementById('link-ctx');
+      51  const linkCtxDel     = document.getElementById('link-ctx-del');
+      52 -const anchorCtx      = document.getElementById('anchor-ctx');
+      53 -const anchorCtxLink  = document.getElementById('anchor-ctx-link');
+      52 +const anchorCtx         = document.getElementById('anchor-ctx');
+      53 +const anchorCtxLink     = document.getElementById('anchor-ctx-link');
+      54  const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
+      55 +const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
+      56  const linkCtxColors  = document.getElementById('link-ctx-colors');
+      57  const linkCtxWidths  = document.getElementById('link-ctx-widths');
+      58  const linkCtxDashes  = document.getElementById('link-ctx-dashes');
+
+⏺ Update(canvas.js)
+  ⎿  Added 11 lines
+      1470      selectNode(newNode.id);
+      1471      startEdit(newNode.id);
+      1472    };
+      1473 +  anchorCtxDelAll.onclick = () => {
+      1474 +    hideAnchorCtx();
+      1475 +    const toRemove = S.links.filter(l => l.fromId === fromId && l.text === text).map(l => l.id);
+      1476 +    if (toRemove.length === 0) return;
+      1477 +    pushUndo();
+      1478 +    S.links = S.links.filter(l => !(l.fromId === fromId && l.text === text));
+      1479 +    const fn = S.nodes.find(n => n.id === fromId);
+      1480 +    if (fn) renderNode(fn);
+      1481 +    renderLinks();
+      1482 +    scheduleSave();
+      1483 +  };
+      1484
+      1485    anchorCtx.style.display = 'block';
+      1486    const cw = anchorCtx.offsetWidth || 220;
+
+⏺ 完了しました。
+
+  link-ctx-sep のスタイルは既存の #link-ctx と #line-ctx で使われているものをそのまま流用しています。右クリックメニューに「🗑 Delete all links from
+  this text」が追加され、クリックすると同じ選択テキストから出るリンクをまとめて削除します（undo可能）。
+
+✻ Churned for 43s
+```

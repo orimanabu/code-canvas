@@ -483,6 +483,23 @@ kbd {
 }
 #link-tip button:hover { background: #1f6feb; color: #fff; }
 
+/* ── Anchor context menu (right-click on link-anchor span) ── */
+#anchor-ctx {
+  position: fixed; z-index: 300;
+  background: #0f1f3d; border: 1px solid #1f4080;
+  border-radius: 6px; padding: 4px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.55);
+  display: none; white-space: nowrap;
+  pointer-events: auto;
+}
+#anchor-ctx button {
+  display: block; width: 100%;
+  background: none; border: none; color: #a8c8f8;
+  padding: 6px 14px; font-size: 12px; text-align: left;
+  border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+#anchor-ctx button:hover { background: #1f6feb; color: #fff; }
+
 /* ── Status bar ── */
 #status {
   position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);

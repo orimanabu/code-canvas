@@ -49,6 +49,10 @@ const linkTipLink    = document.getElementById('link-tip-link');
 const linkTipNewBlock = document.getElementById('link-tip-newblock');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
+const anchorCtx         = document.getElementById('anchor-ctx');
+const anchorCtxLink     = document.getElementById('anchor-ctx-link');
+const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
+const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
 const linkCtxColors  = document.getElementById('link-ctx-colors');
 const linkCtxWidths  = document.getElementById('link-ctx-widths');
 const linkCtxDashes  = document.getElementById('link-ctx-dashes');
@@ -320,6 +324,13 @@ function renderNode(n, el) {
         } else {
           jumpTo(lnk.toId);
         }
+      });
+      a.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const lnk = S.links.find(l => l.id === +a.dataset.lid);
+        if (!lnk) return;
+        showAnchorCtx(lnk.fromId, lnk.text, a, e.clientX, e.clientY);
       });
     });
 
@@ -1240,8 +1251,14 @@ function renderLinks() {
     const tn = S.nodes.find(n => n.id === lnk.toId);
     if (!fn || !tn) continue;
 
-    // Start point: anchor element position if available, else node edge
-    const anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+    // Start point: anchor element position if available, else node edge.
+    // When two links share the same text from the same node, injectAnchor only
+    // creates one span (for the first link); fall back to that sibling's span.
+    let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+    if (!anchorEl) {
+      const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+      if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+    }
     let fp, anchorRect;
     if (anchorEl) {
       anchorRect = anchorEl.getBoundingClientRect();
@@ -1431,6 +1448,53 @@ function hideLinkCtx() {
 
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('#link-ctx')) hideLinkCtx();
+});
+
+// ── Anchor context menu (right-click on existing link-anchor span) ──
+function showAnchorCtx(fromId, text, anchorEl, x, y) {
+  const rect = anchorEl.getBoundingClientRect();
+  const anchorRect = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+
+  anchorCtxLink.onclick = () => {
+    hideAnchorCtx();
+    enterLinkMode(fromId, text, anchorRect);
+  };
+  anchorCtxNewBlock.onclick = () => {
+    hideAnchorCtx();
+    const fn = S.nodes.find(n => n.id === fromId);
+    const nx = fn ? fn.x + fn.w + 60 : 100;
+    const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+    const newNode = addNode(nx, ny);
+    createLink(fromId, text, newNode.id);
+    renderLinks();
+    selectNode(newNode.id);
+    startEdit(newNode.id);
+  };
+  anchorCtxDelAll.onclick = () => {
+    hideAnchorCtx();
+    const toRemove = S.links.filter(l => l.fromId === fromId && l.text === text).map(l => l.id);
+    if (toRemove.length === 0) return;
+    pushUndo();
+    S.links = S.links.filter(l => !(l.fromId === fromId && l.text === text));
+    const fn = S.nodes.find(n => n.id === fromId);
+    if (fn) renderNode(fn);
+    renderLinks();
+    scheduleSave();
+  };
+
+  anchorCtx.style.display = 'block';
+  const cw = anchorCtx.offsetWidth || 220;
+  const ch = anchorCtx.offsetHeight || 70;
+  anchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+  anchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+}
+
+function hideAnchorCtx() {
+  anchorCtx.style.display = 'none';
+}
+
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('#anchor-ctx')) hideAnchorCtx();
 });
 
 // ═══════════════════════════════════════════════════════
