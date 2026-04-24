@@ -15,6 +15,7 @@ const S = {
   taid: 1,  // next tail-anchor id
   sel: null,        // selected node id
   multiSel: new Set(), // multi-selected node ids (Shift+click)
+  multiSelLines: new Set(), // multi-selected free-line ids (marquee selection)
   editing: null,    // editing node id
   drag: null,       // { id, sx, sy, ox, oy, others: [{id, ox, oy}] }
   resize: null,     // { id, sx, sy, ow, oh }
@@ -1058,6 +1059,10 @@ function toggleMultiSel(id) {
 function clearMultiSel() {
   S.multiSel.forEach(id => ndEl(id)?.classList.remove('multi-selected'));
   S.multiSel.clear();
+  if (S.multiSelLines.size > 0) {
+    S.multiSelLines.clear();
+    renderFreeLines();
+  }
 }
 
 function removeNode(id) {
@@ -1176,6 +1181,11 @@ function copyNodes() {
     const line = S.freeLines.find(l => l.id === S.selLine);
     if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
   }
+  S.multiSelLines.forEach(lid => {
+    if (S.selLine === lid) return; // already added above
+    const line = S.freeLines.find(l => l.id === lid);
+    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+  });
   if (items.length === 0) return;
   S.clipboard = items;
   localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
@@ -1205,6 +1215,12 @@ function cutNodes() {
     if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
     removeFreeLine(S.selLine);
   }
+  const linesToCut = [...S.multiSelLines].filter(lid => lid !== S.selLine);
+  linesToCut.forEach(lid => {
+    const line = S.freeLines.find(l => l.id === lid);
+    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+    removeFreeLine(lid);
+  });
   _suppressUndo = false;
   if (items.length === 0) return;
   S.clipboard = items;
@@ -1798,7 +1814,7 @@ function renderFreeLines() {
   for (const line of S.freeLines) {
     const d = freeLinePathD(line, null);
     if (!d) continue;
-    const isSelected = S.selLine === line.id;
+    const isSelected = S.selLine === line.id || S.multiSelLines.has(line.id);
     const stroke = line.stroke || '#e6edf3';
     const sw = line.strokeWidth || 2;
     const dash = line.dash || '';
@@ -1907,7 +1923,9 @@ function renderFreeLines() {
 function selectFreeLine(id) {
   if (S.selLine === id) return;
   if (S.sel !== null) { ndEl(S.sel)?.classList.remove('selected'); S.sel = null; }
-  clearMultiSel();
+  S.multiSel.forEach(nid => ndEl(nid)?.classList.remove('multi-selected'));
+  S.multiSel.clear();
+  S.multiSelLines.clear();
   S.selLine = id;
   renderFreeLines();
   setStatus('Line selected — drag to move | right-click for options | Del to delete');
@@ -1934,6 +1952,7 @@ function removeFreeLine(id) {
   pushUndo();
   S.freeLines = S.freeLines.filter(l => l.id !== id);
   if (S.selLine === id) S.selLine = null;
+  S.multiSelLines.delete(id);
   renderFreeLines();
   scheduleSave();
 }
@@ -2471,8 +2490,20 @@ document.addEventListener('mouseup', () => {
           ndEl(n.id)?.classList.add('multi-selected');
         }
       });
-      const count = S.multiSel.size;
-      setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | right-click link to delete');
+      // Also select free lines whose bounding box overlaps the marquee rect
+      S.freeLines.forEach(line => {
+        if (line.points.length === 0) return;
+        const xs = line.points.map(p => p.x);
+        const ys = line.points.map(p => p.y);
+        const lx0 = Math.min(...xs), lx1 = Math.max(...xs);
+        const ly0 = Math.min(...ys), ly1 = Math.max(...ys);
+        if (lx0 < c1.x && lx1 > c0.x && ly0 < c1.y && ly1 > c0.y) {
+          S.multiSelLines.add(line.id);
+        }
+      });
+      if (S.multiSelLines.size > 0) renderFreeLines();
+      const count = S.multiSel.size + S.multiSelLines.size;
+      setStatus(count > 0 ? `${count} object(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | right-click link to delete');
     }
   }
   if (S.ptDrag) {
@@ -2554,11 +2585,12 @@ document.addEventListener('keydown', e => {
     else if (S.editing) stopEdit();
   }
   if ((e.code === 'Delete' || e.code === 'Backspace') && !isInput && !S.editing) {
-    if (S.multiSel.size > 0) {
+    if (S.multiSel.size > 0 || S.multiSelLines.size > 0) {
       e.preventDefault();
       pushUndo();
       _suppressUndo = true;
       [...S.multiSel].forEach(id => removeNode(id));
+      [...S.multiSelLines].forEach(lid => removeFreeLine(lid));
       _suppressUndo = false;
     } else if (S.sel) {
       e.preventDefault();
@@ -2763,6 +2795,7 @@ function loadState(data) {
   S.selLine = null;
   S.editing = null;
   S.multiSel.clear();
+  S.multiSelLines.clear();
   S.clipboard = [];
   svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
   const _fll = document.getElementById('free-lines-layer');

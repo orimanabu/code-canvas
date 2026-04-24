@@ -22108,3 +22108,227 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Brewed for 1m 20s
 ```
+
+```
+❯ マウスの範囲選択による複数オブジェクトの選択時、lineが選択できません。修正してください
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now I can see the problem. The marquee selection (lines 2467-2473) only checks S.nodes but not S.freeLines. Let me look at how free line selection
+   works to add it properly.
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ Now let me check the copy/cut and delete sections more carefully:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I have a full picture of the changes needed. Let me implement the fix:
+
+  1. Add multiSelLines: new Set() to state
+  2. Update clearMultiSel to also clear multiSelLines
+  3. Update selectFreeLine to clear multiSelLines
+  4. Update renderFreeLines to treat multiSelLines as selected
+  5. Update marquee mouseup to also select free lines
+  6. Update copyNodes and cutNodes to include multiSelLines
+  7. Update delete handler to delete multiSelLines
+  8. Update status message
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I'll make all the necessary changes:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      15    taid: 1,  // next tail-anchor id
+      16    sel: null,        // selected node id
+      17    multiSel: new Set(), // multi-selected node ids (Shift+click)
+      18 +  multiSelLines: new Set(), // multi-selected free-line ids (marquee selection)
+      19    editing: null,    // editing node id
+      20    drag: null,       // { id, sx, sy, ox, oy, others: [{id, ox, oy}] }
+      21    resize: null,     // { id, sx, sy, ow, oh }
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines
+      1059  function clearMultiSel() {
+      1060    S.multiSel.forEach(id => ndEl(id)?.classList.remove('multi-selected'));
+      1061    S.multiSel.clear();
+      1062 +  if (S.multiSelLines.size > 0) {
+      1063 +    S.multiSelLines.clear();
+      1064 +    renderFreeLines();
+      1065 +  }
+      1066  }
+      1067
+      1068  function removeNode(id) {
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 1 line
+      1912  function selectFreeLine(id) {
+      1913    if (S.selLine === id) return;
+      1914    if (S.sel !== null) { ndEl(S.sel)?.classList.remove('selected'); S.sel = null; }
+      1915 -  clearMultiSel();
+      1915 +  S.multiSel.forEach(nid => ndEl(nid)?.classList.remove('multi-selected'));
+      1916 +  S.multiSel.clear();
+      1917 +  S.multiSelLines.clear();
+      1918    S.selLine = id;
+      1919    renderFreeLines();
+      1920    setStatus('Line selected — drag to move | right-click for options | Del to delete');
+
+⏺ Now update renderFreeLines to also highlight lines in multiSelLines:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1803    for (const line of S.freeLines) {
+      1804      const d = freeLinePathD(line, null);
+      1805      if (!d) continue;
+      1806 -    const isSelected = S.selLine === line.id;
+      1806 +    const isSelected = S.selLine === line.id || S.multiSelLines.has(line.id);
+      1807      const stroke = line.stroke || '#e6edf3';
+      1808      const sw = line.strokeWidth || 2;
+      1809      const dash = line.dash || '';
+
+⏺ Now update the marquee mouseup handler to also select free lines:
+
+⏺ Update(canvas.js)
+  ⎿  Added 14 lines, removed 2 lines
+      2478            ndEl(n.id)?.classList.add('multi-selected');
+      2479          }
+      2480        });
+      2481 -      const count = S.multiSel.size;
+      2482 -      setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select
+           -text to create link | right-click link to delete');
+      2481 +      // Also select free lines whose bounding box overlaps the marquee rect
+      2482 +      S.freeLines.forEach(line => {
+      2483 +        if (line.points.length === 0) return;
+      2484 +        const xs = line.points.map(p => p.x);
+      2485 +        const ys = line.points.map(p => p.y);
+      2486 +        const lx0 = Math.min(...xs), lx1 = Math.max(...xs);
+      2487 +        const ly0 = Math.min(...ys), ly1 = Math.max(...ys);
+      2488 +        if (lx0 < c1.x && lx1 > c0.x && ly0 < c1.y && ly1 > c0.y) {
+      2489 +          S.multiSelLines.add(line.id);
+      2490 +        }
+      2491 +      });
+      2492 +      if (S.multiSelLines.size > 0) renderFreeLines();
+      2493 +      const count = S.multiSel.size + S.multiSelLines.size;
+      2494 +      setStatus(count > 0 ? `${count} object(s) selected — drag header to move all` : 'Ready — double-click to add block | select
+           + text to create link | right-click link to delete');
+      2495      }
+      2496    }
+      2497    if (S.ptDrag) {
+
+⏺ Now update copyNodes to include multiSelLines:
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines
+      1181      const line = S.freeLines.find(l => l.id === S.selLine);
+      1182      if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1183    }
+      1184 +  S.multiSelLines.forEach(lid => {
+      1185 +    if (S.selLine === lid) return; // already added above
+      1186 +    const line = S.freeLines.find(l => l.id === lid);
+      1187 +    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1188 +  });
+      1189    if (items.length === 0) return;
+      1190    S.clipboard = items;
+      1191    localStorage.setItem('code-canvas-clipboard', JSON.stringify(items));
+
+⏺ Now update cutNodes to include multiSelLines:
+
+⏺ Update(canvas.js)
+  ⎿  Added 6 lines
+      1215      if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1216      removeFreeLine(S.selLine);
+      1217    }
+      1218 +  const linesToCut = [...S.multiSelLines].filter(lid => lid !== S.selLine);
+      1219 +  linesToCut.forEach(lid => {
+      1220 +    const line = S.freeLines.find(l => l.id === lid);
+      1221 +    if (line) items.push({ _clipType: 'freeline', ...line, points: line.points.map(p => ({ ...p })) });
+      1222 +    removeFreeLine(lid);
+      1223 +  });
+      1224    _suppressUndo = false;
+      1225    if (items.length === 0) return;
+      1226    S.clipboard = items;
+
+⏺ Now update the delete handler to also delete multiSelLines:
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 1 line
+      2584      else if (S.editing) stopEdit();
+      2585    }
+      2586    if ((e.code === 'Delete' || e.code === 'Backspace') && !isInput && !S.editing) {
+      2587 -    if (S.multiSel.size > 0) {
+      2587 +    if (S.multiSel.size > 0 || S.multiSelLines.size > 0) {
+      2588        e.preventDefault();
+      2589        pushUndo();
+      2590        _suppressUndo = true;
+      2591        [...S.multiSel].forEach(id => removeNode(id));
+      2592 +      [...S.multiSelLines].forEach(lid => removeFreeLine(lid));
+      2593        _suppressUndo = false;
+      2594      } else if (S.sel) {
+      2595        e.preventDefault();
+
+⏺ Now I need to make sure clearMultiSel doesn't have a circular call issue — renderFreeLines is called inside it, but renderFreeLines doesn't call
+  clearMultiSel. Let me verify and also check if removeFreeLine clears multiSelLines:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ I need to also clean up multiSelLines in removeFreeLine:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      1952    pushUndo();
+      1953    S.freeLines = S.freeLines.filter(l => l.id !== id);
+      1954    if (S.selLine === id) S.selLine = null;
+      1955 +  S.multiSelLines.delete(id);
+      1956    renderFreeLines();
+      1957    scheduleSave();
+      1958  }
+
+⏺ Now let me verify there's no issue with clearMultiSel calling renderFreeLines when renderFreeLines hasn't been defined yet at call time. Since
+  it's a function declaration in JS, hoisting handles it. But let me also check the clearMultiSel function in context to make sure the circular
+  logic issue (calling renderFreeLines before multiSelLines.clear) is correct:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Good. But clearMultiSel is called before renderFreeLines is defined (around line 1059, while renderFreeLines is defined around line 1800). Since
+  these are function expressions (function renderFreeLines() {}), JS hoisting means they're available everywhere. Let me confirm:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Good — it's a function declaration, so hoisting applies and the call in clearMultiSel is fine.
+
+  Now let me also check that loadState (persistence) properly initializes multiSelLines on load since it's a new Set on state initialization:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ I need to also add S.multiSelLines.clear() in loadState:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      2795    S.selLine = null;
+      2796    S.editing = null;
+      2797    S.multiSel.clear();
+      2798 +  S.multiSelLines.clear();
+      2799    S.clipboard = [];
+      2800    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+      2801    const _fll = document.getElementById('free-lines-layer');
+
+⏺ All changes are done. Here's a summary of what was changed:
+
+  Problem: Marquee (rubber-band) selection only iterated over S.nodes, ignoring S.freeLines.
+
+  Fix — 8 targeted edits to canvas.js:
+
+  1. State — Added multiSelLines: new Set() alongside multiSel
+  2. clearMultiSel() — Now also clears multiSelLines and re-renders free lines
+  3. selectFreeLine() — Now clears multiSelLines (same as it clears multiSel)
+  4. removeFreeLine() — Now removes the ID from multiSelLines
+  5. loadState() — Now clears multiSelLines on state reset
+  6. renderFreeLines() — isSelected now also checks S.multiSelLines.has(line.id)
+  7. Marquee mouseup handler — After selecting nodes, also checks each free line's bounding box against the marquee rect and adds matching lines to
+  S.multiSelLines
+  8. copyNodes() / cutNodes() — Include lines from multiSelLines in clipboard items
+  9. Delete handler — When multiSelLines.size > 0, deletes all selected lines too
+
+✻ Crunched for 2m 56s
+```
