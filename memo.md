@@ -22383,3 +22383,119 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Baked for 35s
 ```
+
+```
+❯ codesnnippetd入力フォームの/snippets入力において、repositoryのnicnameを選択するフォームがあります。ここは、一度選択したら、次からは前に選択した項
+目をデフォルトの選択肢にしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now I understand the structure. I need to:
+  1. Save the selected repo index to localStorage when a fetch happens
+  2. Restore it when the dialog opens
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I'll make the changes:
+
+  1. After populating the dropdown, restore the last selected nickname from localStorage
+  2. Save the selected nickname when a fetch is triggered
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 6 lines
+      666        repoSelectEl.innerHTML = repos.map((r, i) =>
+      667          `<option value="${i}">${esc(r.nickname)}</option>`
+      668        ).join('');
+      669 +      // Restore last selected repo nickname
+      670 +      const lastNickname = localStorage.getItem('code-canvas-last-repo-nickname');
+      671 +      if (lastNickname) {
+      672 +        const idx = repos.findIndex(r => r.nickname === lastNickname);
+      673 +        if (idx >= 0) repoSelectEl.selectedIndex = idx;
+      674 +      }
+      675      }
+      676      if (initialKeyword) keywordEl.value = initialKeyword;
+      677      updateApiTypeUI();
+
+⏺ Now save the selected nickname when fetching in /snippets mode:
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 2 lines
+      797        const repo = repos[repoSelectEl.selectedIndex] ?? repos[0];
+      798        context = repo.localTree || '';
+      799        tags    = repo.tagsFile  || '';
+      800 +      // Persist selected repo nickname for next open
+      801 +      if (repo.nickname) localStorage.setItem('code-canvas-last-repo-nickname', repo.nickname);
+      802      } else {
+      803        context = contextEl.value.trim();
+      804        tags    = tagsEl.value.trim();
+
+⏺ Done. The selected repository nickname is now saved to localStorage under code-canvas-last-repo-nickname when a fetch is triggered. The next time
+  the dialog opens, the dropdown automatically selects the previously used repository.
+
+✻ Baked for 35s
+
+❯ /commit-message
+
+⏺ Skill(/commit-message)
+  ⎿  Successfully loaded skill
+
+⏺ Bash(git diff)
+  ⎿  diff --git a/canvas-dialogs.js b/canvas-dialogs.js
+     index 0d93944..9769070 100644
+     --- a/canvas-dialogs.js
+     … +42 lines (ctrl+o to expand)
+
+⏺ feat: persist last selected repo in codesnippetd snippets dialog
+
+❯ ツールバーの"Add
+Block"をクリックするとできるブロックにおいて、Deleteボタンが枠線からはみ出ています。はみ出ないように枠線をもう少し横に広げてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ノードの min-width を広げるのが最も直接的な修正です。
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line, removed 1 line
+      43    border: 2px solid var(--nb, #30363d);
+      44    border-radius: 10px;
+      45    box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      46 -  min-width: 260px; min-height: 120px;
+      46 +  min-width: 320px; min-height: 120px;
+      47    user-select: none;
+      48    transition: border-color 0.15s, box-shadow 0.15s;
+      49    z-index: 1;
+
+⏺ min-width を 260px → 320px に広げました。これでヘッダーの Delete ボタンが枠内に収まるはずです。
+
+✻ Brewed for 36s
+
+❯ まだはみ出ています。もう一度見直して
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ノードを狭くリサイズしたときの問題を詳しく確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題の根本は .node-meta が flex: 0 0 auto（縮まない）のに、.node-actions も flex-shrink: 0 なので、ノードが狭いと actions
+  がはみ出すことです。node-meta を縮めるよう修正します。
+
+⏺ Update(canvas.css)
+  ⎿  Added 2 lines, removed 1 line
+      148  .node-btn.danger:hover { background: #3d1f1e; }
+      149
+      150  .node-meta {
+      151 -  flex: 0 0 auto;
+      151 +  flex: 1 1 auto;
+      152 +  min-width: 0;
+      153    display: flex; flex-direction: column; gap: 2px;
+      154    max-width: 240px;
+      155  }
+
+⏺ flex: 0 0 auto → flex: 1 1 auto + min-width: 0 に変更しました。
+
+  これにより、ノードが狭くなったときに .node-meta（タイトル・ファイルパス欄）が縮み、.node-actions（Delete
+  ボタン等）は常に枠内に収まるようになります。
+
+✻ Churned for 1m 4s
+```
