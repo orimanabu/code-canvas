@@ -22332,3 +22332,54 @@ id="codesnippetd-dialog-overlay"のkeywordには選択したテキストの文�
 
 ✻ Crunched for 2m 56s
 ```
+
+```
+❯ codesnnippetd入力フォームの/snippets入力において、repositoryのnicnameを選択するフォームがあります。ここは、一度選択したら、次からは前に選択した項
+目をデフォルトの選択肢にしてください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now I understand the structure. I need to:
+  1. Save the selected repo index to localStorage when a fetch happens
+  2. Restore it when the dialog opens
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I'll make the changes:
+
+  1. After populating the dropdown, restore the last selected nickname from localStorage
+  2. Save the selected nickname when a fetch is triggered
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 6 lines
+      666        repoSelectEl.innerHTML = repos.map((r, i) =>
+      667          `<option value="${i}">${esc(r.nickname)}</option>`
+      668        ).join('');
+      669 +      // Restore last selected repo nickname
+      670 +      const lastNickname = localStorage.getItem('code-canvas-last-repo-nickname');
+      671 +      if (lastNickname) {
+      672 +        const idx = repos.findIndex(r => r.nickname === lastNickname);
+      673 +        if (idx >= 0) repoSelectEl.selectedIndex = idx;
+      674 +      }
+      675      }
+      676      if (initialKeyword) keywordEl.value = initialKeyword;
+      677      updateApiTypeUI();
+
+⏺ Now save the selected nickname when fetching in /snippets mode:
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 2 lines
+      797        const repo = repos[repoSelectEl.selectedIndex] ?? repos[0];
+      798        context = repo.localTree || '';
+      799        tags    = repo.tagsFile  || '';
+      800 +      // Persist selected repo nickname for next open
+      801 +      if (repo.nickname) localStorage.setItem('code-canvas-last-repo-nickname', repo.nickname);
+      802      } else {
+      803        context = contextEl.value.trim();
+      804        tags    = tagsEl.value.trim();
+
+⏺ Done. The selected repository nickname is now saved to localStorage under code-canvas-last-repo-nickname when a fetch is triggered. The next time
+  the dialog opens, the dropdown automatically selects the previously used repository.
+
+✻ Baked for 35s
+```

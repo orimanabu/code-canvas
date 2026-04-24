@@ -666,6 +666,12 @@ function initCodeSnippetdDialog() {
       repoSelectEl.innerHTML = repos.map((r, i) =>
         `<option value="${i}">${esc(r.nickname)}</option>`
       ).join('');
+      // Restore last selected repo nickname
+      const lastNickname = localStorage.getItem('code-canvas-last-repo-nickname');
+      if (lastNickname) {
+        const idx = repos.findIndex(r => r.nickname === lastNickname);
+        if (idx >= 0) repoSelectEl.selectedIndex = idx;
+      }
     }
     if (initialKeyword) keywordEl.value = initialKeyword;
     updateApiTypeUI();
@@ -791,6 +797,8 @@ function initCodeSnippetdDialog() {
       const repo = repos[repoSelectEl.selectedIndex] ?? repos[0];
       context = repo.localTree || '';
       tags    = repo.tagsFile  || '';
+      // Persist selected repo nickname for next open
+      if (repo.nickname) localStorage.setItem('code-canvas-last-repo-nickname', repo.nickname);
     } else {
       context = contextEl.value.trim();
       tags    = tagsEl.value.trim();
