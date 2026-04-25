@@ -272,6 +272,45 @@ export function addLineNumbers(html, start) {
 }
 
 // ═══════════════════════════════════════════════════════
+// LINK / LINE STYLE CONSTANTS
+// ═══════════════════════════════════════════════════════
+// Shared by canvas-links.js (link context menu) and canvas-free-lines.js (line context menu).
+export const LINK_COLORS = [
+  { label: 'Blue',   value: '#388bfd' },
+  { label: 'Green',  value: '#3fb950' },
+  { label: 'Yellow', value: '#d29922' },
+  { label: 'Red',    value: '#f85149' },
+  { label: 'Purple', value: '#bc8cff' },
+  { label: 'Gray',   value: '#8b949e' },
+  { label: 'White',  value: '#e6edf3' },
+];
+
+export const LINK_WIDTHS = [
+  { label: '1',   value: 1   },
+  { label: '2',   value: 2   },
+  { label: '3',   value: 3.5 },
+  { label: '5',   value: 5   },
+];
+
+export const LINK_DASHES = [
+  { label: 'solid',  value: '',       title: 'Solid' },
+  { label: 'dash',   value: '8 4',    title: 'Dashed' },
+  { label: 'dot',    value: '2 4',    title: 'Dotted' },
+  { label: 'ldash',  value: '16 6',   title: 'Long dash' },
+  { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+];
+
+// ═══════════════════════════════════════════════════════
+// SVG HELPER
+// ═══════════════════════════════════════════════════════
+// Shared by canvas-links.js and canvas-free-lines.js.
+export function svgE(tag, attrs = {}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+// ═══════════════════════════════════════════════════════
 // GEOMETRY
 // ═══════════════════════════════════════════════════════
 

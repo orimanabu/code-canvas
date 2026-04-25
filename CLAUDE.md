@@ -12,31 +12,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|-------------|
 | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and `canvas.js` as an ES module (`<script type="module">`). |
 | `canvas.css` | All styles. Three major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), and frame nodes (`.frame-node`, `.frame-header`, `.frame-label`). |
-| `canvas-utils.js` | Pure utility functions — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. |
+| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+| `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameContent`, `renderNode`. |
+| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
+| `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `targetEntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
+| `canvas-free-lines.js` | Freehand lines. `initFreeLines(deps)` → free-line functions. Contains: `renderFreeLines`, `addFreeLine`, `removeFreeLine`, `selectFreeLine`, line draw mode, line context menu. |
 | `canvas-dialogs.js` | All modal dialog logic (Global Config, Repo sub-dialog, Group Frame, Git Fetch, codesnippetd). Initialized via `initDialogs(deps)` called from `canvas.js`. |
-| `canvas.js` | Main application logic. ES module that imports from `canvas-utils.js` and `canvas-dialogs.js`. Organized by sections marked with `// ═══` banners (see below). |
+| `canvas.js` | Application hub (~1220 lines). Imports and wires all modules. Contains: STATE, DOM REFS, MODE, VIEWPORT (`applyVP`, `s2c`, `c2s`, `zoom`), UTILS (`setStatus`, `ndEl`), UNDO (`pushUndo`, `undo`), WIRING (module initialization with forwarding closures), PERSISTENCE, CANVAS INTERACTION, KEYBOARD, INIT, TEST EXPORTS. |
 | `package.json` / `vitest.config.js` | Test tooling (Vitest). Run tests with `npm test`. |
 
 ## Architecture
 
-**`canvas.js`** is organized by sections marked with `// ═══` banners:
+### Module system
+
+All modules use `initXxx(deps)` dependency injection — no circular ES imports. `canvas.js` is the hub that wires everything together using forward-declared `let` variables and forwarding closures.
+
+```
+canvas-utils.js     ← pure functions/constants, no deps
+canvas-node-rendering.js  ← imports canvas-utils.js only
+canvas-free-lines.js      ← imports canvas-utils.js only
+canvas-links.js           ← imports canvas-utils.js only
+canvas-nodes.js           ← no imports (all deps via injection)
+canvas-dialogs.js         ← imports canvas-utils.js only
+canvas.js                 ← imports all of the above; owns S, wires deps
+```
+
+### `canvas.js` sections (marked with `// ═══` banners)
 
 - **STATE** — Single `S` object holds all runtime state: nodes, links, freeLines, viewport, selection, drag, pan, edit mode, undo stack, globalConfig, clipboard
-- **VIEWPORT** — `applyVP()`, `s2c()`, `zoom()`, `fitAll()`, `jumpTo()` manage pan/zoom with CSS transform
-- **HIGHLIGHT** — highlight.js integration, `highlight()` / `buildCodeHTML()`
-- **NODES** — `addNode()`, `addBubble()`, `addFrame()`, `renderNode()`, `startEdit()`, `stopEdit()`, `removeNode()`
-- **LINKS** — SVG bezier curves connecting nodes, `renderLinks()`, `createLink()`, `removeLink()`
-- **FREE LINES** — freehand polyline/curve/straight-line strokes, `addFreeLine()`, `removeFreeLine()`, `renderFreeLines()`
-- **UNDO** — snapshot-based undo stack (up to 10 steps), `pushUndo()`, `undo()`
-- **DRAG/RESIZE** — pointer event handlers on nodes and the canvas wrapper
+- **DOM REFS** — Raw element references captured at startup
+- **MODE** — `setMode()`, `updateCursor()`
+- **VIEWPORT** — `applyVP()`, `s2c()`, `c2s()`, `zoom()` manage pan/zoom with CSS transform
+- **UTILS** — `setStatus()`, `ndEl(id)`
+- **UNDO** — snapshot-based undo stack (up to 10 steps), `pushUndo()`, `undo()`, `suppressUndo()`
+- **WIRING** — calls `initNodeRendering`, `initFreeLines`, `initLinks`, `initNodes`, `initDialogs` with forwarding closures to resolve mutual dependencies
+- **PERSISTENCE** — `saveState()` / `loadState()` via `localStorage` (per-tab key), export/import as JSON, toolbar event listeners
+- **CANVAS INTERACTION** — pointer event handlers for drag, resize, pan, zoom, marquee selection
 - **KEYBOARD** — global `keydown` handler for shortcuts (v/h mode, Del, Cmd+C/X/V/Z, Escape, etc.)
-- **PERSISTENCE** — `saveState()` / `loadState()` via `localStorage` (per-tab key), export/import as JSON, Git snippet fetch via GitHub raw URLs
+- **INIT** — async IIFE that restores state from localStorage or URL param
+- **TEST EXPORTS** — `globalThis.__canvasApp` (Vitest only)
 
-**Pure utility functions** (in `canvas-utils.js`; imported by `canvas.js`):
+### `canvas-utils.js` exports
 
 - `esc(s)` — HTML escape
 - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
+- `NODE_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants
+- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
+- `svgE(tag, attrs)` — SVG element factory
 - `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
+- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor span
 - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
 - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
 - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect

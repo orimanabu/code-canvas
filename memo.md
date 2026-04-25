@@ -24563,3 +24563,1321 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ⏺ ≡ プレフィックスを削除しました。
 ```
+
+```
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Bash(grep -n "renderNode\|renderLinks\|renderFreeLines\|scheduleSave\|pushUndo\|setStatus\|applyVP\|s2c\|ndEl\|selectNode\|stopEdit\|startEdit"
+          /Users/ori/devel/src/…)
+     Running…
+     Bash(grep -c "renderNode\|renderLinks\|renderFreeLines\|scheduleSave\|pushUndo\|setStatus\|applyVP\b\|s2c\b\|ndEl\b\|selectNode\b"
+         /Users/ori/devel/src/github.com/or…)
+     Running…
+     Bash(# Count references to key functions by section, to understand coupling
+         python3 -c "…)
+     Running…
+     +22 more tool uses (ctrl+o to expand)
+     (ctrl+b to run in background)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   # Count references to key functions by section, to understand coupling
+   python3 -c "
+   import re
+
+   with open('/Users/ori/devel/src/github.com/orimanabu/code-canvas/canvas.js') as f:
+       lines = f.readlines()
+
+   sections = [
+       ('STATE', 6, 43),
+       ('DOM REFS', 44, 69),
+       ('MODE', 70, 90),
+       ('VIEWPORT', 91, 124),
+       ('HIGHLIGHT', 125, 163),
+       ('COLOR HELPERS', 164, 204),
+       ('FONT HELPERS', 205, 256),
+       ('NODE RENDERING', 257, 507),
+       ('BUBBLE NODE', 508, 783),
+       ('FRAME NODE', 784, 1227),
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Bash(grep -c "renderNode\|renderLinks\|renderFreeLines\|scheduleSave\|pushUndo\|setStatus\|applyVP\b\|s2c\b\|ndEl\b\|selectNode\b"
+         /Users/ori/devel/src/github.com/or…)
+     Running…
+     Bash(# Count references to key functions by section, to understand coupling
+         python3 -c "…)
+     Running…
+     Bash(# Map which functions each section DEFINES and which it CALLS from other sections
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Bash(# Count references to key functions by section, to understand coupling
+         python3 -c "…)
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Bash(# Map which functions each section DEFINES and which it CALLS from other sections
+         python3 -c "…)
+     Running…
+     Bash(python3 -c "
+         import re…)
+     Running…
+     Bash(python3 -c "
+         import re…)
+     Running…
+     +25 more tool uses (ctrl+o to expand)
+     (ctrl+b to run in background)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   python3 -c "
+   import re
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Done (28 tool uses · 101.5k tokens · 6m 55s)
+  (ctrl+o to expand)
+
+⏺ それでは計画をまとめます。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Plan: Split canvas.js into Smaller Modules
+
+ Context
+
+ canvas.js is 3,308 lines and hard to navigate, maintain, and test in isolation. canvas-utils.js (358 lines) and canvas-dialogs.js (924 lines) have
+  already been extracted. The goal is to reduce canvas.js to ~900 lines by extracting 4 new modules, following the same dependency-injection
+ pattern used by canvas-dialogs.js.
+
+ No build step; ES modules must work directly in browser.
+
+ ---
+ Architecture Decision
+
+ Central pattern: initXxx(deps) → returns object of functions
+
+ Each new module exports a single initXxx(deps) function. canvas.js calls them in order and gathers the returned functions. The S object and core
+ utilities (pushUndo, scheduleSave, setStatus, s2c, ndEl) stay in canvas.js and are passed into every module via deps.
+
+ No circular ES-module imports — every new file imports only from canvas-utils.js (pure, no side effects).
+
+ Forwarding closures break chicken-and-egg problems:
+ const deps = {
+   pushUndo: (...a) => pushUndo(...a),   // defined later in canvas.js
+   renderNode: (...a) => renderNode(...a), // defined by an earlier initXxx call
+   ...
+ };
+
+ ---
+ Prep: Move shared constants/helpers to canvas-utils.js
+
+ Before splitting, move these from canvas.js into canvas-utils.js (they have no external dependencies):
+
+ ┌───────────────────────────────────────┬────────────────────────────┬────────────────────────────────────────────────────────┐
+ │                Symbol                 │ Currently at (approx line) │                        Why move                        │
+ ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+ │ svgE(tag, attrs)                      │ ~1648 (LINKS)              │ Used by both links and free-lines modules              │
+ ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+ │ c2s(cx, cy)                           │ ~1564 (LINKS)              │ Logical pair of s2c; used by both links and free-lines │
+ ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+ │ LINK_COLORS, LINK_WIDTHS, LINK_DASHES │ ~1700s (LINK CTX)          │ Pure data; shared by link and free-lines context menus │
+ └───────────────────────────────────────┴────────────────────────────┴────────────────────────────────────────────────────────┘
+
+ ---
+ New Files
+
+ 1. canvas-node-rendering.js (~410 lines)
+
+ Sections moved: HIGHLIGHT (125-163) + COLOR HELPERS (164-204) + FONT HELPERS (205-256) + NODE RENDERING core HTML builders (257-507 partial) +
+ Z-ORDER (1228-1274)
+
+ Exported: initNodeRendering(deps) → { renderNode }
+
+ All sub-functions (buildCodeHTML, colorSwatchesHTML, fontControlsHTML, zOrderMenuHTML, applyNodeColor, applyNodeFont, bindZOrderButtons,
+ renderBubbleContent, renderFrameContent, editHTML, viewHTML, etc.) are module-private.
+
+ deps it receives:
+ S, canvas, ndEl, s2c,
+ pushUndo, scheduleSave, setStatus,
+ startEdit, stopEdit, autoFitNode, selectNode,
+ toggleMultiSel, clearMultiSel, removeNode,
+ renderLinks, renderBubbleTail, renderAnchoredBubbleTails,
+ openFetchDialog, openCodeSnippetdDialog,
+ createLink, jumpTo, showAnchorCtx, showTailAnchorCtx, removeLink, attachTailToText
+
+ ---
+ 2. canvas-free-lines.js (~320 lines)
+
+ Sections moved: FREE LINES (1893-2199)
+
+ Exported: initFreeLines(deps) → { renderFreeLines, addFreeLine, removeFreeLine, selectFreeLine, enterLineDrawMode, exitLineDrawMode,
+ finishDrawingLine, showLineCtx, hideLineCtx }
+
+ deps it receives:
+ S, svgE, c2s, s2c,
+ LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+ pushUndo, scheduleSave, setStatus, selectNode, renderLinks
+
+ ---
+ 3. canvas-links.js (~480 lines)
+
+ Sections moved: LINKS (1538-1653) + LINK MODE (1654-1672) + TAIL ATTACH MODE (1673-1689) + LINK CONTEXT MENU (1690-1892) + LINK PREVIEW
+ (2200-2233) + TEXT SELECTION → LINK (2234-2347)
+
+ Exported: initLinks(deps) → { renderLinks, createLink, removeLink, enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode,
+ showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx, targetEntryPoint }
+
+ Module-level document.addEventListener calls (for hiding context menus) must be placed inside initLinks() body, not at module-eval time.
+
+ deps it receives:
+ S, wrap, svgLinks, linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+ linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+ anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+ tailAnchorCtx, tailAnchorCtxDetach, linkPreviewEl,
+ renderNode, addNode, selectNode, startEdit,
+ pushUndo, scheduleSave, setStatus,
+ s2c, c2s, svgE,
+ edgePoint, anchorFpFromSide
+
+ ---
+ 4. canvas-nodes.js (~720 lines)
+
+ Sections moved: BUBBLE NODE (508-783) + FRAME NODE (784-1227) + node lifecycle functions from NODE RENDERING (addNode, removeNode, selectNode,
+ toggleMultiSel, clearMultiSel, autoFitNode, startEdit, stopEdit) + COPY/CUT/PASTE (1275-1537) + fitAll + jumpTo
+
+ Exported: initNodes(deps) → { addNode, addBubble, addFrame, removeNode, selectNode, toggleMultiSel, clearMultiSel, startEdit, stopEdit,
+ autoFitNode, setupNodeEvents, setupFrameEvents, renderBubbleTail, renderAnchoredBubbleTails, attachTailToText, getSelectedIds, copyNodes,
+ cutNodes, pasteNodes, fitAll, jumpTo }
+
+ Note on _suppressUndo: Expose a suppressUndo(bool) setter from canvas.js's UNDO section and pass it into deps, instead of sharing the raw
+ variable.
+
+ deps it receives:
+ S, canvas, wrap, ndEl, s2c, c2s,
+ renderNode, renderLinks, renderFreeLines,
+ pushUndo, suppressUndo, scheduleSave, setStatus,
+ openFetchDialog, openCodeSnippetdDialog,
+ enterLinkMode, enterTailAttachMode,
+ showAnchorCtx, showTailAnchorCtx,
+ createLink, removeLink, svgE
+
+ ---
+ canvas.js After Extraction (~900 lines)
+
+ Retains:
+ - STATE — S object
+ - DOM REFS — raw element references
+ - MODE — setMode, updateCursor
+ - VIEWPORT — applyVP, s2c, zoom (+ c2s moved here from LINKS)
+ - UTILS — setStatus, ndEl
+ - UNDO — pushUndo, undo, snapshotForUndo, suppressUndo
+ - PERSISTENCE — saveState, loadState, restoreFromStorage, toolbar event listeners
+ - CANVAS INTERACTION — mouse/pointer handlers (uses all modules' functions)
+ - INIT — async init IIFE
+ - WIRING — calls to initNodeRendering, initFreeLines, initLinks, initNodes, initDialogs
+ - TEST EXPORTS — globalThis.__canvasApp (shape unchanged; values sourced from module return objects)
+
+ ---
+ Extraction Order
+
+ Extract in dependency order — lowest coupling first:
+
+ 1. Prep: move svgE, c2s, LINK_COLORS/WIDTHS/DASHES to canvas-utils.js
+ 2. canvas-node-rendering.js — establishes renderNode pattern; no canvas.js imports
+ 3. canvas-free-lines.js — fewest cross-deps; only needs svgE, c2s, renderLinks
+ 4. canvas-links.js — needs renderNode and addNode (from wiring), provides renderLinks back
+ 5. canvas-nodes.js — depends on all prior modules; extracted last
+
+ Run npm test after each step to catch regressions immediately.
+
+ ---
+ Test Impact
+
+ Zero changes to test files. The globalThis.__canvasApp export object in canvas.js keeps the exact same shape; values are now sourced from
+ initXxx() return objects instead of local declarations. All 5 test files remain byte-for-byte unchanged.
+
+ ---
+ Verification
+
+ After all steps:
+ 1. npm test — all existing tests pass
+ 2. open canvas.html via local server — full manual smoke test (add nodes, draw links, free lines, undo, save/restore, copy/paste cross-tab,
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Done (28 tool uses · 101.5k tokens · 6m 55s)
+  (ctrl+o to expand)
+
+⏺ それでは計画をまとめます。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/bubbly-booping-flame.md · /plan to edit
+     Plan: Split canvas.js into Smaller Modules
+
+     Context
+
+     canvas.js is 3,308 lines and hard to navigate, maintain, and test in isolation. canvas-utils.js (358 lines) and canvas-dialogs.js (924 lines)
+     have already been extracted. The goal is to reduce canvas.js to ~900 lines by extracting 4 new modules, following the same dependency-injection
+      pattern used by canvas-dialogs.js.
+
+     No build step; ES modules must work directly in browser.
+
+     ---
+     Architecture Decision
+
+     Central pattern: initXxx(deps) → returns object of functions
+
+     Each new module exports a single initXxx(deps) function. canvas.js calls them in order and gathers the returned functions. The S object and
+     core utilities (pushUndo, scheduleSave, setStatus, s2c, ndEl) stay in canvas.js and are passed into every module via deps.
+
+     No circular ES-module imports — every new file imports only from canvas-utils.js (pure, no side effects).
+
+     Forwarding closures break chicken-and-egg problems:
+     const deps = {
+       pushUndo: (...a) => pushUndo(...a),   // defined later in canvas.js
+       renderNode: (...a) => renderNode(...a), // defined by an earlier initXxx call
+       ...
+     };
+
+     ---
+     Prep: Move shared constants/helpers to canvas-utils.js
+
+     Before splitting, move these from canvas.js into canvas-utils.js (they have no external dependencies):
+
+     ┌───────────────────────────────────────┬────────────────────────────┬────────────────────────────────────────────────────────┐
+     │                Symbol                 │ Currently at (approx line) │                        Why move                        │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ svgE(tag, attrs)                      │ ~1648 (LINKS)              │ Used by both links and free-lines modules              │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ c2s(cx, cy)                           │ ~1564 (LINKS)              │ Logical pair of s2c; used by both links and free-lines │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ LINK_COLORS, LINK_WIDTHS, LINK_DASHES │ ~1700s (LINK CTX)          │ Pure data; shared by link and free-lines context menus │
+     └───────────────────────────────────────┴────────────────────────────┴────────────────────────────────────────────────────────┘
+
+     ---
+     New Files
+
+     1. canvas-node-rendering.js (~410 lines)
+
+     Sections moved: HIGHLIGHT (125-163) + COLOR HELPERS (164-204) + FONT HELPERS (205-256) + NODE RENDERING core HTML builders (257-507 partial) +
+     Z-ORDER (1228-1274)
+
+     Exported: initNodeRendering(deps) → { renderNode }
+
+     All sub-functions (buildCodeHTML, colorSwatchesHTML, fontControlsHTML, zOrderMenuHTML, applyNodeColor, applyNodeFont, bindZOrderButtons,
+     renderBubbleContent, renderFrameContent, editHTML, viewHTML, etc.) are module-private.
+
+     deps it receives:
+     S, canvas, ndEl, s2c,
+     pushUndo, scheduleSave, setStatus,
+     startEdit, stopEdit, autoFitNode, selectNode,
+     toggleMultiSel, clearMultiSel, removeNode,
+     renderLinks, renderBubbleTail, renderAnchoredBubbleTails,
+     openFetchDialog, openCodeSnippetdDialog,
+     createLink, jumpTo, showAnchorCtx, showTailAnchorCtx, removeLink, attachTailToText
+
+     ---
+     2. canvas-free-lines.js (~320 lines)
+
+     Sections moved: FREE LINES (1893-2199)
+
+     Exported: initFreeLines(deps) → { renderFreeLines, addFreeLine, removeFreeLine, selectFreeLine, enterLineDrawMode, exitLineDrawMode,
+     finishDrawingLine, showLineCtx, hideLineCtx }
+
+     deps it receives:
+     S, svgE, c2s, s2c,
+     LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+     pushUndo, scheduleSave, setStatus, selectNode, renderLinks
+
+     ---
+     3. canvas-links.js (~480 lines)
+
+     Sections moved: LINKS (1538-1653) + LINK MODE (1654-1672) + TAIL ATTACH MODE (1673-1689) + LINK CONTEXT MENU (1690-1892) + LINK PREVIEW
+     (2200-2233) + TEXT SELECTION → LINK (2234-2347)
+
+     Exported: initLinks(deps) → { renderLinks, createLink, removeLink, enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode,
+     showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx, targetEntryPoint }
+
+     Module-level document.addEventListener calls (for hiding context menus) must be placed inside initLinks() body, not at module-eval time.
+
+     deps it receives:
+     S, wrap, svgLinks, linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+     linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+     tailAnchorCtx, tailAnchorCtxDetach, linkPreviewEl,
+     renderNode, addNode, selectNode, startEdit,
+     pushUndo, scheduleSave, setStatus,
+     s2c, c2s, svgE,
+     edgePoint, anchorFpFromSide
+
+     ---
+     4. canvas-nodes.js (~720 lines)
+
+     Sections moved: BUBBLE NODE (508-783) + FRAME NODE (784-1227) + node lifecycle functions from NODE RENDERING (addNode, removeNode, selectNode,
+     toggleMultiSel, clearMultiSel, autoFitNode, startEdit, stopEdit) + COPY/CUT/PASTE (1275-1537) + fitAll + jumpTo
+
+     Exported: initNodes(deps) → { addNode, addBubble, addFrame, removeNode, selectNode, toggleMultiSel, clearMultiSel, startEdit, stopEdit,
+     autoFitNode, setupNodeEvents, setupFrameEvents, renderBubbleTail, renderAnchoredBubbleTails, attachTailToText, getSelectedIds, copyNodes,
+     cutNodes, pasteNodes, fitAll, jumpTo }
+
+     Note on _suppressUndo: Expose a suppressUndo(bool) setter from canvas.js's UNDO section and pass it into deps, instead of sharing the raw
+     variable.
+
+     deps it receives:
+     S, canvas, wrap, ndEl, s2c, c2s,
+     renderNode, renderLinks, renderFreeLines,
+     pushUndo, suppressUndo, scheduleSave, setStatus,
+     openFetchDialog, openCodeSnippetdDialog,
+     enterLinkMode, enterTailAttachMode,
+     showAnchorCtx, showTailAnchorCtx,
+     createLink, removeLink, svgE
+
+     ---
+     canvas.js After Extraction (~900 lines)
+
+     Retains:
+     - STATE — S object
+     - DOM REFS — raw element references
+     - MODE — setMode, updateCursor
+     - VIEWPORT — applyVP, s2c, zoom (+ c2s moved here from LINKS)
+     - UTILS — setStatus, ndEl
+     - UNDO — pushUndo, undo, snapshotForUndo, suppressUndo
+     - PERSISTENCE — saveState, loadState, restoreFromStorage, toolbar event listeners
+     - CANVAS INTERACTION — mouse/pointer handlers (uses all modules' functions)
+     - INIT — async init IIFE
+     - WIRING — calls to initNodeRendering, initFreeLines, initLinks, initNodes, initDialogs
+     - TEST EXPORTS — globalThis.__canvasApp (shape unchanged; values sourced from module return objects)
+
+     ---
+     Extraction Order
+
+     Extract in dependency order — lowest coupling first:
+
+     1. Prep: move svgE, c2s, LINK_COLORS/WIDTHS/DASHES to canvas-utils.js
+     2. canvas-node-rendering.js — establishes renderNode pattern; no canvas.js imports
+     3. canvas-free-lines.js — fewest cross-deps; only needs svgE, c2s, renderLinks
+     4. canvas-links.js — needs renderNode and addNode (from wiring), provides renderLinks back
+     5. canvas-nodes.js — depends on all prior modules; extracted last
+
+     Run npm test after each step to catch regressions immediately.
+
+     ---
+     Test Impact
+
+     Zero changes to test files. The globalThis.__canvasApp export object in canvas.js keeps the exact same shape; values are now sourced from
+     initXxx() return objects instead of local declarations. All 5 test files remain byte-for-byte unchanged.
+
+     ---
+     Verification
+
+     After all steps:
+     1. npm test — all existing tests pass
+     2. open canvas.html via local server — full manual smoke test (add nodes, draw links, free lines, undo, save/restore, copy/paste cross-tab,
+     dialogs)
+     3. wc -l canvas*.js — confirm each file is under ~750 lines (canvas.js itself under ~950)
+
+     ---
+     Final Line Counts (estimated)
+
+     ┌────────────────────────────────┬────────┐
+     │              File              │ Lines  │
+     ├────────────────────────────────┼────────┤
+     │ canvas.js (reduced)            │ ~900   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-node-rendering.js (new) │ ~410   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-nodes.js (new)          │ ~720   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-links.js (new)          │ ~480   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-free-lines.js (new)     │ ~320   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-dialogs.js (unchanged)  │ 924    │
+     ├────────────────────────────────┼────────┤
+     │ canvas-utils.js (expanded)     │ ~380   │
+     ├────────────────────────────────┼────────┤
+     │ Total                          │ ~4,134 │
+     └────────────────────────────────┴────────┘
+
+⏺ では実装を始めます。まず現在のファイルを読んで内容を把握します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ まずcanvas.jsの全体を読みます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装を開始します。まずTask 1から。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 39 lines
+      272  }
+      273
+      274  // ═══════════════════════════════════════════════════════
+      275 +// LINK / LINE STYLE CONSTANTS
+      276 +// ═══════════════════════════════════════════════════════
+      277 +// Shared by canvas-links.js (link context menu) and canvas-free-lines.js (line context menu).
+      278 +export const LINK_COLORS = [
+      279 +  { label: 'Blue',   value: '#388bfd' },
+      280 +  { label: 'Green',  value: '#3fb950' },
+      281 +  { label: 'Yellow', value: '#d29922' },
+      282 +  { label: 'Red',    value: '#f85149' },
+      283 +  { label: 'Purple', value: '#bc8cff' },
+      284 +  { label: 'Gray',   value: '#8b949e' },
+      285 +  { label: 'White',  value: '#e6edf3' },
+      286 +];
+      287 +
+      288 +export const LINK_WIDTHS = [
+      289 +  { label: '1',   value: 1   },
+      290 +  { label: '2',   value: 2   },
+      291 +  { label: '3',   value: 3.5 },
+      292 +  { label: '5',   value: 5   },
+      293 +];
+      294 +
+      295 +export const LINK_DASHES = [
+      296 +  { label: 'solid',  value: '',       title: 'Solid' },
+      297 +  { label: 'dash',   value: '8 4',    title: 'Dashed' },
+      298 +  { label: 'dot',    value: '2 4',    title: 'Dotted' },
+      299 +  { label: 'ldash',  value: '16 6',   title: 'Long dash' },
+      300 +  { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+      301 +];
+      302 +
+      303 +// ═══════════════════════════════════════════════════════
+         } = deps;
+
+         // ... all link functions ...
+
+         // Event listeners (moved from module-level in canvas.js):
+         document.addEventListener('mousedown', e => { if (!e.target.closest('#link-ctx')) hideLinkCtx(); });
+         document.addEventListener('mousedown', e => { if (!e.target.closest('#anchor-ctx')) hideAnchorCtx(); });
+         document.addEventListener('mousedown', e => { if (!e.target.closest('#tail-anchor-ctx')) hideTailAnchorCtx(); });
+         wrap.addEventListener('mousemove', e => { /* LINK PREVIEW */ });
+         document.addEventListener('mouseup', e => { /* TEXT SELECTION → LINK */ });
+         document.addEventListener('mousedown', e => { /* hide link-tip */ });
+
+         return {
+           renderLinks, createLink, removeLink,
+           targetEntryPoint,
+           enterLinkMode, exitLinkMode,
+           enterTailAttachMode, exitTailAttachMode,
+           showAnchorCtx, hideAnchorCtx,
+           showTailAnchorCtx, hideTailAnchorCtx,
+         };
+       }
+
+       Note: createLink and removeLink need to be defined BEFORE they are returned, so define them at the top of the function body. The initLinks
+       deps object also receives createLink and removeLink as forwarding closures initially... Wait no. createLink is DEFINED inside initLinks, so
+       the initLinks deps don't need createLink passed in - it's local to the module.
+
+       Actually wait: showAnchorCtx calls createLink and addNode - these are local or passed in.
+       - createLink: defined in this module → local
+       - addNode: must be passed in as dep (it's in canvas-nodes.js)
+       - renderBubbleTail: must be passed in as dep (it's in canvas-nodes.js, used by showTailAnchorCtx)
+
+       Also exitLinkMode references linkTip and linkPreviewEl DOM elements - pass these in the deps.
+
+       ---
+       File 4: canvas-nodes.js
+
+       Create /Users/ori/devel/src/github.com/orimanabu/code-canvas/canvas-nodes.js
+
+       Sections to include from canvas.js:
+       - From BUBBLE NODE: renderBubbleTail, addBubble, renderAnchoredBubbleTails, attachTailToText
+       - From FRAME NODE: setupFrameEvents, addFrame
+       - From NODE RENDERING: addNode, defaultCode (if not in canvas-node-rendering.js), setupNodeEvents, startEdit, stopEdit, autoFitNode,
+       selectNode, toggleMultiSel, clearMultiSel, removeNode
+       - COPY/CUT/PASTE: getSelectedIds, copyNodes, cutNodes, pasteNodes
+       - fitAll, jumpTo
+
+       Wait - defaultCode is used by renderNode in canvas-node-rendering.js AND by editHTML in canvas-node-rendering.js. So defaultCode should stay
+       in canvas-node-rendering.js. It is NOT in canvas-nodes.js.
+
+       Imports: none from local files (only uses deps injection)
+
+       Structure:
+       export function initNodes(deps) {
+         const { S, canvas, wrap, ndEl, s2c, c2s,
+           renderNode, renderLinks, renderFreeLines,
+           pushUndo, suppressUndo, scheduleSave, setStatus,
+           enterLinkMode, enterTailAttachMode,
+           showAnchorCtx, showTailAnchorCtx,
+           createLink, removeLink,
+           svgE, applyVP,
+           roundedRectRayHit, anchorFpFromSide, NODE_COLORS,
+           targetEntryPoint,
+         } = deps;
+
+         // ... all node functions ...
+
+         return {
+           addNode, addBubble, addFrame, removeNode,
+           selectNode, toggleMultiSel, clearMultiSel,
+           startEdit, stopEdit, autoFitNode,
+           setupNodeEvents, setupFrameEvents,
+           renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
+           getSelectedIds, copyNodes, cutNodes, pasteNodes,
+           fitAll, jumpTo,
+         };
+       }
+
+       Note: suppressUndo is a setter function from canvas.js that allows canvas-nodes.js to set _suppressUndo without having access to the variable
+        directly. It will be defined in canvas.js as:
+       let _suppressUndo = false;
+       function suppressUndo(val) { _suppressUndo = val; }
+
+       And in canvas-nodes.js, replace all _suppressUndo = true/false with suppressUndo(true/false).
+
+       renderBubbleTail needs:
+       - ndEl, S, n.showTail, n.tailX, n.tailY, n.tailAnchorId etc
+       - targetEntryPoint (from canvas-links.js, passed as dep)
+       - anchorFpFromSide (from canvas-utils.js - but canvas-nodes.js doesn't import canvas-utils.js directly!)
+
+       Wait - canvas-nodes.js doesn't import from canvas-utils.js by the design. So anchorFpFromSide, roundedRectRayHit, NODE_COLORS, and svgE need
+       to be passed as deps from canvas.js.
+
+       In canvas.js:
+       import { ..., anchorFpFromSide, roundedRectRayHit, NODE_COLORS, svgE } from './canvas-utils.js';
+       And pass them in initNodes deps.
+
+       ---
+       Updated canvas.js
+
+       After creating all 4 new files, update canvas.js to:
+
+       1. Add new imports at the top:
+       import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
+                injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+                roundedRectRayHit, anchorFpFromSide, edgePoint,
+                svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+       import { initDialogs, showAlert } from './canvas-dialogs.js';
+       import { initNodeRendering } from './canvas-node-rendering.js';
+       import { initFreeLines } from './canvas-free-lines.js';
+       import { initLinks } from './canvas-links.js';
+       import { initNodes } from './canvas-nodes.js';
+
+       2. KEEP these sections (unchanged):
+       - STATE (S object)
+       - DOM REFS
+       - MODE (setMode, updateCursor)
+       - VIEWPORT (applyVP, s2c, zoom) — add c2s here too (moved from LINKS)
+
+       3. ADD after VIEWPORT:
+       // canvas coords → screen coords (used by multiple modules)
+       function c2s(cx, cy) {
+         return {
+           x: cx * S.vp.scale + S.vp.x,
+           y: cy * S.vp.scale + S.vp.y,
+         };
+       }
+
+       4. KEEP UTILS section:
+       function setStatus(msg) { statusEl.textContent = msg; }
+       function ndEl(id) { return document.getElementById('nd-' + id); }
+
+       5. KEEP UNDO section but add suppressUndo:
+       let _suppressUndo = false;
+       function suppressUndo(val) { _suppressUndo = val; }
+       function snapshotForUndo() { ... }
+       function pushUndo() { ... }
+       function undo() { ... } // calls renderNode, renderLinks, renderFreeLines, setupNodeEvents, setupFrameEvents
+
+       6. ADD WIRING section after UNDO:
+       // ═══════════════════════════════════════════════════════
+       // WIRING — initialize all modules with dependency injection
+       // ═══════════════════════════════════════════════════════
+
+       // Forward declarations — resolved after initXxx calls below
+       let renderNode, renderLinks, renderFreeLines;
+       let startEdit, stopEdit, autoFitNode;
+       let selectNode, toggleMultiSel, clearMultiSel, removeNode;
+       let addNode, addBubble, addFrame;
+       let setupNodeEvents, setupFrameEvents;
+       let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
+       let getSelectedIds, copyNodes, cutNodes, pasteNodes;
+       let fitAll, jumpTo;
+       let addFreeLine, removeFreeLine, selectFreeLine;
+       let enterLineDrawMode, exitLineDrawMode, finishDrawingLine;
+       let showLineCtx, hideLineCtx;
+       let createLink, removeLink;
+       let enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode;
+       let showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx;
+       let targetEntryPoint;
+       // Dialog openers — set by initDialogs
+       let openFetchDialog, openCodeSnippetdDialog;
+
+       // Forwarding closure helpers
+       const fw = f => (...a) => f(...a);
+
+       // 1. Node rendering (only needs pure render helpers as deps; rest are forwarding closures)
+       ({ renderNode } = initNodeRendering({
+         S, canvas, ndEl, s2c,
+         pushUndo: fw(() => pushUndo()),
+         scheduleSave: fw(() => scheduleSave()),
+         setStatus: fw((m) => setStatus(m)),
+         startEdit: fw((id) => startEdit(id)),
+         stopEdit: fw(() => stopEdit()),
+         autoFitNode: fw((n) => autoFitNode(n)),
+         selectNode: fw((id) => selectNode(id)),
+         toggleMultiSel: fw((id) => toggleMultiSel(id)),
+         clearMultiSel: fw(() => clearMultiSel()),
+         removeNode: fw((id) => removeNode(id)),
+         renderLinks: fw(() => renderLinks()),
+         renderBubbleTail: fw((n) => renderBubbleTail(n)),
+         renderAnchoredBubbleTails: fw(() => renderAnchoredBubbleTails()),
+         createLink: fw((...a) => createLink(...a)),
+         jumpTo: fw((id) => jumpTo(id)),
+         showAnchorCtx: fw((...a) => showAnchorCtx(...a)),
+         showTailAnchorCtx: fw((...a) => showTailAnchorCtx(...a)),
+         removeLink: fw((id) => removeLink(id)),
+         attachTailToText: fw((...a) => attachTailToText(...a)),
+         openFetchDialog: fw((id) => openFetchDialog(id)),
+         openCodeSnippetdDialog: fw((...a) => openCodeSnippetdDialog(...a)),
+       }));
+
+       // 2. Free lines
+       ({ renderFreeLines, addFreeLine, removeFreeLine, selectFreeLine,
+          enterLineDrawMode, exitLineDrawMode, finishDrawingLine,
+          showLineCtx, hideLineCtx,
+       } = initFreeLines({
+         S, c2s,
+         pushUndo: fw(() => pushUndo()),
+         scheduleSave: fw(() => scheduleSave()),
+         setStatus: fw((m) => setStatus(m)),
+         selectNode: fw((id) => selectNode(id)),
+         renderLinks: fw(() => renderLinks()),
+       }));
+
+       // 3. Links
+       ({ renderLinks, createLink, removeLink,
+          targetEntryPoint,
+          enterLinkMode, exitLinkMode,
+          enterTailAttachMode, exitTailAttachMode,
+          showAnchorCtx, hideAnchorCtx,
+          showTailAnchorCtx, hideTailAnchorCtx,
+       } = initLinks({
+         S, wrap, svgLinks,
+         linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+         linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+         anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+         tailAnchorCtx, tailAnchorCtxDetach,
+         linkPreviewEl,
+         renderNode: fw((n, el) => renderNode(n, el)),
+         addNode: fw((...a) => addNode(...a)),
+         selectNode: fw((id) => selectNode(id)),
+         startEdit: fw((id) => startEdit(id)),
+         renderBubbleTail: fw((n) => renderBubbleTail(n)),
+         pushUndo: fw(() => pushUndo()),
+         scheduleSave: fw(() => scheduleSave()),
+         setStatus: fw((m) => setStatus(m)),
+         s2c, c2s,
+         enterTailAttachMode: fw((...a) => enterTailAttachMode(...a)),
+       }));
+
+       // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)
+       ({ addNode, addBubble, addFrame, removeNode,
+          selectNode, toggleMultiSel, clearMultiSel,
+          startEdit, stopEdit, autoFitNode,
+          setupNodeEvents, setupFrameEvents,
+          renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
+          getSelectedIds, copyNodes, cutNodes, pasteNodes,
+          fitAll, jumpTo,
+       } = initNodes({
+         S, canvas, wrap, ndEl, s2c, c2s,
+         renderNode: fw((n, el) => renderNode(n, el)),
+         renderLinks: fw(() => renderLinks()),
+         renderFreeLines: fw(() => renderFreeLines()),
+         pushUndo: fw(() => pushUndo()),
+         suppressUndo,
+         scheduleSave: fw(() => scheduleSave()),
+         setStatus: fw((m) => setStatus(m)),
+         applyVP: fw(() => applyVP()),
+         enterLinkMode: fw((...a) => enterLinkMode(...a)),
+         enterTailAttachMode: fw((...a) => enterTailAttachMode(...a)),
+         showAnchorCtx: fw((...a) => showAnchorCtx(...a)),
+         showTailAnchorCtx: fw((...a) => showTailAnchorCtx(...a)),
+         createLink: fw((...a) => createLink(...a)),
+         removeLink: fw((id) => removeLink(id)),
+         removeFreeLine: fw((id) => removeFreeLine(id)),
+         svgE, anchorFpFromSide, roundedRectRayHit, NODE_COLORS,
+         targetEntryPoint: fw((...a) => targetEntryPoint(...a)),
+       }));
+
+       7. KEEP PERSISTENCE section (unchanged - it uses loadState which calls setupNodeEvents, setupFrameEvents, renderNode, etc.)
+       8. KEEP CANVAS INTERACTION section (unchanged - it's the mouse handlers that use all the module functions)
+       9. KEEP KEYBOARD handlers (unchanged)
+       10. KEEP toolbar button handlers
+       11. UPDATE initDialogs call to capture dialog openers:
+       ({ openFetchDialog, openCodeSnippetdDialog } = initDialogs({
+         S, wrap, canvasTitleEl,
+         renderNode, ndEl, autoFitNode,
+         addBubble, addFrame, getSelectedIds,
+         pushUndo, scheduleSave, saveState,
+         setStatus, s2c, resizeCanvasTitleInput,
+       }));
+
+       12. KEEP INIT section (unchanged)
+       13. KEEP TEST EXPORTS section (unchanged - values now come from wiring above)
+
+       ---
+       Key things to be careful about
+
+       1. _suppressUndo: In canvas-nodes.js, replace all _suppressUndo = true with suppressUndo(true) and _suppressUndo = false with
+       suppressUndo(false). The variable stays in canvas.js.
+       2. c2s: Now defined in canvas.js VIEWPORT section (moved from LINKS). Remove it from the LINKS section content in canvas-links.js (just use
+       it as a dep).
+       3. svgE: Now imported from canvas-utils.js. Remove from canvas.js LINKS section.
+       4. LINK_COLORS, LINK_WIDTHS, LINK_DASHES: Now imported from canvas-utils.js. Remove from canvas.js LINK CONTEXT MENU section.
+       5. Module-level document.addEventListener calls: In canvas.js lines 1810-1812, 1858-1860, 1889-1891, 2196-2198, 2341-2346 — these must be
+       MOVED inside the respective initLinks or initFreeLines function bodies, not kept at module level in new files.
+       6. initDialogs return value: Currently initDialogs may not return anything. Check canvas-dialogs.js to see what it currently returns. If it
+       doesn't return openFetchDialog/openCodeSnippetdDialog, we need a different approach. Check the current canvas-dialogs.js and canvas.js to see
+        how openFetchDialog and openCodeSnippetdDialog are currently wired.
+
+       Actually looking at the current code, openFetchDialog and openCodeSnippetdDialog are functions that initDialogs probably sets up internally.
+       They aren't passed back - instead they're probably called from event listeners that initDialogs sets up. But in canvas.js's renderNode
+       function, there are calls like openFetchDialog(n.id) which means openFetchDialog must be defined somewhere accessible to renderNode.
+
+       Let me look at how this works currently: In canvas.js, openFetchDialog is probably defined by initDialogs and stored somewhere. Actually,
+       looking at the event listeners in renderNode:
+       const btnFetchEdit = el.querySelector('.btn-fetch-git');
+       if (btnFetchEdit) {
+         btnFetchEdit.addEventListener('click', e => {
+           e.stopPropagation(); menuWrap.classList.remove('open'); openFetchDialog(n.id);
+         });
+       }
+
+       So openFetchDialog must be accessible in renderNode. Currently in canvas.js it's probably defined before renderNode. Check canvas-dialogs.js
+       to understand how it's exposed.
+
+       Read canvas-dialogs.js to understand the dialog initialization pattern, then make initDialogs return { openFetchDialog,
+       openCodeSnippetdDialog }.
+
+       7. applyVP: Used by fitAll and jumpTo in canvas-nodes.js. Must be passed as a dep.
+       8. undo() function in canvas.js: Uses setupNodeEvents, setupFrameEvents, renderNode, renderLinks, renderFreeLines — these will be available
+       via the module-level let declarations by the time undo() is called.
+
+       ---
+       Testing
+
+       After creating all files and updating canvas.js, run:
+       cd /Users/ori/devel/src/github.com/orimanabu/code-canvas && npm test
+
+       All tests should pass without any changes to test files.
+
+       Important constraints
+
+       - Do NOT change any test files
+       - Do NOT change canvas.css or canvas.html
+       - The globalThis.__canvasApp export in canvas.js TEST EXPORTS section must remain with the exact same shape (S, STORAGE_KEY, addNode,
+       removeNode, selectNode, addBubble, addFrame, loadState, saveState, restoreFromStorage, createLink, removeLink, copyNodes, cutNodes,
+ ▐▛███▜▌   Claude Code v2.1.109
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/devel/src/github.com/orimanabu/code-canvas
+
+❯ ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、テストの書きやすさやカバレッジの観点で、canvas.jsを分割できるか
+  検討してください
+
+⏺ Explore(Explore canvas.js structure and size)
+  ⎿  Done (29 tool uses · 66.9k tokens · 3m 5s)
+  (ctrl+o to expand)
+
+⏺ Plan(Design file-splitting plan for canvas.js)
+  ⎿  Done (28 tool uses · 101.5k tokens · 6m 55s)
+  (ctrl+o to expand)
+
+⏺ それでは計画をまとめます。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/bubbly-booping-flame.md · /plan to edit
+     Plan: Split canvas.js into Smaller Modules
+
+     Context
+
+     canvas.js is 3,308 lines and hard to navigate, maintain, and test in isolation. canvas-utils.js (358 lines) and canvas-dialogs.js (924 lines)
+     have already been extracted. The goal is to reduce canvas.js to ~900 lines by extracting 4 new modules, following the same dependency-injection
+      pattern used by canvas-dialogs.js.
+
+     No build step; ES modules must work directly in browser.
+
+     ---
+     Architecture Decision
+
+     Central pattern: initXxx(deps) → returns object of functions
+
+     Each new module exports a single initXxx(deps) function. canvas.js calls them in order and gathers the returned functions. The S object and
+     core utilities (pushUndo, scheduleSave, setStatus, s2c, ndEl) stay in canvas.js and are passed into every module via deps.
+
+     No circular ES-module imports — every new file imports only from canvas-utils.js (pure, no side effects).
+
+     Forwarding closures break chicken-and-egg problems:
+     const deps = {
+       pushUndo: (...a) => pushUndo(...a),   // defined later in canvas.js
+       renderNode: (...a) => renderNode(...a), // defined by an earlier initXxx call
+       ...
+     };
+
+     ---
+     Prep: Move shared constants/helpers to canvas-utils.js
+
+     Before splitting, move these from canvas.js into canvas-utils.js (they have no external dependencies):
+
+     ┌───────────────────────────────────────┬────────────────────────────┬────────────────────────────────────────────────────────┐
+     │                Symbol                 │ Currently at (approx line) │                        Why move                        │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ svgE(tag, attrs)                      │ ~1648 (LINKS)              │ Used by both links and free-lines modules              │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ c2s(cx, cy)                           │ ~1564 (LINKS)              │ Logical pair of s2c; used by both links and free-lines │
+     ├───────────────────────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────┤
+     │ LINK_COLORS, LINK_WIDTHS, LINK_DASHES │ ~1700s (LINK CTX)          │ Pure data; shared by link and free-lines context menus │
+     └───────────────────────────────────────┴────────────────────────────┴────────────────────────────────────────────────────────┘
+
+     ---
+     New Files
+
+     1. canvas-node-rendering.js (~410 lines)
+
+     Sections moved: HIGHLIGHT (125-163) + COLOR HELPERS (164-204) + FONT HELPERS (205-256) + NODE RENDERING core HTML builders (257-507 partial) +
+     Z-ORDER (1228-1274)
+
+     Exported: initNodeRendering(deps) → { renderNode }
+
+     All sub-functions (buildCodeHTML, colorSwatchesHTML, fontControlsHTML, zOrderMenuHTML, applyNodeColor, applyNodeFont, bindZOrderButtons,
+     renderBubbleContent, renderFrameContent, editHTML, viewHTML, etc.) are module-private.
+
+     deps it receives:
+     S, canvas, ndEl, s2c,
+     pushUndo, scheduleSave, setStatus,
+     startEdit, stopEdit, autoFitNode, selectNode,
+     toggleMultiSel, clearMultiSel, removeNode,
+     renderLinks, renderBubbleTail, renderAnchoredBubbleTails,
+     openFetchDialog, openCodeSnippetdDialog,
+     createLink, jumpTo, showAnchorCtx, showTailAnchorCtx, removeLink, attachTailToText
+
+     ---
+     2. canvas-free-lines.js (~320 lines)
+
+     Sections moved: FREE LINES (1893-2199)
+
+     Exported: initFreeLines(deps) → { renderFreeLines, addFreeLine, removeFreeLine, selectFreeLine, enterLineDrawMode, exitLineDrawMode,
+     finishDrawingLine, showLineCtx, hideLineCtx }
+
+     deps it receives:
+     S, svgE, c2s, s2c,
+     LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+     pushUndo, scheduleSave, setStatus, selectNode, renderLinks
+
+     ---
+     3. canvas-links.js (~480 lines)
+
+     Sections moved: LINKS (1538-1653) + LINK MODE (1654-1672) + TAIL ATTACH MODE (1673-1689) + LINK CONTEXT MENU (1690-1892) + LINK PREVIEW
+     (2200-2233) + TEXT SELECTION → LINK (2234-2347)
+
+     Exported: initLinks(deps) → { renderLinks, createLink, removeLink, enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode,
+     showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx, targetEntryPoint }
+
+     Module-level document.addEventListener calls (for hiding context menus) must be placed inside initLinks() body, not at module-eval time.
+
+     deps it receives:
+     S, wrap, svgLinks, linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+     linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+     tailAnchorCtx, tailAnchorCtxDetach, linkPreviewEl,
+     renderNode, addNode, selectNode, startEdit,
+     pushUndo, scheduleSave, setStatus,
+     s2c, c2s, svgE,
+     edgePoint, anchorFpFromSide
+
+     ---
+     4. canvas-nodes.js (~720 lines)
+
+     Sections moved: BUBBLE NODE (508-783) + FRAME NODE (784-1227) + node lifecycle functions from NODE RENDERING (addNode, removeNode, selectNode,
+     toggleMultiSel, clearMultiSel, autoFitNode, startEdit, stopEdit) + COPY/CUT/PASTE (1275-1537) + fitAll + jumpTo
+
+     Exported: initNodes(deps) → { addNode, addBubble, addFrame, removeNode, selectNode, toggleMultiSel, clearMultiSel, startEdit, stopEdit,
+     autoFitNode, setupNodeEvents, setupFrameEvents, renderBubbleTail, renderAnchoredBubbleTails, attachTailToText, getSelectedIds, copyNodes,
+     cutNodes, pasteNodes, fitAll, jumpTo }
+
+     Note on _suppressUndo: Expose a suppressUndo(bool) setter from canvas.js's UNDO section and pass it into deps, instead of sharing the raw
+     variable.
+
+     deps it receives:
+     S, canvas, wrap, ndEl, s2c, c2s,
+     renderNode, renderLinks, renderFreeLines,
+     pushUndo, suppressUndo, scheduleSave, setStatus,
+     openFetchDialog, openCodeSnippetdDialog,
+     enterLinkMode, enterTailAttachMode,
+     showAnchorCtx, showTailAnchorCtx,
+     createLink, removeLink, svgE
+
+     ---
+     canvas.js After Extraction (~900 lines)
+
+     Retains:
+     - STATE — S object
+     - DOM REFS — raw element references
+     - MODE — setMode, updateCursor
+     - VIEWPORT — applyVP, s2c, zoom (+ c2s moved here from LINKS)
+     - UTILS — setStatus, ndEl
+     - UNDO — pushUndo, undo, snapshotForUndo, suppressUndo
+     - PERSISTENCE — saveState, loadState, restoreFromStorage, toolbar event listeners
+     - CANVAS INTERACTION — mouse/pointer handlers (uses all modules' functions)
+     - INIT — async init IIFE
+     - WIRING — calls to initNodeRendering, initFreeLines, initLinks, initNodes, initDialogs
+     - TEST EXPORTS — globalThis.__canvasApp (shape unchanged; values sourced from module return objects)
+
+     ---
+     Extraction Order
+
+     Extract in dependency order — lowest coupling first:
+
+     1. Prep: move svgE, c2s, LINK_COLORS/WIDTHS/DASHES to canvas-utils.js
+     2. canvas-node-rendering.js — establishes renderNode pattern; no canvas.js imports
+     3. canvas-free-lines.js — fewest cross-deps; only needs svgE, c2s, renderLinks
+     4. canvas-links.js — needs renderNode and addNode (from wiring), provides renderLinks back
+     5. canvas-nodes.js — depends on all prior modules; extracted last
+
+     Run npm test after each step to catch regressions immediately.
+
+     ---
+     Test Impact
+
+     Zero changes to test files. The globalThis.__canvasApp export object in canvas.js keeps the exact same shape; values are now sourced from
+     initXxx() return objects instead of local declarations. All 5 test files remain byte-for-byte unchanged.
+
+     ---
+     Verification
+
+     After all steps:
+     1. npm test — all existing tests pass
+     2. open canvas.html via local server — full manual smoke test (add nodes, draw links, free lines, undo, save/restore, copy/paste cross-tab,
+     dialogs)
+     3. wc -l canvas*.js — confirm each file is under ~750 lines (canvas.js itself under ~950)
+
+     ---
+     Final Line Counts (estimated)
+
+     ┌────────────────────────────────┬────────┐
+     │              File              │ Lines  │
+     ├────────────────────────────────┼────────┤
+     │ canvas.js (reduced)            │ ~900   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-node-rendering.js (new) │ ~410   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-nodes.js (new)          │ ~720   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-links.js (new)          │ ~480   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-free-lines.js (new)     │ ~320   │
+     ├────────────────────────────────┼────────┤
+     │ canvas-dialogs.js (unchanged)  │ 924    │
+     ├────────────────────────────────┼────────┤
+     │ canvas-utils.js (expanded)     │ ~380   │
+     ├────────────────────────────────┼────────┤
+     │ Total                          │ ~4,134 │
+     └────────────────────────────────┴────────┘
+
+⏺ では実装を始めます。まず現在のファイルを読んで内容を把握します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ まずcanvas.jsの全体を読みます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装を開始します。まずTask 1から。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 39 lines
+      272  }
+      273
+      274  // ═══════════════════════════════════════════════════════
+      275 +// LINK / LINE STYLE CONSTANTS
+      276 +// ═══════════════════════════════════════════════════════
+      277 +// Shared by canvas-links.js (link context menu) and canvas-free-lines.js (line context menu).
+      278 +export const LINK_COLORS = [
+      279 +  { label: 'Blue',   value: '#388bfd' },
+      280 +  { label: 'Green',  value: '#3fb950' },
+      281 +  { label: 'Yellow', value: '#d29922' },
+      282 +  { label: 'Red',    value: '#f85149' },
+      283 +  { label: 'Purple', value: '#bc8cff' },
+      284 +  { label: 'Gray',   value: '#8b949e' },
+      285 +  { label: 'White',  value: '#e6edf3' },
+      286 +];
+      287 +
+      288 +export const LINK_WIDTHS = [
+      289 +  { label: '1',   value: 1   },
+      290 +  { label: '2',   value: 2   },
+      291 +  { label: '3',   value: 3.5 },
+      292 +  { label: '5',   value: 5   },
+      293 +];
+      294 +
+      295 +export const LINK_DASHES = [
+      296 +  { label: 'solid',  value: '',       title: 'Solid' },
+      297 +  { label: 'dash',   value: '8 4',    title: 'Dashed' },
+      298 +  { label: 'dot',    value: '2 4',    title: 'Dotted' },
+      299 +  { label: 'ldash',  value: '16 6',   title: 'Long dash' },
+      300 +  { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+      301 +];
+      302 +
+      303 +// ═══════════════════════════════════════════════════════
+      304 +// SVG HELPER
+      305 +// ═══════════════════════════════════════════════════════
+      306 +// Shared by canvas-links.js and canvas-free-lines.js.
+      307 +export function svgE(tag, attrs = {}) {
+      308 +  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      309 +  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      310 +  return el;
+      311 +}
+      312 +
+      313 +// ═══════════════════════════════════════════════════════
+      314  // GEOMETRY
+      315  // ═══════════════════════════════════════════════════════
+      316
+
+⏺ 次に4つのモジュールファイルを作成し、最後にcanvas.jsを更新します。このような大規模なリファクタリングは実装ミスが起きやすいため、エージェントに実装
+  を委任します。
+
+⏺ Agent(Create 4 new canvas module files and update canvas.js)
+  ⎿  Done (22 tool uses · 151.4k tokens · 11m 21s)
+  (ctrl+o to expand)
+
+⏺ テストが全て通りました。ファイルの状態を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全235テストが通りました。分割結果をまとめます。
+
+  完了
+
+  分割前: canvas.js 3,308行
+
+  分割後:
+
+  ┌───────────────────────────────┬─────────┬───────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │           ファイル            │  行数   │                                               内容                                                │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.js                     │ 1,220行 │ STATE, DOM REFS, MODE, VIEWPORT, UTILS, UNDO, PERSISTENCE, CANVAS INTERACTION, INIT, WIRING       │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js      │ 659行   │ HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, editHTML/viewHTML, renderBubbleContent,                   │
+  │ (新規)                        │         │ renderFrameContent, renderNode                                                                    │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-nodes.js (新規)        │ 797行   │ BUBBLE NODE, FRAME NODE, node lifecycle (addNode/removeNode/startEdit等), COPY/CUT/PASTE,         │
+  │                               │         │ fitAll/jumpTo                                                                                     │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js (新規)        │ 483行   │ LINKS, LINK MODE, TAIL ATTACH MODE, LINK CTX MENU, LINK PREVIEW, TEXT SELECTION→LINK              │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-free-lines.js (新規)   │ 343行   │ FREE LINES (renderFreeLines, addFreeLine等, drawモード, コンテキストメニュー)                     │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-utils.js (追加)        │ 397行   │ 従来の純粋関数 + 新規: svgE, LINK_COLORS/WIDTHS/DASHES                                            │
+  ├───────────────────────────────┼─────────┼───────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-dialogs.js (変更なし)  │ 924行   │ モーダルダイアログ                                                                                │
+  └───────────────────────────────┴─────────┴───────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  設計のポイント:
+  - initXxx(deps) パターンで依存性注入（canvas-dialogs.js と同じ方式）
+  - canvas.jsでforward declarationsと転送クロージャを使いES module循環参照を回避
+  - _suppressUndoはsuppressUndo(val)セッター経由でcanvas-nodes.jsに公開
+  - テストファイルは無変更（globalThis.__canvasAppの形状は維持）
+
+✻ Cogitated for 25m 29s
+```
+
+```
+❯ ドキュメントの更新をお願いします
+
+  Searched for 2 patterns, read 2 files, listed 1 directory (ctrl+o to expand)
+
+⏺ CLAUDE.mdのファイル構造とアーキテクチャセクションを更新します。
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 6 lines, removed 2 lines
+      12  |------|-------------|
+      13  | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and
+           `canvas.js` as an ES module (`<script type="module">`). |
+      14  | `canvas.css` | All styles. Three major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment n
+          odes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), and frame nodes (`.frame-node`, `.frame-header`, `.frame-label`). |
+      15 -| `canvas-utils.js` | Pure utility functions — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. |
+      15 +| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+         +thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+      16 +| `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT
+         +HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameCo
+         +ntent`, `renderNode`. |
+      17 +| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+         +bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `removeNode`, `startEdit`, `stopEdi
+         +t`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`
+         +, `jumpTo`. |
+      18 +| `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `target
+         +EntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
+      19 +| `canvas-free-lines.js` | Freehand lines. `initFreeLines(deps)` → free-line functions. Contains: `renderFreeLines`, `addFreeLine`,
+         + `removeFreeLine`, `selectFreeLine`, line draw mode, line context menu. |
+      20  | `canvas-dialogs.js` | All modal dialog logic (Global Config, Repo sub-dialog, Group Frame, Git Fetch, codesnippetd). Initialized
+          via `initDialogs(deps)` called from `canvas.js`. |
+      17 -| `canvas.js` | Main application logic. ES module that imports from `canvas-utils.js` and `canvas-dialogs.js`. Organized by section
+         -s marked with `// ═══` banners (see below). |
+      21 +| `canvas.js` | Application hub (~1220 lines). Imports and wires all modules. Contains: STATE, DOM REFS, MODE, VIEWPORT (`applyVP`,
+         + `s2c`, `c2s`, `zoom`), UTILS (`setStatus`, `ndEl`), UNDO (`pushUndo`, `undo`), WIRING (module initialization with forwarding closu
+         +res), PERSISTENCE, CANVAS INTERACTION, KEYBOARD, INIT, TEST EXPORTS. |
+      22  | `package.json` / `vitest.config.js` | Test tooling (Vitest). Run tests with `npm test`. |
+      23
+      24  ## Architecture
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 30 lines, removed 10 lines
+      23
+      24  ## Architecture
+      25
+      26 -**`canvas.js`** is organized by sections marked with `// ═══` banners:
+      26 +### Module system
+      27
+      28 +All modules use `initXxx(deps)` dependency injection — no circular ES imports. `canvas.js` is the hub that wires everything togethe
+         +r using forward-declared `let` variables and forwarding closures.
+      29 +
+      30 +```
+      31 +canvas-utils.js     ← pure functions/constants, no deps
+      32 +canvas-node-rendering.js  ← imports canvas-utils.js only
+      33 +canvas-free-lines.js      ← imports canvas-utils.js only
+      34 +canvas-links.js           ← imports canvas-utils.js only
+      35 +canvas-nodes.js           ← no imports (all deps via injection)
+      36 +canvas-dialogs.js         ← imports canvas-utils.js only
+      37 +canvas.js                 ← imports all of the above; owns S, wires deps
+      38 +```
+      39 +
+      40 +### `canvas.js` sections (marked with `// ═══` banners)
+      41 +
+      42  - **STATE** — Single `S` object holds all runtime state: nodes, links, freeLines, viewport, selection, drag, pan, edit mode, undo s
+          tack, globalConfig, clipboard
+      29 -- **VIEWPORT** — `applyVP()`, `s2c()`, `zoom()`, `fitAll()`, `jumpTo()` manage pan/zoom with CSS transform
+      30 -- **HIGHLIGHT** — highlight.js integration, `highlight()` / `buildCodeHTML()`
+      31 -- **NODES** — `addNode()`, `addBubble()`, `addFrame()`, `renderNode()`, `startEdit()`, `stopEdit()`, `removeNode()`
+      32 -- **LINKS** — SVG bezier curves connecting nodes, `renderLinks()`, `createLink()`, `removeLink()`
+      33 -- **FREE LINES** — freehand polyline/curve/straight-line strokes, `addFreeLine()`, `removeFreeLine()`, `renderFreeLines()`
+      34 -- **UNDO** — snapshot-based undo stack (up to 10 steps), `pushUndo()`, `undo()`
+      35 -- **DRAG/RESIZE** — pointer event handlers on nodes and the canvas wrapper
+      43 +- **DOM REFS** — Raw element references captured at startup
+      44 +- **MODE** — `setMode()`, `updateCursor()`
+      45 +- **VIEWPORT** — `applyVP()`, `s2c()`, `c2s()`, `zoom()` manage pan/zoom with CSS transform
+      46 +- **UTILS** — `setStatus()`, `ndEl(id)`
+      47 +- **UNDO** — snapshot-based undo stack (up to 10 steps), `pushUndo()`, `undo()`, `suppressUndo()`
+      48 +- **WIRING** — calls `initNodeRendering`, `initFreeLines`, `initLinks`, `initNodes`, `initDialogs` with forwarding closures to reso
+         +lve mutual dependencies
+      49 +- **PERSISTENCE** — `saveState()` / `loadState()` via `localStorage` (per-tab key), export/import as JSON, toolbar event listeners
+      50 +- **CANVAS INTERACTION** — pointer event handlers for drag, resize, pan, zoom, marquee selection
+      51  - **KEYBOARD** — global `keydown` handler for shortcuts (v/h mode, Del, Cmd+C/X/V/Z, Escape, etc.)
+      37 -- **PERSISTENCE** — `saveState()` / `loadState()` via `localStorage` (per-tab key), export/import as JSON, Git snippet fetch via Gi
+         -tHub raw URLs
+      52 +- **INIT** — async IIFE that restores state from localStorage or URL param
+      53 +- **TEST EXPORTS** — `globalThis.__canvasApp` (Vitest only)
+      54
+      39 -**Pure utility functions** (in `canvas-utils.js`; imported by `canvas.js`):
+      55 +### `canvas-utils.js` exports
+      56
+      57  - `esc(s)` — HTML escape
+      58  - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
+      59 +- `NODE_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants
+      60 +- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
+      61 +- `svgE(tag, attrs)` — SVG element factory
+      62  - `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
+      63 +- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor span
+      64  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      65  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      66  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ 次にREADME.mdも確認します。ユーザー向けドキュメントなのでファイル構造の記述はありませんでしたが、CLAUDE.mdの更新に合わせてREADME.jaも確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ README.mdとREADME.ja.mdはユーザー向けなのでファイル構造の記述はなく更新不要です。CLAUDE.mdの更新内容を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ CLAUDE.mdが正しく更新されています。内容に問題はありません。
+
+  ---
+  CLAUDE.mdを更新しました。変更点：
+
+  File structure テーブル — 新しい4つのファイルを追加：
+  - canvas-node-rendering.js — initNodeRendering(deps) と内容の説明
+  - canvas-nodes.js — initNodes(deps) と内容の説明
+  - canvas-links.js — initLinks(deps) と内容の説明
+  - canvas-free-lines.js — initFreeLines(deps) と内容の説明
+  - canvas-utils.js と canvas.js の説明も現状に合わせて更新
+
+  Architecture セクション — 全面改訂：
+  - 新しく「Module system」サブセクションを追加し、依存関係グラフを記述
+  - 「canvas.js sections」を最新のセクション構成（WIRING, TEST EXPORTS等）に更新
+  - 「canvas-utils.js exports」を追加（svgE, LINK_COLORS/WIDTHS/DASHES, injectTailAnchor など新規追加分を含む）
+
+✻ Churned for 1m 46s
+```
