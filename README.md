@@ -8,11 +8,11 @@ A browser-based tool for reading and understanding source code. Visually organiz
 
 # Features
 
-- **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path.
+- **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path. Font family and size can be changed per block via the edit menu (`•••`).
 - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
 - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurrences of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selected. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to change its color, width, and dash style.
-- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail tip can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip.
-- **Frames**: Group related nodes visually with a labeled frame rectangle.
+- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail tip can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip. Font family and size can be changed per bubble via the edit menu (`•••`).
+- **Frames**: Group related nodes visually with a labeled frame rectangle. Font family and size can be changed per frame via the edit menu (`•••`).
 - **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and dash style are configurable via right-click menu.
 - **Jump**: The "☰ Jump" toolbar button opens a navigator panel listing all code blocks, bubbles, and frames. Click an entry to scroll the canvas to that node.
 - **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
@@ -105,6 +105,8 @@ A node is a code block when the `type` field is absent or `"code"`.
 | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
 | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"cascadia-code"`, `"consolas"`). Defaults to `"default"` |
+| `fontSize` | number | Font size in px. Defaults to `12.5` |
 
 ## Node object (bubble)
 
@@ -123,6 +125,8 @@ A node is a bubble when `type` is `"bubble"`.
 | `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
 | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
 | `showTail` | boolean | Whether to show the tail (default: `true`) |
+| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+| `fontSize` | number | Font size in px. Defaults to `13` |
 | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code block). `null` when not anchored. |
 | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
 | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
@@ -141,6 +145,8 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `h` | number | Height of the frame |
 | `label` | string | Label text displayed in the frame header |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+| `fontSize` | number | Font size in px. Defaults to `12` |
 
 ## Link object
 

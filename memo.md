@@ -23641,3 +23641,101 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Cooked for 2m 35s
 ```
+
+```
+❯ README.mdは更新しなくても大丈夫ですか
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ プロジェクトルートに README.md は存在せず、README.ja.md のみです。英語版の README はないので更新不要です。
+
+❯ プロジェクトルートのパスはどこですか
+
+⏺ /Users/ori/devel/src/github.com/orimanabu/code-canvas です。
+
+❯ README.mdありますよ
+% ls -l /Users/ori/devel/src/github.com/orimanabu/code-canvas/README.md
+-rw-r--r-- 1 ori staff 11032  4月 22 23:13 /Users/ori/devel/src/github.com/orimanabu/code-canvas/README.md
+
+⏺ 失礼しました。読んで更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+       8
+       9  # Features
+      10
+      11 -- **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path.
+      11 +- **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path. Font family and size can be c
+         +hanged per block via the edit menu (`•••`).
+      12  - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
+      13  - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurren
+          ces of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selec
+          ted. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to ch
+          ange its color, width, and dash style.
+      14  - **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail ti
+          p can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip
+          .
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines, removed 2 lines
+      11  - **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path. Font family and size can be c
+          hanged per block via the edit menu (`•••`).
+      12  - **Syntax highlighting**: Language is auto-detected from the code content and highlighted accordingly.
+      13  - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurren
+          ces of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selec
+          ted. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to ch
+          ange its color, width, and dash style.
+      14 -- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail ti
+         -p can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip
+         -.
+      15 -- **Frames**: Group related nodes visually with a labeled frame rectangle.
+      14 +- **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail ti
+         +p can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip
+         +. Font family and size can be changed per bubble via the edit menu (`•••`).
+      15 +- **Frames**: Group related nodes visually with a labeled frame rectangle. Font family and size can be changed per frame via the ed
+         +it menu (`•••`).
+      16  - **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and das
+          h style are configurable via right-click menu.
+      17  - **Jump**: The "☰ Jump" toolbar button opens a navigator panel listing all code blocks, bubbles, and frames. Click an entry to scr
+          oll the canvas to that node.
+      18  - **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines
+      105  | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
+      106  | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+      107  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      108 +| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"cascadia-code"`
+          +, `"consolas"`). Defaults to `"default"` |
+      109 +| `fontSize` | number | Font size in px. Defaults to `12.5` |
+      110
+      111  ## Node object (bubble)
+      112
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines
+      125  | `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
+      126  | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+      127  | `showTail` | boolean | Whether to show the tail (default: `true`) |
+      128 +| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      129 +| `fontSize` | number | Font size in px. Defaults to `13` |
+      130  | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+           k). `null` when not anchored. |
+      131  | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+      132  | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines
+      145  | `h` | number | Height of the frame |
+      146  | `label` | string | Label text displayed in the frame header |
+      147  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      148 +| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      149 +| `fontSize` | number | Font size in px. Defaults to `12` |
+      150
+      151  ## Link object
+      152
+
+⏺ 更新しました。README.ja.md と同じ内容を英語で反映しています。
+```
