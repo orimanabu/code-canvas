@@ -204,6 +204,12 @@ describe('FONT_SIZES', () => {
     expect(FONT_SIZES.frame.some(s => s >= 24)).toBe(true);
   });
 
+  it('all lists have 500 as the maximum value', () => {
+    for (const list of Object.values(FONT_SIZES)) {
+      expect(Math.max(...list)).toBe(500);
+    }
+  });
+
   it('all lists are sorted in ascending order', () => {
     for (const list of Object.values(FONT_SIZES)) {
       for (let i = 1; i < list.length; i++) {

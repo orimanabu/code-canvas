@@ -768,7 +768,7 @@ describe('Font size input (inp-font-size)', () => {
     startEdit(n.id);
     const el = document.getElementById('nd-' + n.id);
     const input = el.querySelector('.inp-font-size');
-    input.value = '200';
+    input.value = '600';
     input.dispatchEvent(new Event('change', { bubbles: true }));
     expect(n.fontSize).toBe(14);
     expect(parseFloat(input.value)).toBe(14);

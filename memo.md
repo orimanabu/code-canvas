@@ -27388,3 +27388,222 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Crunched for 38s
 ```
+
+```
+❯ フォントサイズの上限は何ですか
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ノードタイプ別のフォントサイズ上限は以下の通りです（canvas-utils.js:111-114）:
+
+  ┌──────────────┬────────────────────┐
+  │ ノードタイプ │ 最大フォントサイズ │
+  ├──────────────┼────────────────────┤
+  │ code         │ 48px               │
+  ├──────────────┼────────────────────┤
+  │ bubble       │ 48px               │
+  ├──────────────┼────────────────────┤
+  │ frame        │ 32px               │
+  ├──────────────┼────────────────────┤
+  │ text         │ 96px               │
+  └──────────────┴────────────────────┘
+
+  text ノードが最も大きく 96px まで対応しています。
+
+❯ 全ての最大フォントサイズを500pxにしてください
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 4 lines, removed 4 lines
+      108    { id: 'georgia',        label: 'Georgia',         mono: false, family: "'Georgia', serif" },
+      109  ];
+      110  export const FONT_SIZES = {
+      111 -  code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+      112 -  bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+      113 -  frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32],
+      114 -  text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96],
+      111 +  code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128, 192, 256, 384, 500],
+      112 +  bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128, 192, 256, 384, 500],
+      113 +  frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128, 192, 256, 384, 500],
+      114 +  text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96, 128, 192, 256, 384, 500],
+      115  };
+      116
+      117  // ═══════════════════════════════════════════════════════
+
+⏺ 全ノードタイプの最大フォントサイズを 500px に変更しました。テストも更新が必要か確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ テストの閾値はすべて新しい値を満たしているので変更不要です。
+
+  各ノードタイプの最大フォントサイズ（canvas-utils.js:111-114）:
+
+  ┌──────────────┬────────┬────────┐
+  │ ノードタイプ │ 変更前 │ 変更後 │
+  ├──────────────┼────────┼────────┤
+  │ code         │ 48px   │ 500px  │
+  ├──────────────┼────────┼────────┤
+  │ bubble       │ 48px   │ 500px  │
+  ├──────────────┼────────┼────────┤
+  │ frame        │ 32px   │ 500px  │
+  ├──────────────┼────────┼────────┤
+  │ text         │ 96px   │ 500px  │
+  └──────────────┴────────┴────────┘
+
+❯ フォントサイズ変更のUIで、フォントサイズの数字が3桁表示できる幅にしてください
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 2箇所修正します。CSSの幅と、HTMLのmax属性です。
+
+⏺ Update(canvas.css)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 1 line, removed 1 line
+      326  .font-controls input[type="number"]:hover { border-color: #484f58; }
+      327  .font-controls input[type="number"]:focus { border-color: #388bfd; }
+      328  .font-controls .sel-font-family { flex: 1; min-width: 0; }
+      329 -.font-controls .inp-font-size { width: 52px; flex-shrink: 0; }
+      329 +.font-controls .inp-font-size { width: 66px; flex-shrink: 0; }
+      330  .font-controls input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
+      331
+      332  /* ── Link context menu ── */
+
+⏺ 次に max 属性も 500 に合わせます。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 1 line
+      144      return `<div class="font-controls">
+      145        <select class="sel-font-family" title="Font family">${familyOpts}</select>
+      146        <input class="inp-font-size" type="number" title="Font size (px)"
+      147 -             value="${currentSize}" min="6" max="96" step="0.5"
+      147 +             value="${currentSize}" min="6" max="500" step="0.5"
+      148               list="${dlId}">
+      149        <datalist id="${dlId}">${sizeOpts}</datalist>
+      150      </div>`;
+
+⏺ 変更内容:
+
+  - canvas.css:329 — .inp-font-size の幅を 52px → 66px（3桁+小数点+スピナー分）
+  - canvas-node-rendering.js:147 — max="96" → max="500"（上限をフォントサイズ定数に合わせる）
+
+❯ フォントサイズ変更のUIで、数値を直接入力できません(入力しても元に戻ってしまいます)。直して
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 原因が分かりました。change イベントハンドラの検証条件が v <= 96 のままで、96より大きい値を入力すると元に戻されています。すべての箇所を修正します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 4 lines, removed 4 lines
+      336        el.querySelector('.inp-font-size').addEventListener('change', e => {
+      337          e.stopPropagation();
+      338          const v = parseFloat(e.target.value);
+      339 -        if (!isNaN(v) && v >= 6 && v <= 96) {
+      339 +        if (!isNaN(v) && v >= 6 && v <= 500) {
+      340            n.fontSize = v;
+      341            applyNodeFont(n, el);
+      342            scheduleSave();
+     ...
+      449        el.querySelector('.inp-font-size').addEventListener('change', e => {
+      450          e.stopPropagation();
+      451          const v = parseFloat(e.target.value);
+      452 -        if (!isNaN(v) && v >= 6 && v <= 96) {
+      452 +        if (!isNaN(v) && v >= 6 && v <= 500) {
+      453            n.fontSize = v;
+      454            applyNodeFont(n, el);
+      455            scheduleSave();
+     ...
+      522        el.querySelector('.inp-font-size').addEventListener('change', e => {
+      523          e.stopPropagation();
+      524          const v = parseFloat(e.target.value);
+      525 -        if (!isNaN(v) && v >= 6 && v <= 96) {
+      525 +        if (!isNaN(v) && v >= 6 && v <= 500) {
+      526            n.fontSize = v;
+      527            applyNodeFont(n, el);
+      528            scheduleSave();
+     ...
+      664        el.querySelector('.inp-font-size').addEventListener('change', e => {
+      665          e.stopPropagation();
+      666          const v = parseFloat(e.target.value);
+      667 -        if (!isNaN(v) && v >= 6 && v <= 96) {
+      667 +        if (!isNaN(v) && v >= 6 && v <= 500) {
+      668            n.fontSize = v;
+      669            applyNodeFont(n, el);
+      670            scheduleSave();
+
+⏺ 4箇所の検証条件を v <= 96 → v <= 500 に修正しました。これで96pxを超える値を直接入力しても元に戻らなくなります。
+
+※ recap: フォントサイズの上限を500pxに拡張し、UIの入力幅を広げ、検証条件のバグを修正しました。次のアクションは特にありません。
+
+❯ 必要に応じてテストとドキュメントを更新してください
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ テストの閾値は現在の値（64, 32, 24）をすべて満たしているので変更不要ですが、最大値 500 を明示するテストを追加します。また CLAUDE.md
+  のフォントサイズ上限の記述も更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 6 lines
+      204      expect(FONT_SIZES.frame.some(s => s >= 24)).toBe(true);
+      205    });
+      206
+      207 +  it('all lists have 500 as the maximum value', () => {
+      208 +    for (const list of Object.values(FONT_SIZES)) {
+      209 +      expect(Math.max(...list)).toBe(500);
+      210 +    }
+      211 +  });
+      212 +
+      213    it('all lists are sorted in ascending order', () => {
+      214      for (const list of Object.values(FONT_SIZES)) {
+      215        for (let i = 1; i < list.length; i++) {
+
+⏺ 次に CLAUDE.md のフォントサイズ上限の記述を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ CLAUDE.md にはフォントサイズの上限値を直接記述している箇所はないので変更不要です。テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (91 tests) 20ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 372ms
+     … +31 lines (ctrl+o to see all)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 200px は今や有効な値なので、テストを現実に合わせて更新します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 1 line, removed 1 line
+      768      startEdit(n.id);
+      769      const el = document.getElementById('nd-' + n.id);
+      770      const input = el.querySelector('.inp-font-size');
+      771 -    input.value = '200';
+      771 +    input.value = '600';
+      772      input.dispatchEvent(new Event('change', { bubbles: true }));
+      773      expect(n.fontSize).toBe(14);
+      774      expect(parseFloat(input.value)).toBe(14);
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全259テスト通過しました。変更内容:
+
+  - tests/canvas-utils.test.js — 全ノードタイプの最大値が 500 であることを検証するテストを追加
+  - tests/canvas-dom.test.js — 「範囲外（大きすぎる）」テストの入力値を 200 → 600 に更新（200 は現在有効な値のため）
+
+✻ Baked for 38s
+```

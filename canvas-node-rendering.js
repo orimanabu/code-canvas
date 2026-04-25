@@ -144,7 +144,7 @@ export function initNodeRendering(deps) {
     return `<div class="font-controls">
       <select class="sel-font-family" title="Font family">${familyOpts}</select>
       <input class="inp-font-size" type="number" title="Font size (px)"
-             value="${currentSize}" min="6" max="96" step="0.5"
+             value="${currentSize}" min="6" max="500" step="0.5"
              list="${dlId}">
       <datalist id="${dlId}">${sizeOpts}</datalist>
     </div>`;
@@ -336,7 +336,7 @@ export function initNodeRendering(deps) {
       el.querySelector('.inp-font-size').addEventListener('change', e => {
         e.stopPropagation();
         const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 96) {
+        if (!isNaN(v) && v >= 6 && v <= 500) {
           n.fontSize = v;
           applyNodeFont(n, el);
           scheduleSave();
@@ -449,7 +449,7 @@ export function initNodeRendering(deps) {
       el.querySelector('.inp-font-size').addEventListener('change', e => {
         e.stopPropagation();
         const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 96) {
+        if (!isNaN(v) && v >= 6 && v <= 500) {
           n.fontSize = v;
           applyNodeFont(n, el);
           scheduleSave();
@@ -522,7 +522,7 @@ export function initNodeRendering(deps) {
       el.querySelector('.inp-font-size').addEventListener('change', e => {
         e.stopPropagation();
         const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 96) {
+        if (!isNaN(v) && v >= 6 && v <= 500) {
           n.fontSize = v;
           applyNodeFont(n, el);
           scheduleSave();
@@ -664,7 +664,7 @@ export function initNodeRendering(deps) {
       el.querySelector('.inp-font-size').addEventListener('change', e => {
         e.stopPropagation();
         const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 96) {
+        if (!isNaN(v) && v >= 6 && v <= 500) {
           n.fontSize = v;
           applyNodeFont(n, el);
           scheduleSave();
