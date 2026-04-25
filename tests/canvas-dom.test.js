@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import '../canvas.js';
 const {
-  S, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+  S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
   saveState, restoreFromStorage,
   createLink, toggleMultiSel,
   copyNodes, cutNodes, pasteNodes,
@@ -516,5 +516,114 @@ describe('copyNodes / cutNodes / pasteNodes', () => {
     // Should not throw; S.clipboard unchanged, paste proceeds normally
     expect(() => pasteNodes()).not.toThrow();
     expect(S.nodes).toHaveLength(2);
+  });
+});
+
+// ─── Font defaults ─────────────────────────────────────────
+describe('Font defaults on new nodes', () => {
+  it('addNode sets fontFamily to "default"', () => {
+    const n = addNode(0, 0);
+    expect(n.fontFamily).toBe('default');
+  });
+
+  it('addNode sets fontSize to 12.5', () => {
+    const n = addNode(0, 0);
+    expect(n.fontSize).toBe(12.5);
+  });
+
+  it('addBubble sets fontFamily to "default"', () => {
+    const n = addBubble(0, 0);
+    expect(n.fontFamily).toBe('default');
+  });
+
+  it('addBubble sets fontSize to 13', () => {
+    const n = addBubble(0, 0);
+    expect(n.fontSize).toBe(13);
+  });
+
+  it('addFrame sets fontFamily to "default"', () => {
+    const n = addFrame(0, 0, 200, 100);
+    expect(n.fontFamily).toBe('default');
+  });
+
+  it('addFrame sets fontSize to 12', () => {
+    const n = addFrame(0, 0, 200, 100);
+    expect(n.fontSize).toBe(12);
+  });
+});
+
+// ─── Font CSS custom properties ───────────────────────────
+describe('Font CSS custom properties on node elements', () => {
+  it('code node element has --node-font-size set', () => {
+    const n = addNode(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--node-font-size')).toBe('12.5px');
+  });
+
+  it('code node element has --node-font-family set', () => {
+    const n = addNode(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--node-font-family')).not.toBe('');
+  });
+
+  it('bubble node element has --bubble-font-size set', () => {
+    const n = addBubble(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--bubble-font-size')).toBe('13px');
+  });
+
+  it('bubble node element has --bubble-font-family set', () => {
+    const n = addBubble(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--bubble-font-family')).not.toBe('');
+  });
+
+  it('frame node element has --frame-font-size set', () => {
+    const n = addFrame(0, 0, 200, 100);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--frame-font-size')).toBe('12px');
+  });
+
+  it('frame node element has --frame-font-family set', () => {
+    const n = addFrame(0, 0, 200, 100);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--frame-font-family')).not.toBe('');
+  });
+});
+
+// ─── Font persistence ─────────────────────────────────────
+describe('Font persistence via saveState/loadState', () => {
+  it('fontFamily and fontSize survive a save/load round-trip for code nodes', () => {
+    const n = addNode(0, 0);
+    n.fontFamily = 'jetbrains-mono';
+    n.fontSize   = 14;
+    saveState();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    loadState(saved);
+    const restored = S.nodes.find(x => x.id === n.id);
+    expect(restored.fontFamily).toBe('jetbrains-mono');
+    expect(restored.fontSize).toBe(14);
+  });
+
+  it('fontFamily and fontSize survive a round-trip for bubble nodes', () => {
+    const n = addBubble(0, 0);
+    n.fontFamily = 'georgia';
+    n.fontSize   = 16;
+    saveState();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    loadState(saved);
+    const restored = S.nodes.find(x => x.id === n.id);
+    expect(restored.fontFamily).toBe('georgia');
+    expect(restored.fontSize).toBe(16);
+  });
+
+  it('old saves without fontFamily/fontSize load without errors', () => {
+    const legacyState = {
+      nodes: [{ id: 1, x: 0, y: 0, w: 100, h: 100, code: 'x', lang: 'js', color: 'blue' }],
+      links: [], nid: 2, lid: 1,
+    };
+    expect(() => loadState(legacyState)).not.toThrow();
+    // Node without fontFamily/fontSize should still render a DOM element
+    expect(document.getElementById('nd-1')).not.toBeNull();
   });
 });

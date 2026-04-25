@@ -83,7 +83,8 @@ body {
 }
 .frame-header:active { cursor: grabbing; }
 .frame-label {
-  font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  font-size: var(--frame-font-size, 12px); font-weight: 600; letter-spacing: 0.3px;
+  font-family: var(--frame-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   color: var(--fn-label, #79c0ff);
   flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -92,7 +93,8 @@ body {
 .frame-node.selected .frame-header .node-actions { opacity: 1; }
 .frame-header .inp-title {
   border: none; outline: none;
-  font-size: 12px; font-weight: 600; color: var(--fn-label, #79c0ff);
+  font-size: var(--frame-font-size, 12px); font-weight: 600; color: var(--fn-label, #79c0ff);
+  font-family: var(--frame-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   background: transparent; width: 0; flex: 1; min-width: 0;
 }
 .node.selected {
@@ -194,8 +196,8 @@ body {
 
 .node-body pre {
   margin: 0; padding: 14px 16px;
-  font-size: 12.5px; line-height: 1.25;
-  font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace;
+  font-size: var(--node-font-size, 12.5px); line-height: 1.25;
+  font-family: var(--node-font-family, 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace);
   font-variant-ligatures: none;
   white-space: pre-wrap; word-break: break-word;
   user-select: text;
@@ -211,8 +213,8 @@ body {
   background: #0d1117; color: #e6edf3;
   border: none; outline: none;
   padding: 14px 16px;
-  font-size: 12.5px; line-height: 1.25; tab-size: 2;
-  font-family: 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace;
+  font-size: var(--node-font-size, 12.5px); line-height: 1.25; tab-size: 2;
+  font-family: var(--node-font-family, 'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace);
   resize: none; border-radius: 0 0 10px 10px;
 }
 .node-body textarea::placeholder { color: #3d444d; }
@@ -298,6 +300,18 @@ body {
 .edit-menu .menu-sep {
   height: 1px; background: #30363d; margin: 4px 0;
 }
+.font-controls {
+  display: flex; gap: 4px; align-items: center; margin-bottom: 4px;
+}
+.font-controls select {
+  background: #21262d; color: #c9d1d9;
+  border: 1px solid #30363d; border-radius: 4px;
+  font-size: 11px; padding: 2px 4px; cursor: pointer;
+  outline: none;
+}
+.font-controls select:hover { border-color: #484f58; }
+.font-controls .sel-font-family { flex: 1; min-width: 0; }
+.font-controls .sel-font-size { width: 58px; flex-shrink: 0; }
 
 /* ── Link context menu ── */
 #link-ctx {
@@ -660,7 +674,8 @@ body.tail-attach-mode .bubble-node:hover {
   display: flex; flex-direction: column; justify-content: center;
 }
 .bubble-text {
-  font-size: 13px; color: #e6edf3; line-height: 1.65;
+  font-size: var(--bubble-font-size, 13px); color: #e6edf3; line-height: 1.65;
+  font-family: var(--bubble-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
   white-space: pre-wrap; word-break: break-word;
   user-select: text;
 }
@@ -669,8 +684,8 @@ body.tail-attach-mode .bubble-node:hover {
   width: 100%; height: 100%; min-height: 50px; display: block;
   background: transparent; color: #e6edf3;
   border: none; outline: none; resize: none;
-  font-size: 13px; line-height: 1.65;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: var(--bubble-font-size, 13px); line-height: 1.65;
+  font-family: var(--bubble-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
 }
 /* tail inline SVG (inside bubble div, so z-order follows bubble) */
 .bubble-tail-svg {

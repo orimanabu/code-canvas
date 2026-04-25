@@ -81,6 +81,37 @@ export const NODE_COLORS = [
   { id: 'pink',   label: 'Pink',   hex: '#f778ba', hexLight: '#ff9ed2', bgDark: '#29091b', bgMid: '#360d24', borderMid: '#6a2050', titleBg: 'rgba(247,120,186,0.15)', glow28: 'rgba(247,120,186,0.28)', glow42: 'rgba(247,120,186,0.42)' },
 ];
 
+// ═══════════════════════════════════════════════════════
+// FONT PRESETS
+// ═══════════════════════════════════════════════════════
+export const FONT_PRESETS = {
+  code: [
+    { id: 'default',       label: 'Default',        family: "'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace" },
+    { id: 'jetbrains-mono',label: 'JetBrains Mono', family: "'JetBrains Mono', monospace" },
+    { id: 'fira-code',     label: 'Fira Code',      family: "'Fira Code', monospace" },
+    { id: 'menlo',         label: 'Menlo',           family: "'Menlo', monospace" },
+    { id: 'cascadia-code', label: 'Cascadia Code',   family: "'Cascadia Code', 'Cascadia Mono', monospace" },
+    { id: 'consolas',      label: 'Consolas',        family: "'Consolas', monospace" },
+  ],
+  bubble: [
+    { id: 'default', label: 'Default', family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+    { id: 'inter',   label: 'Inter',   family: "'Inter', sans-serif" },
+    { id: 'georgia', label: 'Georgia', family: "'Georgia', serif" },
+    { id: 'arial',   label: 'Arial',   family: "'Arial', sans-serif" },
+  ],
+  frame: [
+    { id: 'default', label: 'Default', family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+    { id: 'inter',   label: 'Inter',   family: "'Inter', sans-serif" },
+    { id: 'georgia', label: 'Georgia', family: "'Georgia', serif" },
+    { id: 'arial',   label: 'Arial',   family: "'Arial', sans-serif" },
+  ],
+};
+export const FONT_SIZES = {
+  code:   [10, 11, 12, 12.5, 13, 14, 16],
+  bubble: [11, 12, 13, 14, 16, 18],
+  frame:  [10, 11, 12, 13, 14],
+};
+
 // Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
 // and never inside an already-injected link-anchor span.
 // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must

@@ -14,7 +14,7 @@ const {
 const STORAGE_KEY = 'code-canvas-v1';
 
 function resetState() {
-  loadState({ nodes: [], links: [], nid: 1, lid: 1 });
+  loadState({ nodes: [], links: [], nid: 1, lid: 1, vp: { x: 0, y: 0, scale: 1 } });
   localStorage.removeItem(STORAGE_KEY);
 }
 

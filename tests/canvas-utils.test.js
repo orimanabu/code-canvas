@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  esc, EXT_LANG, langFromPath, NODE_COLORS,
+  esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
   injectAnchor, splitHtmlLines, addLineNumbers,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
 } from '../canvas-utils.js';
@@ -72,6 +72,83 @@ describe('NODE_COLORS', () => {
   });
   it('contains blue', () => expect(NODE_COLORS.some(c => c.id === 'blue')).toBe(true));
   it('contains red', () => expect(NODE_COLORS.some(c => c.id === 'red')).toBe(true));
+});
+
+// ─── FONT_PRESETS ─────────────────────────────────────────
+describe('FONT_PRESETS', () => {
+  it('has keys for code, bubble, and frame', () => {
+    expect(FONT_PRESETS).toHaveProperty('code');
+    expect(FONT_PRESETS).toHaveProperty('bubble');
+    expect(FONT_PRESETS).toHaveProperty('frame');
+  });
+
+  it('each preset entry has id, label, and family fields', () => {
+    for (const list of Object.values(FONT_PRESETS)) {
+      for (const p of list) {
+        expect(typeof p.id).toBe('string');
+        expect(typeof p.label).toBe('string');
+        expect(typeof p.family).toBe('string');
+      }
+    }
+  });
+
+  it('first code preset has id "default"', () => {
+    expect(FONT_PRESETS.code[0].id).toBe('default');
+  });
+
+  it('first bubble preset has id "default"', () => {
+    expect(FONT_PRESETS.bubble[0].id).toBe('default');
+  });
+
+  it('first frame preset has id "default"', () => {
+    expect(FONT_PRESETS.frame[0].id).toBe('default');
+  });
+
+  it('code presets include JetBrains Mono', () => {
+    expect(FONT_PRESETS.code.some(p => p.id === 'jetbrains-mono')).toBe(true);
+  });
+
+  it('code presets include Fira Code', () => {
+    expect(FONT_PRESETS.code.some(p => p.id === 'fira-code')).toBe(true);
+  });
+
+  it('all family strings are non-empty', () => {
+    for (const list of Object.values(FONT_PRESETS)) {
+      for (const p of list) {
+        expect(p.family.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+// ─── FONT_SIZES ───────────────────────────────────────────
+describe('FONT_SIZES', () => {
+  it('has keys for code, bubble, and frame', () => {
+    expect(FONT_SIZES).toHaveProperty('code');
+    expect(FONT_SIZES).toHaveProperty('bubble');
+    expect(FONT_SIZES).toHaveProperty('frame');
+  });
+
+  it('each list contains only positive numbers', () => {
+    for (const list of Object.values(FONT_SIZES)) {
+      for (const s of list) {
+        expect(typeof s).toBe('number');
+        expect(s).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('code sizes include default 12.5', () => {
+    expect(FONT_SIZES.code).toContain(12.5);
+  });
+
+  it('bubble sizes include default 13', () => {
+    expect(FONT_SIZES.bubble).toContain(13);
+  });
+
+  it('frame sizes include default 12', () => {
+    expect(FONT_SIZES.frame).toContain(12);
+  });
 });
 
 // ─── splitHtmlLines ──────────────────────────────────────

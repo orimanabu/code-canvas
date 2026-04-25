@@ -1,4 +1,4 @@
-import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS,
+import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
          injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
          roundedRectRayHit, anchorFpFromSide, edgePoint } from './canvas-utils.js';
 import { initDialogs, showAlert } from './canvas-dialogs.js';
@@ -203,6 +203,40 @@ function applyNodeColor(n, el) {
 }
 
 // ═══════════════════════════════════════════════════════
+// FONT HELPERS
+// ═══════════════════════════════════════════════════════
+function applyNodeFont(n, el) {
+  const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+  const preset = FONT_PRESETS[type].find(p => p.id === (n.fontFamily ?? 'default')) ?? FONT_PRESETS[type][0];
+  if (type === 'code') {
+    el.style.setProperty('--node-font-family', preset.family);
+    el.style.setProperty('--node-font-size',   (n.fontSize ?? 12.5) + 'px');
+  } else if (type === 'bubble') {
+    el.style.setProperty('--bubble-font-family', preset.family);
+    el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+  } else {
+    el.style.setProperty('--frame-font-family', preset.family);
+    el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
+  }
+}
+
+function fontControlsHTML(n) {
+  const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+  const currentFamily = n.fontFamily ?? 'default';
+  const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
+  const familyOpts = FONT_PRESETS[type].map(p =>
+    `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+  ).join('');
+  const sizeOpts = FONT_SIZES[type].map(s =>
+    `<option value="${s}"${s === currentSize ? ' selected' : ''}>${s}px</option>`
+  ).join('');
+  return `<div class="font-controls">
+    <select class="sel-font-family" title="Font family">${familyOpts}</select>
+    <select class="sel-font-size" title="Font size">${sizeOpts}</select>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
 // NODE RENDERING
 // ═══════════════════════════════════════════════════════
 function ndEl(id) { return document.getElementById('nd-' + id); }
@@ -216,6 +250,7 @@ function addNode(x, y, code) {
     title: '', filePath: '',
     showLineNumbers: true, lineNumberStart: 1,
     color: 'blue',
+    fontFamily: 'default', fontSize: 12.5,
   };
   S.nodes.push(n);
   const el = document.createElement('div');
@@ -248,6 +283,7 @@ function renderNode(n, el) {
   el.classList.toggle('selected', S.sel === n.id);
   el.classList.toggle('multi-selected', S.multiSel.has(n.id));
   applyNodeColor(n, el);
+  applyNodeFont(n, el);
 
   if (n.type === 'frame') {
     renderFrameContent(n, el);
@@ -317,6 +353,21 @@ function renderNode(n, el) {
       });
     }
     bindZOrderButtons(n, el);
+
+    el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-family').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontFamily = e.target.value;
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
+    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-size').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontSize = parseFloat(e.target.value);
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
 
     ta.focus({ preventScroll: true });
   } else {
@@ -459,6 +510,7 @@ function bubbleEditHTML(n) {
         <button class="node-btn btn-edit-menu" title="More options">•••</button>
         <div class="edit-menu">
           ${colorSwatchesHTML(n.color, 'green')}
+          ${fontControlsHTML(n)}
           ${zOrderMenuHTML()}
         </div>
       </div>
@@ -499,6 +551,20 @@ function renderBubbleContent(n, el) {
       menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
     }
     bindZOrderButtons(n, el);
+    el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-family').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontFamily = e.target.value;
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
+    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-size').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontSize = parseFloat(e.target.value);
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
     ta.focus({ preventScroll: true });
   } else {
     el.innerHTML = bubbleViewHTML(n);
@@ -644,6 +710,7 @@ function addBubble(x, y) {
     text: '',
     tailX: x + 100, tailY: y + 140,
     color: 'green',
+    fontFamily: 'default', fontSize: 13,
     showTail: true,
     tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
   };
@@ -699,6 +766,7 @@ function renderFrameContent(n, el) {
           <button class="node-btn btn-edit-menu" title="More options">•••</button>
           <div class="edit-menu">
             ${colorSwatchesHTML(n.color, 'blue')}
+            ${fontControlsHTML(n)}
             ${zOrderMenuHTML()}
           </div>
         </div>
@@ -730,6 +798,20 @@ function renderFrameContent(n, el) {
       menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
     }
     bindZOrderButtons(n, el);
+    el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-family').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontFamily = e.target.value;
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
+    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-size').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontSize = parseFloat(e.target.value);
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
     inp.focus(); inp.select();
   } else {
     const labelHtml = n.label
@@ -815,6 +897,7 @@ function addFrame(x, y, w, h, label, color) {
     x, y, w, h,
     label: label ?? '',
     color: color ?? 'blue',
+    fontFamily: 'default', fontSize: 12,
   };
   S.nodes.push(n);
   const el = document.createElement('div');
@@ -842,6 +925,7 @@ function editHTML(n) {
         <button class="node-btn btn-edit-menu" title="More options">•••</button>
         <div class="edit-menu">
           ${colorSwatchesHTML(n.color, 'blue')}
+          ${fontControlsHTML(n)}
           <button class="node-btn btn-fetch-git">⬇ Fetch</button>
           <button class="node-btn btn-codesnippetd">📦 codesnippetd</button>
           ${zOrderMenuHTML()}
@@ -2749,17 +2833,17 @@ function saveState() {
     canvasTitle: canvasTitleEl.value,
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {
-        const { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+        const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
                 tailAnchorId, tailAnchorText, tailAnchorFromId } = n;
-        return { id, type, x, y, w, h, text, tailX, tailY, color, showTail,
+        return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
                  tailAnchorId, tailAnchorText, tailAnchorFromId };
       }
       if (n.type === 'frame') {
-        const { id, type, x, y, w, h, label, color } = n;
-        return { id, type, x, y, w, h, label, color };
+        const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+        return { id, type, x, y, w, h, label, color, fontFamily, fontSize };
       }
-      const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color } = n;
-      return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color };
+      const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
+      return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
     }),
     links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx })),
     freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
@@ -2842,17 +2926,19 @@ function loadState(data) {
     if (nd.type === 'bubble') {
       n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
-            color: nd.color ?? 'green', showTail: nd.showTail ?? true,
+            color: nd.color ?? 'green', fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 13,
+            showTail: nd.showTail ?? true,
             tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
             tailAnchorFromId: nd.tailAnchorFromId ?? null };
     } else if (nd.type === 'frame') {
       n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
-            label: nd.label ?? '', color: nd.color ?? 'blue' };
+            label: nd.label ?? '', color: nd.color ?? 'blue',
+            fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 12 };
     } else {
       n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code,
             lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '',
             showLineNumbers: nd.showLineNumbers ?? true, lineNumberStart: nd.lineNumberStart ?? 1,
-            color: nd.color ?? 'blue' };
+            color: nd.color ?? 'blue', fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 12.5 };
     }
     S.nodes.push(n);
     const el = document.createElement('div');
@@ -3178,7 +3264,7 @@ setStatus('Ready — double-click to add block | select text to create link | ri
 // TEST EXPORTS (Node.js / Vitest only — not used in browser)
 // ═══════════════════════════════════════════════════════
 if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
-  globalThis.__canvasApp = { S, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
     saveState, restoreFromStorage,
     createLink, removeLink,
     copyNodes, cutNodes, pasteNodes, toggleMultiSel,
