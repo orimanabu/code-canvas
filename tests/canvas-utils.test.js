@@ -76,71 +76,47 @@ describe('NODE_COLORS', () => {
 
 // ─── FONT_PRESETS ─────────────────────────────────────────
 describe('FONT_PRESETS', () => {
-  it('has keys for code, bubble, and frame', () => {
-    expect(FONT_PRESETS).toHaveProperty('code');
-    expect(FONT_PRESETS).toHaveProperty('bubble');
-    expect(FONT_PRESETS).toHaveProperty('frame');
+  it('is a flat array', () => {
+    expect(Array.isArray(FONT_PRESETS)).toBe(true);
   });
 
-  it('each preset entry has id, label, and family fields', () => {
-    for (const list of Object.values(FONT_PRESETS)) {
-      for (const p of list) {
-        expect(typeof p.id).toBe('string');
-        expect(typeof p.label).toBe('string');
-        expect(typeof p.family).toBe('string');
-      }
+  it('each entry has id, label, family, and mono fields', () => {
+    for (const p of FONT_PRESETS) {
+      expect(typeof p.id).toBe('string');
+      expect(typeof p.label).toBe('string');
+      expect(typeof p.family).toBe('string');
+      expect(typeof p.mono).toBe('boolean');
     }
   });
 
-  it('first code preset has id "default"', () => {
-    expect(FONT_PRESETS.code[0].id).toBe('default');
+  it('includes monospace fonts', () => {
+    const monoIds = ['ui-monospace', 'jetbrains-mono', 'fira-code', 'menlo', 'monaco',
+                     'cascadia-code', 'consolas', 'courier-new'];
+    for (const id of monoIds) {
+      expect(FONT_PRESETS.some(p => p.id === id)).toBe(true);
+    }
   });
 
-  it('first bubble preset has id "default"', () => {
-    expect(FONT_PRESETS.bubble[0].id).toBe('default');
+  it('includes proportional fonts', () => {
+    const propIds = ['system-ui', 'inter', 'helvetica-neue', 'verdana', 'trebuchet-ms', 'arial', 'georgia'];
+    for (const id of propIds) {
+      expect(FONT_PRESETS.some(p => p.id === id)).toBe(true);
+    }
   });
 
-  it('first frame preset has id "default"', () => {
-    expect(FONT_PRESETS.frame[0].id).toBe('default');
+  it('monospace fonts have mono: true', () => {
+    expect(FONT_PRESETS.find(p => p.id === 'jetbrains-mono').mono).toBe(true);
+    expect(FONT_PRESETS.find(p => p.id === 'fira-code').mono).toBe(true);
   });
 
-  it('code presets include JetBrains Mono', () => {
-    expect(FONT_PRESETS.code.some(p => p.id === 'jetbrains-mono')).toBe(true);
-  });
-
-  it('code presets include Fira Code', () => {
-    expect(FONT_PRESETS.code.some(p => p.id === 'fira-code')).toBe(true);
-  });
-
-  it('code presets include ui-monospace (System Mono)', () => {
-    expect(FONT_PRESETS.code.some(p => p.id === 'ui-monospace')).toBe(true);
-  });
-
-  it('code presets include Courier New', () => {
-    expect(FONT_PRESETS.code.some(p => p.id === 'courier-new')).toBe(true);
-  });
-
-  it('code presets include Monaco', () => {
-    expect(FONT_PRESETS.code.some(p => p.id === 'monaco')).toBe(true);
-  });
-
-  it('bubble presets include system-ui', () => {
-    expect(FONT_PRESETS.bubble.some(p => p.id === 'system-ui')).toBe(true);
-  });
-
-  it('bubble presets include Verdana', () => {
-    expect(FONT_PRESETS.bubble.some(p => p.id === 'verdana')).toBe(true);
-  });
-
-  it('bubble presets include Helvetica Neue', () => {
-    expect(FONT_PRESETS.bubble.some(p => p.id === 'helvetica-neue')).toBe(true);
+  it('proportional fonts have mono: false', () => {
+    expect(FONT_PRESETS.find(p => p.id === 'system-ui').mono).toBe(false);
+    expect(FONT_PRESETS.find(p => p.id === 'georgia').mono).toBe(false);
   });
 
   it('all family strings are non-empty', () => {
-    for (const list of Object.values(FONT_PRESETS)) {
-      for (const p of list) {
-        expect(p.family.trim().length).toBeGreaterThan(0);
-      }
+    for (const p of FONT_PRESETS) {
+      expect(p.family.trim().length).toBeGreaterThan(0);
     }
   });
 });

@@ -105,7 +105,7 @@ A node is a code block when the `type` field is absent or `"code"`.
 | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
 | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
-| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"ui-monospace"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"monaco"`, `"cascadia-code"`, `"consolas"`, `"courier-new"`. Defaults to `"default"` |
+| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"ui-monospace"`, `"source-code-pro"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"monaco"`, `"cascadia-code"`, `"consolas"`, `"courier-new"` (monospace), or `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `"trebuchet-ms"`, `"arial"`, `"georgia"` (proportional). Defaults to `"default"` |
 | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–48 px). Defaults to `12.5` |
 
 ## Node object (bubble)
@@ -125,7 +125,7 @@ A node is a bubble when `type` is `"bubble"`.
 | `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
 | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
 | `showTail` | boolean | Whether to show the tail (default: `true`) |
-| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+| `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
 | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (11–48 px). Defaults to `13` |
 | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code block). `null` when not anchored. |
 | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
@@ -145,7 +145,7 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `h` | number | Height of the frame |
 | `label` | string | Label text displayed in the frame header |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
-| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+| `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
 | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
 
 ## Link object

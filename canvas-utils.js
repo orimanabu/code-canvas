@@ -84,39 +84,29 @@ export const NODE_COLORS = [
 // ═══════════════════════════════════════════════════════
 // FONT PRESETS
 // ═══════════════════════════════════════════════════════
-export const FONT_PRESETS = {
-  code: [
-    { id: 'default',       label: 'Default',        family: "'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace" },
-    { id: 'ui-monospace',  label: 'System Mono',    family: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace" },
-    { id: 'jetbrains-mono',label: 'JetBrains Mono', family: "'JetBrains Mono', monospace" },
-    { id: 'fira-code',     label: 'Fira Code',      family: "'Fira Code', monospace" },
-    { id: 'menlo',         label: 'Menlo',           family: "'Menlo', monospace" },
-    { id: 'monaco',        label: 'Monaco',          family: "'Monaco', 'Menlo', monospace" },
-    { id: 'cascadia-code', label: 'Cascadia Code',   family: "'Cascadia Code', 'Cascadia Mono', monospace" },
-    { id: 'consolas',      label: 'Consolas',        family: "'Consolas', monospace" },
-    { id: 'courier-new',   label: 'Courier New',     family: "'Courier New', Courier, monospace" },
-  ],
-  bubble: [
-    { id: 'default',        label: 'Default',        family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
-    { id: 'system-ui',      label: 'System UI',      family: "system-ui, sans-serif" },
-    { id: 'inter',          label: 'Inter',          family: "'Inter', sans-serif" },
-    { id: 'helvetica-neue', label: 'Helvetica Neue', family: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
-    { id: 'verdana',        label: 'Verdana',        family: "'Verdana', sans-serif" },
-    { id: 'trebuchet-ms',   label: 'Trebuchet MS',   family: "'Trebuchet MS', sans-serif" },
-    { id: 'arial',          label: 'Arial',          family: "'Arial', sans-serif" },
-    { id: 'georgia',        label: 'Georgia',        family: "'Georgia', serif" },
-  ],
-  frame: [
-    { id: 'default',        label: 'Default',        family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
-    { id: 'system-ui',      label: 'System UI',      family: "system-ui, sans-serif" },
-    { id: 'inter',          label: 'Inter',          family: "'Inter', sans-serif" },
-    { id: 'helvetica-neue', label: 'Helvetica Neue', family: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
-    { id: 'verdana',        label: 'Verdana',        family: "'Verdana', sans-serif" },
-    { id: 'trebuchet-ms',   label: 'Trebuchet MS',   family: "'Trebuchet MS', sans-serif" },
-    { id: 'arial',          label: 'Arial',          family: "'Arial', sans-serif" },
-    { id: 'georgia',        label: 'Georgia',        family: "'Georgia', serif" },
-  ],
-};
+// Flat list shared by all node types.
+// mono: true = monospace, false = proportional.
+// 'default' (id only) is handled contextually in applyNodeFont — no family here.
+export const FONT_PRESETS = [
+  // ── Monospace ──────────────────────────────────────────
+  { id: 'ui-monospace',   label: 'System Mono',    mono: true,  family: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace" },
+  { id: 'source-code-pro',label: 'Source Code Pro',mono: true,  family: "'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', 'Liberation Mono', 'Ubuntu Mono', monospace" },
+  { id: 'jetbrains-mono', label: 'JetBrains Mono', mono: true,  family: "'JetBrains Mono', monospace" },
+  { id: 'fira-code',      label: 'Fira Code',      mono: true,  family: "'Fira Code', monospace" },
+  { id: 'menlo',          label: 'Menlo',           mono: true,  family: "'Menlo', monospace" },
+  { id: 'monaco',         label: 'Monaco',          mono: true,  family: "'Monaco', 'Menlo', monospace" },
+  { id: 'cascadia-code',  label: 'Cascadia Code',   mono: true,  family: "'Cascadia Code', 'Cascadia Mono', monospace" },
+  { id: 'consolas',       label: 'Consolas',        mono: true,  family: "'Consolas', monospace" },
+  { id: 'courier-new',    label: 'Courier New',     mono: true,  family: "'Courier New', Courier, monospace" },
+  // ── Proportional ───────────────────────────────────────
+  { id: 'system-ui',      label: 'System UI',       mono: false, family: "system-ui, sans-serif" },
+  { id: 'inter',          label: 'Inter',           mono: false, family: "'Inter', sans-serif" },
+  { id: 'helvetica-neue', label: 'Helvetica Neue',  mono: false, family: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
+  { id: 'verdana',        label: 'Verdana',         mono: false, family: "'Verdana', sans-serif" },
+  { id: 'trebuchet-ms',   label: 'Trebuchet MS',    mono: false, family: "'Trebuchet MS', sans-serif" },
+  { id: 'arial',          label: 'Arial',           mono: false, family: "'Arial', sans-serif" },
+  { id: 'georgia',        label: 'Georgia',         mono: false, family: "'Georgia', serif" },
+];
 export const FONT_SIZES = {
   code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
   bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],

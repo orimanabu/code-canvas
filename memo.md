@@ -24241,3 +24241,325 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Worked for 1m 21s
 ```
+
+```
+❯ 今の実装だと、blockとbubble/frameでfont
+  familyの選択肢が異なります。フォントの選択肢をblock/bubble/frame全て共通にしてください。具体的には、今の選択肢をマージしてください。font
+  familyの選択肢をリストするとき、等幅フォントかプロポーショナルフォントかどちらかわかるような印を付けてください
+
+...
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Referenced file canvas-utils.js
+  ⎿  Read README.ja.md (267 lines)
+  ⎿  Read README.md (301 lines)
+  ⎿  Referenced file tests/canvas-utils.test.js
+  ⎿  Referenced file tests/canvas-dom.test.js
+  ⎿  Plan file referenced (~/.claude/plans/squishy-exploring-music.md)
+  ⎿  Skills restored (commit-message)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now I'll update applyNodeFont() and fontControlsHTML():
+
+⏺ Update(canvas.js)
+  ⎿  Added 13 lines, removed 4 lines
+      205  // ═══════════════════════════════════════════════════════
+      206  // FONT HELPERS
+      207  // ═══════════════════════════════════════════════════════
+      208 +const DEFAULT_FONT_FAMILY = {
+      209 +  code:   "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace",
+      210 +  bubble: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      211 +  frame:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      212 +};
+      213 +
+      214  function applyNodeFont(n, el) {
+      215    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+      210 -  const preset = FONT_PRESETS[type].find(p => p.id === (n.fontFamily ?? 'default')) ?? FONT_PRESETS[type][0];
+      216 +  const fid = n.fontFamily ?? 'default';
+      217 +  const family = fid === 'default'
+      218 +    ? DEFAULT_FONT_FAMILY[type]
+      219 +    : (FONT_PRESETS.find(p => p.id === fid)?.family ?? DEFAULT_FONT_FAMILY[type]);
+      220    if (type === 'code') {
+      212 -    el.style.setProperty('--node-font-family', preset.family);
+      221 +    el.style.setProperty('--node-font-family', family);
+      222      el.style.setProperty('--node-font-size',   (n.fontSize ?? 12.5) + 'px');
+      223    } else if (type === 'bubble') {
+      215 -    el.style.setProperty('--bubble-font-family', preset.family);
+      224 +    el.style.setProperty('--bubble-font-family', family);
+      225      el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+      226    } else {
+      218 -    el.style.setProperty('--frame-font-family', preset.family);
+      227 +    el.style.setProperty('--frame-font-family', family);
+      228      el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
+      229    }
+      230  }
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines, removed 1 line
+      233    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+      234    const currentFamily = n.fontFamily ?? 'default';
+      235    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
+      236 -  const familyOpts = FONT_PRESETS[type].map(p =>
+      236 +  const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
+      237 +    `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>\u2261 ${p.label}</option>`
+      238 +  ).join('');
+      239 +  const propOpts = FONT_PRESETS.filter(p => !p.mono).map(p =>
+      240      `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+      241    ).join('');
+      242 +  const familyOpts =
+      243 +    `<option value="default"${currentFamily === 'default' ? ' selected' : ''}>Default</option>` +
+      244 +    `<optgroup label="Monospace">${monoOpts}</optgroup>` +
+      245 +    `<optgroup label="Proportional">${propOpts}</optgroup>`;
+      246    const dlId = `font-size-dl-${n.id}`;
+      247    const sizeOpts = FONT_SIZES[type].map(s => `<option value="${s}">`).join('');
+      248    return `<div class="font-controls">
+
+⏺ Now update the tests for flat FONT_PRESETS structure:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 27 lines, removed 51 lines
+       76
+       77  // ─── FONT_PRESETS ─────────────────────────────────────────
+       78  describe('FONT_PRESETS', () => {
+       79 -  it('has keys for code, bubble, and frame', () => {
+       80 -    expect(FONT_PRESETS).toHaveProperty('code');
+       81 -    expect(FONT_PRESETS).toHaveProperty('bubble');
+       82 -    expect(FONT_PRESETS).toHaveProperty('frame');
+       79 +  it('is a flat array', () => {
+       80 +    expect(Array.isArray(FONT_PRESETS)).toBe(true);
+       81    });
+       82
+       85 -  it('each preset entry has id, label, and family fields', () => {
+       86 -    for (const list of Object.values(FONT_PRESETS)) {
+       87 -      for (const p of list) {
+       88 -        expect(typeof p.id).toBe('string');
+       89 -        expect(typeof p.label).toBe('string');
+       90 -        expect(typeof p.family).toBe('string');
+       91 -      }
+       83 +  it('each entry has id, label, family, and mono fields', () => {
+       84 +    for (const p of FONT_PRESETS) {
+       85 +      expect(typeof p.id).toBe('string');
+       86 +      expect(typeof p.label).toBe('string');
+       87 +      expect(typeof p.family).toBe('string');
+       88 +      expect(typeof p.mono).toBe('boolean');
+       89      }
+       90    });
+       91
+       95 -  it('first code preset has id "default"', () => {
+       96 -    expect(FONT_PRESETS.code[0].id).toBe('default');
+       92 +  it('includes monospace fonts', () => {
+       93 +    const monoIds = ['ui-monospace', 'jetbrains-mono', 'fira-code', 'menlo', 'monaco',
+       94 +                     'cascadia-code', 'consolas', 'courier-new'];
+       95 +    for (const id of monoIds) {
+       96 +      expect(FONT_PRESETS.some(p => p.id === id)).toBe(true);
+       97 +    }
+       98    });
+       99
+       99 -  it('first bubble preset has id "default"', () => {
+      100 -    expect(FONT_PRESETS.bubble[0].id).toBe('default');
+      100 +  it('includes proportional fonts', () => {
+      101 +    const propIds = ['system-ui', 'inter', 'helvetica-neue', 'verdana', 'trebuchet-ms', 'arial', 'georgia'];
+      102 +    for (const id of propIds) {
+      103 +      expect(FONT_PRESETS.some(p => p.id === id)).toBe(true);
+      104 +    }
+      105    });
+      106
+      103 -  it('first frame preset has id "default"', () => {
+      104 -    expect(FONT_PRESETS.frame[0].id).toBe('default');
+      107 +  it('monospace fonts have mono: true', () => {
+      108 +    expect(FONT_PRESETS.find(p => p.id === 'jetbrains-mono').mono).toBe(true);
+      109 +    expect(FONT_PRESETS.find(p => p.id === 'fira-code').mono).toBe(true);
+      110    });
+      111
+      107 -  it('code presets include JetBrains Mono', () => {
+      108 -    expect(FONT_PRESETS.code.some(p => p.id === 'jetbrains-mono')).toBe(true);
+      112 +  it('proportional fonts have mono: false', () => {
+      113 +    expect(FONT_PRESETS.find(p => p.id === 'system-ui').mono).toBe(false);
+      114 +    expect(FONT_PRESETS.find(p => p.id === 'georgia').mono).toBe(false);
+      115    });
+      116
+      111 -  it('code presets include Fira Code', () => {
+      112 -    expect(FONT_PRESETS.code.some(p => p.id === 'fira-code')).toBe(true);
+      113 -  });
+      114 -
+      115 -  it('code presets include ui-monospace (System Mono)', () => {
+      116 -    expect(FONT_PRESETS.code.some(p => p.id === 'ui-monospace')).toBe(true);
+      117 -  });
+      118 -
+      119 -  it('code presets include Courier New', () => {
+      120 -    expect(FONT_PRESETS.code.some(p => p.id === 'courier-new')).toBe(true);
+      121 -  });
+      122 -
+      123 -  it('code presets include Monaco', () => {
+      124 -    expect(FONT_PRESETS.code.some(p => p.id === 'monaco')).toBe(true);
+      125 -  });
+      126 -
+      127 -  it('bubble presets include system-ui', () => {
+      128 -    expect(FONT_PRESETS.bubble.some(p => p.id === 'system-ui')).toBe(true);
+      129 -  });
+      130 -
+      131 -  it('bubble presets include Verdana', () => {
+      132 -    expect(FONT_PRESETS.bubble.some(p => p.id === 'verdana')).toBe(true);
+      133 -  });
+      134 -
+      135 -  it('bubble presets include Helvetica Neue', () => {
+      136 -    expect(FONT_PRESETS.bubble.some(p => p.id === 'helvetica-neue')).toBe(true);
+      137 -  });
+      138 -
+      117    it('all family strings are non-empty', () => {
+      140 -    for (const list of Object.values(FONT_PRESETS)) {
+      141 -      for (const p of list) {
+      142 -        expect(p.family.trim().length).toBeGreaterThan(0);
+      143 -      }
+      118 +    for (const p of FONT_PRESETS) {
+      119 +      expect(p.family.trim().length).toBeGreaterThan(0);
+      120      }
+      121    });
+      122  });
+
+⏺ Now run the tests to verify:
+
+⏺ Bash(npm test 2>&1 | tail -40)
+  ⎿  node:internal/modules/cjs/loader:1386
+       throw err;
+       ^
+     … +19 lines (ctrl+o to expand)
+
+⏺ Bash(npx vitest run 2>&1 | tail -40)
+  ⎿  node:internal/modules/cjs/loader:1386
+       throw err;
+       ^
+     … +19 lines (ctrl+o to expand)
+
+⏺ Bash(unset NODE_OPTIONS && npx vitest run 2>&1 | tail -50)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (82 tests) 20ms
+     … +9 lines (ctrl+o to expand)
+
+⏺ All 235 tests pass. Now update the READMEs for the unified font list:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      105  | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
+      106  | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+      107  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      108 -| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"ui-monospace"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo
+          -"`, `"monaco"`, `"cascadia-code"`, `"consolas"`, `"courier-new"`. Defaults to `"default"` |
+      108 +| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"ui-monospace"`, `"source-code-pro"`, `"jetbrains-mono"`, `
+          +"fira-code"`, `"menlo"`, `"monaco"`, `"cascadia-code"`, `"consolas"`, `"courier-new"` (monospace), or `"system-ui"`, `"inter"`, `"
+          +helvetica-neue"`, `"verdana"`, `"trebuchet-ms"`, `"arial"`, `"georgia"` (proportional). Defaults to `"default"` |
+      109  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–48 px). Defaults to `12.5` |
+      110
+      111  ## Node object (bubble)
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      125  | `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
+      126  | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+      127  | `showTail` | boolean | Whether to show the tail (default: `true`) |
+      128 -| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `
+          -"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+      128 +| `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
+      129  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (11–48 px). Defaults to `13` |
+      130  | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+           k). `null` when not anchored. |
+      131  | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      145  | `h` | number | Height of the frame |
+      146  | `label` | string | Label text displayed in the frame header |
+      147  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      148 -| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `
+          -"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+      148 +| `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
+      149  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
+      150
+      151  ## Link object
+
+⏺ Now update README.ja.md:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+       95  | `showLineNumbers` | boolean | 行番号を表示するかどうか（デフォルト：`true`） |
+       96  | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト：`1`） |
+       97  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+       98 -| `fontFamily` | string | フォントファミリーID。`"default"` / `"ui-monospace"` / `"jetbrains-mono"` / `"fira-code"` / `"menlo"` /
+          -`"monaco"` / `"cascadia-code"` / `"consolas"` / `"courier-new"` のいずれか。省略時は `"default"` |
+       98 +| `fontFamily` | string | フォントファミリーID。等幅: `"default"` / `"ui-monospace"` / `"source-code-pro"` / `"jetbrains-mono"` /
+          +`"fira-code"` / `"menlo"` / `"monaco"` / `"cascadia-code"` / `"consolas"` / `"courier-new"`、プロポーショナル: `"system-ui"` / `"i
+          +nter"` / `"helvetica-neue"` / `"verdana"` / `"trebuchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
+       99  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜48 px）から選択するか直接入力可能。省略時は `12.5` |
+      100
+      101  ## Nodeオブジェクト（吹き出し）
+
+⏺ Update(README.ja.md)
+  ⎿  Added 2 lines, removed 2 lines
+      115  | `tailY` | number | キャンバス上の尾部先端のY座標（本体とは独立して移動可能） |
+      116  | `color` | string | カラーテーマID（例：`"green"`、`"blue"`、`"red"`） |
+      117  | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
+      118 -| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"tre
+          -buchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
+      118 +| `fontFamily` | string | フォントファミリーID。コードブロックと同じ選択肢。省略時は `"default"` |
+      119  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
+      120
+      121  ## Nodeオブジェクト（フレーム）
+     ...
+      132  | `h` | number | フレームの高さ |
+      133  | `label` | string | フレームヘッダーに表示されるラベルテキスト |
+      134  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+      135 -| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"tre
+          -buchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
+      135 +| `fontFamily` | string | フォントファミリーID。コードブロックと同じ選択肢。省略時は `"default"` |
+      136  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜32 px）から選択するか直接入力可能。省略時は `12` |
+      137
+      138  ## Linkオブジェクト
+
+⏺ Done. Here's a summary of the changes made:
+
+  canvas.js
+  - applyNodeFont(): replaced FONT_PRESETS[type].find(...) with FONT_PRESETS.find(...) on the flat array; added DEFAULT_FONT_FAMILY map for
+  'default' id handling per node type
+  - fontControlsHTML(): font family <select> now has a "Default" option + two <optgroup> groups ("Monospace" / "Proportional"), with monospace
+  options prefixed with ≡  (U+2261)
+
+  tests/canvas-utils.test.js: rewrote FONT_PRESETS tests for the flat array structure (checks Array.isArray, mono field, monospace/proportional
+  membership)
+
+  README.md / README.ja.md: updated fontFamily field descriptions — code block shows the full unified list; bubble and frame simply reference "same
+  options as code blocks"
+
+✻ Baked for 4m 49s
+```
+
+```
+❯ monospaceとproportionalでグループ化しているので、'≡'のprefixはつけないでください
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      234    const currentFamily = n.fontFamily ?? 'default';
+      235    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
+      236    const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
+      237 -    `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>\u2261 ${p.label}</option>`
+      237 +    `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+      238    ).join('');
+      239    const propOpts = FONT_PRESETS.filter(p => !p.mono).map(p =>
+      240      `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+
+⏺ Bash(unset NODE_OPTIONS && npx vitest run 2>&1 | tail -10)
+  ⎿   ✓ tests/canvas-dialogs.test.js (27 tests) 501ms
+      ✓ tests/canvas-integration.test.js (26 tests) 572ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 523ms
+     … +6 lines (ctrl+o to expand)
+
+⏺ ≡ プレフィックスを削除しました。
+```

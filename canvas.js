@@ -205,17 +205,26 @@ function applyNodeColor(n, el) {
 // ═══════════════════════════════════════════════════════
 // FONT HELPERS
 // ═══════════════════════════════════════════════════════
+const DEFAULT_FONT_FAMILY = {
+  code:   "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace",
+  bubble: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  frame:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+};
+
 function applyNodeFont(n, el) {
   const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
-  const preset = FONT_PRESETS[type].find(p => p.id === (n.fontFamily ?? 'default')) ?? FONT_PRESETS[type][0];
+  const fid = n.fontFamily ?? 'default';
+  const family = fid === 'default'
+    ? DEFAULT_FONT_FAMILY[type]
+    : (FONT_PRESETS.find(p => p.id === fid)?.family ?? DEFAULT_FONT_FAMILY[type]);
   if (type === 'code') {
-    el.style.setProperty('--node-font-family', preset.family);
+    el.style.setProperty('--node-font-family', family);
     el.style.setProperty('--node-font-size',   (n.fontSize ?? 12.5) + 'px');
   } else if (type === 'bubble') {
-    el.style.setProperty('--bubble-font-family', preset.family);
+    el.style.setProperty('--bubble-font-family', family);
     el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
   } else {
-    el.style.setProperty('--frame-font-family', preset.family);
+    el.style.setProperty('--frame-font-family', family);
     el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
   }
 }
@@ -224,9 +233,16 @@ function fontControlsHTML(n) {
   const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
   const currentFamily = n.fontFamily ?? 'default';
   const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
-  const familyOpts = FONT_PRESETS[type].map(p =>
+  const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
     `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
   ).join('');
+  const propOpts = FONT_PRESETS.filter(p => !p.mono).map(p =>
+    `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+  ).join('');
+  const familyOpts =
+    `<option value="default"${currentFamily === 'default' ? ' selected' : ''}>Default</option>` +
+    `<optgroup label="Monospace">${monoOpts}</optgroup>` +
+    `<optgroup label="Proportional">${propOpts}</optgroup>`;
   const dlId = `font-size-dl-${n.id}`;
   const sizeOpts = FONT_SIZES[type].map(s => `<option value="${s}">`).join('');
   return `<div class="font-controls">
