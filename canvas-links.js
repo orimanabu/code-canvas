@@ -1,7 +1,7 @@
 import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide } from './canvas-utils.js';
 
 export function initLinks(deps) {
-  const { S, wrap, svgLinks,
+  const { S, wrap, svgLinks, canvas, ndEl,
     linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
     linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
@@ -39,8 +39,8 @@ export function initLinks(deps) {
     scheduleSave();
   }
 
-  // End point of arrow: defaults to upper-left area of target node,
-  // adjusts based on where the start point (fp) is relative to the target.
+  // End point of arrow (screen coords): used by link preview and bubble tail rendering.
+  // fp is in screen coordinates; return values are in screen coordinates.
   function targetEntryPoint(fp, tn) {
     const nTL = c2s(tn.x,            tn.y);
     const nBR = c2s(tn.x + tn.w,     tn.y + tn.h);
@@ -57,61 +57,127 @@ export function initLinks(deps) {
     return { point: left, side: 'left' };  // default: left edge, upper area
   }
 
+  // End point of arrow (canvas coords): used by renderLinks() for per-node SVGs.
+  // fp is in canvas coordinates; return values are in canvas coordinates.
+  function targetEntryPointCanvas(fp, tn) {
+    if (fp.x > tn.x + tn.w)
+      return { point: { x: tn.x + tn.w,       y: tn.y + tn.h * 0.25 }, side: 'right' };
+    if (fp.y > tn.y + tn.h && fp.x > tn.x)
+      return { point: { x: tn.x + tn.w * 0.2, y: tn.y + tn.h },        side: 'bottom' };
+    if (fp.y < tn.y         && fp.x > tn.x)
+      return { point: { x: tn.x + tn.w * 0.2, y: tn.y },                side: 'top' };
+    return   { point: { x: tn.x,               y: tn.y + tn.h * 0.25 }, side: 'left' };
+  }
+
+  // Render all links as per-source-node SVG elements inside #canvas.
+  // Each source node gets a <svg class="node-link-svg"> inserted right after its div,
+  // so link z-order matches the source node's z-order.
+  // Paths use canvas (world) coordinates since the SVGs live inside the transformed #canvas.
   function renderLinks() {
-    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+    // Remove existing per-node link SVGs
+    canvas.querySelectorAll('.node-link-svg').forEach(e => e.remove());
+
+    // Group links by fromId, preserving S.nodes order
+    const linksByFrom = new Map();
+    for (const n of S.nodes) linksByFrom.set(n.id, []);
     for (const lnk of S.links) {
-      const fn = S.nodes.find(n => n.id === lnk.fromId);
-      const tn = S.nodes.find(n => n.id === lnk.toId);
-      if (!fn || !tn) continue;
+      if (linksByFrom.has(lnk.fromId)) linksByFrom.get(lnk.fromId).push(lnk);
+    }
 
-      // Start point: anchor element position if available, else node edge.
-      // Prefer the span marked data-lid-primary (the selected occurrence);
-      // fall back to the first span for this link, then to a sibling link's span.
-      let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
-                  || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
-      if (!anchorEl) {
-        const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
-        if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+    for (const fn of S.nodes) {
+      const nodeLinks = linksByFrom.get(fn.id) || [];
+      if (!nodeLinks.length) continue;
+
+      const nodeEl = ndEl(fn.id);
+      if (!nodeEl) continue;
+
+      // Compute canvas-coord bounding box covering source + all target nodes, plus padding.
+      // The SVG is sized to this box so all paths fit within the SVG viewport.
+      const pad = 80;
+      let minX = fn.x - pad, minY = fn.y - pad;
+      let maxX = fn.x + fn.w + pad, maxY = fn.y + fn.h + pad;
+      for (const lnk of nodeLinks) {
+        const tn = S.nodes.find(n => n.id === lnk.toId);
+        if (!tn) continue;
+        minX = Math.min(minX, tn.x - pad);
+        minY = Math.min(minY, tn.y - pad);
+        maxX = Math.max(maxX, tn.x + tn.w + pad);
+        maxY = Math.max(maxY, tn.y + tn.h + pad);
       }
-      let fp, anchorRect;
-      if (anchorEl) {
-        anchorRect = anchorEl.getBoundingClientRect();
-        fp = { x: anchorRect.left + anchorRect.width / 2, y: anchorRect.top + anchorRect.height / 2 };
-      } else {
-        fp = c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+      const svgW = maxX - minX, svgH = maxY - minY;
+
+      // Create an SVG layer right after this source node's div.
+      // Position and viewBox make SVG user units equal to canvas (world) coordinates.
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'node-link-svg');
+      svg.setAttribute('data-src', fn.id);
+      svg.setAttribute('viewBox', `${minX} ${minY} ${svgW} ${svgH}`);
+      svg.style.left   = minX + 'px';
+      svg.style.top    = minY + 'px';
+      svg.style.width  = svgW + 'px';
+      svg.style.height = svgH + 'px';
+      nodeEl.insertAdjacentElement('afterend', svg);
+
+      for (const lnk of nodeLinks) {
+        const tn = S.nodes.find(n => n.id === lnk.toId);
+        if (!tn) continue;
+
+        // Start point in canvas coords.
+        // Prefer the span marked data-lid-primary; fall back to first span for this link,
+        // then to a sibling link's span, then to node edge.
+        let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
+                    || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+        if (!anchorEl) {
+          const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+          if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+        }
+
+        let fp, canvasAnchorRect;
+        if (anchorEl) {
+          // Convert screen-coord DOMRect to canvas coords for use in canvas-space SVG
+          const sr = anchorEl.getBoundingClientRect();
+          const tl = s2c(sr.left, sr.top);
+          const br = s2c(sr.right, sr.bottom);
+          canvasAnchorRect = { left: tl.x, top: tl.y, right: br.x, bottom: br.y,
+                               width: br.x - tl.x, height: br.y - tl.y };
+          fp = { x: (tl.x + br.x) / 2, y: (tl.y + br.y) / 2 };
+        } else {
+          fp = edgePoint(fn, tn);
+        }
+
+        const { point: tp, side } = targetEntryPointCanvas(fp, tn);
+        if (anchorEl) fp = anchorFpFromSide(canvasAnchorRect, side);
+
+        const dx = tp.x - fp.x;
+        const dy = tp.y - fp.y;
+        const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
+
+        const stroke = lnk.stroke || '#388bfd';
+        const strokeWidth = lnk.strokeWidth || 1.5;
+        const dash = lnk.dash || '';
+
+        const g = svgE('g', { class: 'lk' });
+        const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+        pathEl.style.stroke = stroke;
+        pathEl.style.strokeWidth = strokeWidth + 'px';
+        if (dash) pathEl.style.strokeDasharray = dash;
+        g.appendChild(pathEl);
+
+        const hit = svgE('path', { d, class: 'link-hit' });
+        hit.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          showLinkCtx(lnk.id, e.clientX, e.clientY);
+        });
+        g.appendChild(hit);
+
+        const mx = (fp.x + tp.x) / 2;
+        const my = (fp.y + tp.y) / 2 - 9;
+        const txt = svgE('text', { x: mx, y: my, class: 'link-label', 'text-anchor': 'middle' });
+        txt.textContent = `"${lnk.text}"`;
+        g.appendChild(txt);
+
+        svg.appendChild(g);
       }
-
-      const { point: tp, side } = targetEntryPoint(fp, tn);
-      if (anchorEl) fp = anchorFpFromSide(anchorRect, side);
-
-      const dx = tp.x - fp.x;
-      const dy = tp.y - fp.y;
-      const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
-
-      const stroke = lnk.stroke || '#388bfd';
-      const strokeWidth = lnk.strokeWidth || 1.5;
-      const dash = lnk.dash || '';
-
-      const g = svgE('g', { class: 'lk' });
-      const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
-      pathEl.style.stroke = stroke;
-      pathEl.style.strokeWidth = strokeWidth + 'px';
-      if (dash) pathEl.style.strokeDasharray = dash;
-      g.appendChild(pathEl);
-      const hit = svgE('path', { d, class: 'link-hit' });
-      hit.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        showLinkCtx(lnk.id, e.clientX, e.clientY);
-      });
-      g.appendChild(hit);
-
-      const mx = (fp.x + tp.x) / 2;
-      const my = (fp.y + tp.y) / 2 - 9;
-      const txt = svgE('text', { x: mx, y: my, class: 'link-label', 'text-anchor': 'middle' });
-      txt.textContent = `"${lnk.text}"`;
-      g.appendChild(txt);
-
-      svgLinks.appendChild(g);
     }
   }
 

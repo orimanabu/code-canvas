@@ -183,6 +183,7 @@ export function initNodeRendering(deps) {
     } else {
       return;
     }
+    renderLinks();
     scheduleSave();
   }
 

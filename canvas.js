@@ -269,7 +269,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
    showAnchorCtx, hideAnchorCtx,
    showTailAnchorCtx, hideTailAnchorCtx,
 } = initLinks({
-  S, wrap, svgLinks,
+  S, wrap, svgLinks, canvas, ndEl,
   linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
   linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
   anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,

@@ -256,6 +256,17 @@ body {
 }
 .tail-anchor:hover { background: rgba(57,197,207,0.35); }
 
+/* ── Per-node link SVG (inside #canvas, z-ordered with source node) ── */
+/* Position and size are set by renderLinks() in canvas coords to fit path content.
+   z-index: 1 matches .node so DOM order (SVG inserted after its source node div)
+   determines the stacking: SVG appears above its source node, below later nodes. */
+.node-link-svg {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 1;
+}
+
 /* ── SVG links ── */
 .link-path {
   fill: none;

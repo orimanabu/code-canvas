@@ -135,12 +135,12 @@ describe('Link lifecycle', () => {
     expect(S.links[0]).toMatchObject({ fromId: a.id, toId: b.id, text: 'myFunc' });
   });
 
-  it('createLink renders an SVG path in #svg-links', () => {
+  it('createLink renders an SVG path in a per-node link SVG', () => {
     const a = addNode(0,   0);
     const b = addNode(500, 0);
     createLink(a.id, 'call', b.id);
 
-    const paths = document.querySelectorAll('#svg-links .lk');
+    const paths = document.querySelectorAll('.node-link-svg .lk');
     expect(paths.length).toBe(1);
   });
 
@@ -292,11 +292,11 @@ describe('Node deletion cascades to links', () => {
     const a = addNode(0,   0);
     const b = addNode(500, 0);
     createLink(a.id, 'fn', b.id);
-    expect(document.querySelectorAll('#svg-links .lk').length).toBe(1);
+    expect(document.querySelectorAll('.node-link-svg .lk').length).toBe(1);
 
     removeNode(a.id);
 
-    expect(document.querySelectorAll('#svg-links .lk').length).toBe(0);
+    expect(document.querySelectorAll('.node-link-svg .lk').length).toBe(0);
   });
 });
 

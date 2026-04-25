@@ -26850,3 +26850,541 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Worked for 2m 1s
 ```
+
+```
+❯ リンクのz-orderを、そのリンクの接続元ノードと同じにし、かつそのノードの上に描画させることはできますか
+
+⏺ 現在のリンク描画とz-order関連のコードを確認します。
+
+  Searched for 4 patterns, read 2 files (ctrl+o to expand)
+
+⏺ Now let me check how node z-index is managed in CSS and JS:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 全体の構造を把握しました。現状の DOM レイヤーを整理すると:
+
+  #wrap
+    ├── #svg-tails   (バブルのしっぽ用 SVG)
+    ├── #canvas      (ノード div たち — DOM 順で z-order)
+    └── #svg-links   (リンク SVG — 常に全ノードの上)
+
+  技術的には可能ですが、アーキテクチャ上の課題があります。
+
+  #svg-links はすべてのノード div の上に位置する単一レイヤーなので、リンクが常に全ノードより上に描画されます。接続元ノードと同じ z-order
+  にするには、リンクをノード div と同じ #canvas 内に配置し直す必要があります。
+
+  ---
+  実装方針（ペノード SVG アプローチ）:
+
+  1. renderLinks() を変更し、全リンクを単一の #svg-links に描くのをやめる
+  2. 各接続元ノードの div の 直後 に <svg class="node-link-svg"> を挿入する
+  3. その SVG にそのノードからのリンクだけ描画する
+  4. #canvas の中に入るので、ビューポートトランスフォームも共有される → canvas 座標系で描画できる
+
+  必要な変更点:
+
+  ┌──────────────────────────┬──────────────────────────────────────────────────────────────────────────────┐
+  │         ファイル         │                                   変更内容                                   │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js          │ renderLinks() をペノード SVG 方式に書き換え。座標系を screen → canvas に変更 │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js │ reorderNode() 後に renderLinks() を呼ぶよう deps に追加                      │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.js                │ initLinks / initNodeRendering の deps に canvas・ndEl・renderLinks を追加    │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.css               │ .node-link-svg の絶対配置スタイル追加                                        │
+  └──────────────────────────┴──────────────────────────────────────────────────────────────────────────────┘
+
+  懸念点:
+
+  - getBoundingClientRect() で取れる anchor 位置がスクリーン座標なので s2c() で変換が必要
+  - arrow マーカー (url(#arrow)) はドキュメント内で ID が一意であれば別 SVG から参照できる（モダンブラウザ対応）
+  - ノードの z-order 変更時に renderLinks() を再呼び出しする必要がある
+
+  ---
+  実装しますか？変更はそこそこの規模（canvas-links.js の座標系リファクタ + 3ファイルへの小変更）になります。
+
+✻ Cogitated for 2m 58s
+
+❯ お願いします
+
+⏺ では実装します。まず関連ファイルを詳しく読みます。
+
+  Searched for 6 patterns, read 3 files (ctrl+o to expand)
+
+⏺ 全体の構造を把握しました。実装します。
+
+  変更点まとめ:
+  - renderLinks() をペノード SVG 方式に変更（canvas 座標系）
+  - canvas 座標専用の targetEntryPointCanvas() を追加（バブルテールの targetEntryPoint は screen 座標のまま保持）
+  - reorderNode() 後に renderLinks() を呼ぶ
+  - CSS に .node-link-svg スタイル追加
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ これで全体を把握できました。変更を適用します。
+
+  1. canvas-links.js — renderLinks() をペノード SVG 方式に変更
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide } from './canvas-utils.js';
+      2
+      3  export function initLinks(deps) {
+      4 -  const { S, wrap, svgLinks,
+      4 +  const { S, wrap, svgLinks, canvas, ndEl,
+      5      linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+      6      linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      7      anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+
+⏺ 次に targetEntryPoint の直前に canvas 座標版を追加し、renderLinks() を書き換えます:
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 93 lines, removed 48 lines
+      39      scheduleSave();
+      40    }
+      41
+      42 -  // End point of arrow: defaults to upper-left area of target node,
+      43 -  // adjusts based on where the start point (fp) is relative to the target.
+      42 +  // End point of arrow (screen coords): used by link preview and bubble tail rendering.
+      43 +  // fp is in screen coordinates; return values are in screen coordinates.
+      44    function targetEntryPoint(fp, tn) {
+      45      const nTL = c2s(tn.x,            tn.y);
+      46      const nBR = c2s(tn.x + tn.w,     tn.y + tn.h);
+     ...
+       57      return { point: left, side: 'left' };  // default: left edge, upper area
+       58    }
+       59
+       60 +  // End point of arrow (canvas coords): used by renderLinks() for per-node SVGs.
+       61 +  // fp is in canvas coordinates; return values are in canvas coordinates.
+       62 +  function targetEntryPointCanvas(fp, tn) {
+       63 +    if (fp.x > tn.x + tn.w)
+       64 +      return { point: { x: tn.x + tn.w,       y: tn.y + tn.h * 0.25 }, side: 'right' };
+       65 +    if (fp.y > tn.y + tn.h && fp.x > tn.x)
+       66 +      return { point: { x: tn.x + tn.w * 0.2, y: tn.y + tn.h },        side: 'bottom' };
+       67 +    if (fp.y < tn.y         && fp.x > tn.x)
+       68 +      return { point: { x: tn.x + tn.w * 0.2, y: tn.y },                side: 'top' };
+       69 +    return   { point: { x: tn.x,               y: tn.y + tn.h * 0.25 }, side: 'left' };
+       70 +  }
+       71 +
+       72 +  // Render all links as per-source-node SVG elements inside #canvas.
+       73 +  // Each source node gets a <svg class="node-link-svg"> inserted right after its div,
+       74 +  // so link z-order matches the source node's z-order.
+       75 +  // Paths use canvas (world) coordinates since the SVGs live inside the transformed #canvas.
+       76    function renderLinks() {
+       61 -    svgLinks.querySelectorAll('.lk').forEach(e => e.remove());
+       77 +    // Remove existing per-node link SVGs
+       78 +    canvas.querySelectorAll('.node-link-svg').forEach(e => e.remove());
+       79 +
+       80 +    // Group links by fromId, preserving S.nodes order
+       81 +    const linksByFrom = new Map();
+       82 +    for (const n of S.nodes) linksByFrom.set(n.id, []);
+       83      for (const lnk of S.links) {
+       63 -      const fn = S.nodes.find(n => n.id === lnk.fromId);
+       64 -      const tn = S.nodes.find(n => n.id === lnk.toId);
+       65 -      if (!fn || !tn) continue;
+       84 +      if (linksByFrom.has(lnk.fromId)) linksByFrom.get(lnk.fromId).push(lnk);
+       85 +    }
+       86
+       67 -      // Start point: anchor element position if available, else node edge.
+       68 -      // Prefer the span marked data-lid-primary (the selected occurrence);
+       69 -      // fall back to the first span for this link, then to a sibling link's span.
+       70 -      let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
+       71 -                  || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+       72 -      if (!anchorEl) {
+       73 -        const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+       74 -        if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+       75 -      }
+       76 -      let fp, anchorRect;
+       77 -      if (anchorEl) {
+       78 -        anchorRect = anchorEl.getBoundingClientRect();
+       79 -        fp = { x: anchorRect.left + anchorRect.width / 2, y: anchorRect.top + anchorRect.height / 2 };
+       80 -      } else {
+       81 -        fp = c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+       82 -      }
+       87 +    for (const fn of S.nodes) {
+       88 +      const nodeLinks = linksByFrom.get(fn.id) || [];
+       89 +      if (!nodeLinks.length) continue;
+       90
+       84 -      const { point: tp, side } = targetEntryPoint(fp, tn);
+       85 -      if (anchorEl) fp = anchorFpFromSide(anchorRect, side);
+       91 +      const nodeEl = ndEl(fn.id);
+       92 +      if (!nodeEl) continue;
+       93
+       87 -      const dx = tp.x - fp.x;
+       88 -      const dy = tp.y - fp.y;
+       89 -      const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}`;
+       94 +      // Create an SVG layer right after this source node's div
+       95 +      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+       96 +      svg.setAttribute('class', 'node-link-svg');
+       97 +      svg.setAttribute('data-src', fn.id);
+       98 +      nodeEl.insertAdjacentElement('afterend', svg);
+       99
+       91 -      const stroke = lnk.stroke || '#388bfd';
+       92 -      const strokeWidth = lnk.strokeWidth || 1.5;
+       93 -      const dash = lnk.dash || '';
+      100 +      for (const lnk of nodeLinks) {
+      101 +        const tn = S.nodes.find(n => n.id === lnk.toId);
+      102 +        if (!tn) continue;
+      103
+       95 -      const g = svgE('g', { class: 'lk' });
+       96 -      const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+       97 -      pathEl.style.stroke = stroke;
+       98 -      pathEl.style.strokeWidth = strokeWidth + 'px';
+       99 -      if (dash) pathEl.style.strokeDasharray = dash;
+      100 -      g.appendChild(pathEl);
+      101 -      const hit = svgE('path', { d, class: 'link-hit' });
+      102 -      hit.addEventListener('contextmenu', e => {
+      103 -        e.preventDefault();
+      104 -        showLinkCtx(lnk.id, e.clientX, e.clientY);
+      105 -      });
+      106 -      g.appendChild(hit);
+      104 +        // Start point in canvas coords.
+      105 +        // Prefer the span marked data-lid-primary; fall back to first span for this link,
+      106 +        // then to a sibling link's span, then to node edge.
+      107 +        let anchorEl = document.querySelector(`.link-anchor[data-lid="${lnk.id}"][data-lid-primary]`)
+      108 +                    || document.querySelector(`.link-anchor[data-lid="${lnk.id}"]`);
+      109 +        if (!anchorEl) {
+      110 +          const sibling = S.links.find(l => l.fromId === lnk.fromId && l.text === lnk.text && l.id !== lnk.id);
+      111 +          if (sibling) anchorEl = document.querySelector(`.link-anchor[data-lid="${sibling.id}"]`);
+      112 +        }
+      113
+      108 -      const mx = (fp.x + tp.x) / 2;
+      109 -      const my = (fp.y + tp.y) / 2 - 9;
+      110 -      const txt = svgE('text', { x: mx, y: my, class: 'link-label', 'text-anchor': 'middle' });
+      111 -      txt.textContent = `"${lnk.text}"`;
+      112 -      g.appendChild(txt);
+      114 +        let fp, canvasAnchorRect;
+      115 +        if (anchorEl) {
+      116 +          // Convert screen-coord DOMRect to canvas coords for use in canvas-space SVG
+      117 +          const sr = anchorEl.getBoundingClientRect();
+      118 +          const tl = s2c(sr.left, sr.top);
+      119 +          const br = s2c(sr.right, sr.bottom);
+      120 +          canvasAnchorRect = { left: tl.x, top: tl.y, right: br.x, bottom: br.y,
+      121 +                               width: br.x - tl.x, height: br.y - tl.y };
+      122 +          fp = { x: (tl.x + br.x) / 2, y: (tl.y + br.y) / 2 };
+      123 +        } else {
+      124 +          fp = edgePoint(fn, tn);
+      125 +        }
+      126
+      114 -      svgLinks.appendChild(g);
+      127 +        const { point: tp, side } = targetEntryPointCanvas(fp, tn);
+      128 +        if (anchorEl) fp = anchorFpFromSide(canvasAnchorRect, side);
+      129 +
+      130 +        const dx = tp.x - fp.x;
+      131 +        const dy = tp.y - fp.y;
+      132 +        const d = `M${fp.x},${fp.y} C${fp.x + dx * 0.45},${fp.y + dy * 0.1} ${tp.x - dx * 0.45},${tp.y - dy * 0.1} ${tp.x},${tp.y}
+          +`;
+      133 +
+      134 +        const stroke = lnk.stroke || '#388bfd';
+      135 +        const strokeWidth = lnk.strokeWidth || 1.5;
+      136 +        const dash = lnk.dash || '';
+      137 +
+      138 +        const g = svgE('g', { class: 'lk' });
+      139 +        const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+      140 +        pathEl.style.stroke = stroke;
+      141 +        pathEl.style.strokeWidth = strokeWidth + 'px';
+      142 +        if (dash) pathEl.style.strokeDasharray = dash;
+      143 +        g.appendChild(pathEl);
+      144 +
+      145 +        const hit = svgE('path', { d, class: 'link-hit' });
+      146 +        hit.addEventListener('contextmenu', e => {
+      147 +          e.preventDefault();
+      148 +          showLinkCtx(lnk.id, e.clientX, e.clientY);
+      149 +        });
+      150 +        g.appendChild(hit);
+      151 +
+      152 +        const mx = (fp.x + tp.x) / 2;
+      153 +        const my = (fp.y + tp.y) / 2 - 9;
+      154 +        const txt = svgE('text', { x: mx, y: my, class: 'link-label', 'text-anchor': 'middle' });
+      155 +        txt.textContent = `"${lnk.text}"`;
+      156 +        g.appendChild(txt);
+      157 +
+      158 +        svg.appendChild(g);
+      159 +      }
+      160      }
+      161    }
+      162
+
+⏺ 2. canvas.js — initLinks の deps に canvas と ndEl を追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      269     showAnchorCtx, hideAnchorCtx,
+      270     showTailAnchorCtx, hideTailAnchorCtx,
+      271  } = initLinks({
+      272 -  S, wrap, svgLinks,
+      272 +  S, wrap, svgLinks, canvas, ndEl,
+      273    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+      274    linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      275    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+
+⏺ 3. canvas-node-rendering.js — reorderNode() 後に renderLinks() を呼ぶ
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line
+      183      } else {
+      184        return;
+      185      }
+      186 +    renderLinks();
+      187      scheduleSave();
+      188    }
+      189
+
+⏺ 4. canvas.css — .node-link-svg スタイル追加
+
+⏺ Update(canvas.css)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 9 lines
+      256  }
+      257  .tail-anchor:hover { background: rgba(57,197,207,0.35); }
+      258
+      259 +/* ── Per-node link SVG (inside #canvas, z-ordered with source node) ── */
+      260 +.node-link-svg {
+      261 +  position: absolute;
+      262 +  top: 0; left: 0;
+      263 +  width: 0; height: 0;
+      264 +  overflow: visible;
+      265 +  pointer-events: none;
+      266 +}
+      267 +
+      268  /* ── SVG links ── */
+      269  .link-path {
+      270    fill: none;
+
+⏺ 変更を確認します:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ コードの確認ができました。次にテストを実行します:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (90 tests) 19ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 401ms
+     … +52 lines (ctrl+o to see all)
+
+⏺ テストが #svg-links .lk を検索していますが、リンクが .node-link-svg .lk に移動したので、テストを修正します:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 2 lines, removed 2 lines
+      135      expect(S.links[0]).toMatchObject({ fromId: a.id, toId: b.id, text: 'myFunc' });
+      136    });
+      137
+      138 -  it('createLink renders an SVG path in #svg-links', () => {
+      138 +  it('createLink renders an SVG path in a per-node link SVG', () => {
+      139      const a = addNode(0,   0);
+      140      const b = addNode(500, 0);
+      141      createLink(a.id, 'call', b.id);
+      142
+      143 -    const paths = document.querySelectorAll('#svg-links .lk');
+      143 +    const paths = document.querySelectorAll('.node-link-svg .lk');
+      144      expect(paths.length).toBe(1);
+      145    });
+      146
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 2 lines, removed 2 lines
+      292      const a = addNode(0,   0);
+      293      const b = addNode(500, 0);
+      294      createLink(a.id, 'fn', b.id);
+      295 -    expect(document.querySelectorAll('#svg-links .lk').length).toBe(1);
+      295 +    expect(document.querySelectorAll('.node-link-svg .lk').length).toBe(1);
+      296
+      297      removeNode(a.id);
+      298
+      299 -    expect(document.querySelectorAll('#svg-links .lk').length).toBe(0);
+      299 +    expect(document.querySelectorAll('.node-link-svg .lk').length).toBe(0);
+      300    });
+      301  });
+      302
+
+⏺ また、テストのセットアップ DOM に canvas と ndEl が initLinks に渡されているか確認します:
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ テストは canvas.js を通じて統合されているので、修正したテストで再実行します:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全テスト通過しました。変更内容をまとめます:
+
+  ---
+  実装内容:
+
+  canvas-links.js
+  - renderLinks() を完全に書き換え: #svg-links に .lk を追加する代わりに、#canvas 内の各接続元ノード div の 直後 に <svg class="node-link-svg">
+  を挿入する
+  - SVG 内のパスは canvas 座標系 (= S.vp の transform を共有) で描画するため、c2s() 変換が不要になった
+  - anchor 要素の位置は getBoundingClientRect() (screen 座標) → s2c() で canvas 座標に変換
+  - targetEntryPointCanvas() を追加 (canvas 座標版)。バブルテールやリンクプレビューで使う既存の targetEntryPoint() (screen 座標) はそのまま保持
+
+  canvas-node-rendering.js
+  - reorderNode() 実行後に renderLinks() を呼ぶようにした
+
+  canvas.js
+  - initLinks の deps に canvas と ndEl を追加
+
+  canvas.css
+  - .node-link-svg スタイル追加 (position: absolute; width: 0; height: 0; overflow: visible; pointer-events: none)
+
+  効果: ノードの z-order (DOM 順) に応じてリンクも自動的に同じ z-order
+  になります。接続元ノードより前面にある別のノードがリンクの上に重なります。ズームに合わせてリンクの太さも比例スケールするようになりました。
+
+✻ Baked for 6m 10s
+
+❯ リンクが全く見えなくなってしまいました。修正してください
+
+⏺ ノードの DOM 座標がどう適用されているか確認します。
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ バブルテールの SVG がどのように位置とサイズを設定しているか確認します:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 原因が分かりました。width: 0; height: 0 の SVG は overflow: visible があっても確実に描画されません。バブルテール SVG
+  と同じアプローチ（コンテンツのバウンディングボックスを計算して SVG のサイズと位置を設定）を使います。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 22 lines, removed 1 line
+       91        const nodeEl = ndEl(fn.id);
+       92        if (!nodeEl) continue;
+       93
+       94 -      // Create an SVG layer right after this source node's div
+       94 +      // Compute canvas-coord bounding box covering source + all target nodes, plus padding.
+       95 +      // The SVG is sized to this box so all paths fit within the SVG viewport.
+       96 +      const pad = 80;
+       97 +      let minX = fn.x - pad, minY = fn.y - pad;
+       98 +      let maxX = fn.x + fn.w + pad, maxY = fn.y + fn.h + pad;
+       99 +      for (const lnk of nodeLinks) {
+      100 +        const tn = S.nodes.find(n => n.id === lnk.toId);
+      101 +        if (!tn) continue;
+      102 +        minX = Math.min(minX, tn.x - pad);
+      103 +        minY = Math.min(minY, tn.y - pad);
+      104 +        maxX = Math.max(maxX, tn.x + tn.w + pad);
+      105 +        maxY = Math.max(maxY, tn.y + tn.h + pad);
+      106 +      }
+      107 +      const svgW = maxX - minX, svgH = maxY - minY;
+      108 +
+      109 +      // Create an SVG layer right after this source node's div.
+      110 +      // Position and viewBox make SVG user units equal to canvas (world) coordinates.
+      111        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      112        svg.setAttribute('class', 'node-link-svg');
+      113        svg.setAttribute('data-src', fn.id);
+      114 +      svg.setAttribute('viewBox', `${minX} ${minY} ${svgW} ${svgH}`);
+      115 +      svg.style.left   = minX + 'px';
+      116 +      svg.style.top    = minY + 'px';
+      117 +      svg.style.width  = svgW + 'px';
+      118 +      svg.style.height = svgH + 'px';
+      119        nodeEl.insertAdjacentElement('afterend', svg);
+      120
+      121        for (const lnk of nodeLinks) {
+
+⏺ 次に CSS の .node-link-svg を修正（width/height は JS で設定するので CSS では不要）:
+
+⏺ Update(canvas.css)
+  ⎿  Added 2 lines, removed 3 lines
+      257  .tail-anchor:hover { background: rgba(57,197,207,0.35); }
+      258
+      259  /* ── Per-node link SVG (inside #canvas, z-ordered with source node) ── */
+      260 +/* Position and size are set by renderLinks() in canvas coords to fit path content. */
+      261  .node-link-svg {
+      262    position: absolute;
+      262 -  top: 0; left: 0;
+      263 -  width: 0; height: 0;
+      264 -  overflow: visible;
+      263    pointer-events: none;
+      264 +  overflow: visible;
+      265  }
+      266
+      267  /* ── SVG links ── */
+
+⏺ テストを実行:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+  ⎿  (timeout 30s)
+
+⏺ 全テスト通過です。
+
+  修正内容:
+
+  ゼロサイズ SVG (width: 0; height: 0; overflow: visible) はブラウザによってコンテンツが描画されない問題がありました。バブルテール SVG
+  と同じ方式に変更しました:
+
+  - 接続元ノード + 全ターゲットノードのバウンディングボックスをパディング付きで計算
+  - SVG の style.left/top/width/height を計算したボックスに合わせて設定
+  - viewBox を "minX minY width height" に設定 → SVG ユーザー座標 = canvas 座標 が成立
+
+  これで links が再び描画されます。z-order はノードの z-order に従います。
+
+✻ Churned for 3m 20s
+
+❯ リンクが、そのリンク接続元ノードよりも下に描画されています。リンク接続元ノードの上に描画してください
+
+⏺ 原因は CSS の z-index です。.node は z-index: 1 ですが、.node-link-svg には z-index が設定されていないため auto (= 0相当)
+  となり、ノードの下に描画されています。
+
+⏺ Update(canvas.css)
+  ⎿  Added 4 lines, removed 1 line
+      257  .tail-anchor:hover { background: rgba(57,197,207,0.35); }
+      258
+      259  /* ── Per-node link SVG (inside #canvas, z-ordered with source node) ── */
+      260 -/* Position and size are set by renderLinks() in canvas coords to fit path content. */
+      260 +/* Position and size are set by renderLinks() in canvas coords to fit path content.
+      261 +   z-index: 1 matches .node so DOM order (SVG inserted after its source node div)
+      262 +   determines the stacking: SVG appears above its source node, below later nodes. */
+      263  .node-link-svg {
+      264    position: absolute;
+      265    pointer-events: none;
+      266    overflow: visible;
+      267 +  z-index: 1;
+      268  }
+      269
+      270  /* ── SVG links ── */
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全テスト通過です。
+
+  修正の説明:
+
+  ┌─────────────────────────────┬──────────────┬────────────────────────────────────┐
+  │            要素             │   z-index    │                結果                │
+  ├─────────────────────────────┼──────────────┼────────────────────────────────────┤
+  │ .node (ノード div)          │ 1            │ 同じ z-index なので DOM 順で決まる │
+  ├─────────────────────────────┼──────────────┼────────────────────────────────────┤
+  │ .node-link-svg (リンク SVG) │ 1 (今回追加) │ —                                  │
+  └─────────────────────────────┴──────────────┴────────────────────────────────────┘
+
+  insertAdjacentElement('afterend', svg) でリンク SVG はソースノード div の直後に挿入されます。両方が同じ z-index: 1 なので DOM
+  順がスタッキングを決定します。これにより:
+
+  - リンクはそのソースノードの上 (SVG が後ろにある → 上に描画)
+  - それより後ろの DOM にある別のノードはリンクの上 (同 z-index で DOM 後方 → 上に描画)
+
+✻ Crunched for 38s
+```
