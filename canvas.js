@@ -205,7 +205,7 @@ function undo() {
 let renderNode, renderLinks, renderFreeLines;
 let startEdit, stopEdit, autoFitNode;
 let selectNode, toggleMultiSel, clearMultiSel, removeNode;
-let addNode, addBubble, addFrame;
+let addNode, addBubble, addFrame, addText;
 let setupNodeEvents, setupFrameEvents;
 let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
 let getSelectedIds, copyNodes, cutNodes, pasteNodes;
@@ -288,7 +288,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
 }));
 
 // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)
-({ addNode, addBubble, addFrame, removeNode,
+({ addNode, addBubble, addFrame, addText, removeNode,
    selectNode, toggleMultiSel, clearMultiSel,
    startEdit, stopEdit, autoFitNode,
    setupNodeEvents, setupFrameEvents,
@@ -364,6 +364,10 @@ function saveState() {
       if (n.type === 'frame') {
         const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
         return { id, type, x, y, w, h, label, color, fontFamily, fontSize };
+      }
+      if (n.type === 'text') {
+        const { id, type, x, y, w, h, text, textColor, fontFamily, fontSize } = n;
+        return { id, type, x, y, w, h, text, textColor, fontFamily, fontSize };
       }
       const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
       return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
@@ -457,6 +461,11 @@ function loadState(data) {
       n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             label: nd.label ?? '', color: nd.color ?? 'blue',
             fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 12 };
+    } else if (nd.type === 'text') {
+      n = { id: nd.id, type: 'text', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+            text: nd.text ?? '',
+            textColor: nd.textColor ?? 'white',
+            fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 20 };
     } else {
       n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code,
             lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '',
@@ -466,6 +475,7 @@ function loadState(data) {
     S.nodes.push(n);
     const el = document.createElement('div');
     el.className = n.type === 'frame' ? 'frame-node'
+                 : n.type === 'text'  ? 'text-node'
                  : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
@@ -721,8 +731,8 @@ document.addEventListener('mousemove', e => {
       const dx   = (e.clientX - S.resize.sx) * r;
       const dy   = (e.clientY - S.resize.sy) * r;
       const edge = S.resize.edge;
-      const minW = (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
-      const minH = (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
+      const minW = n.type === 'text' ? 60 : (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
+      const minH = n.type === 'text' ? 30 : (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
       if (edge === 'n') {
         const newH = Math.max(minH, S.resize.oh - dy);
         n.y = S.resize.oy + S.resize.oh - newH;
@@ -971,6 +981,11 @@ document.getElementById('btn-add').addEventListener('click', () => {
   addNode(p.x - 215, p.y - 135);
 });
 
+document.getElementById('btn-add-text')?.addEventListener('click', () => {
+  const p = s2c(wrap.clientWidth / 2, wrap.clientHeight / 2);
+  addText(p.x - 100, p.y - 40);
+});
+
 document.getElementById('btn-add-line')?.addEventListener('click', () => {
   if (S.lineDrawMode) exitLineDrawMode();
   else enterLineDrawMode();
@@ -1209,7 +1224,7 @@ setStatus('Ready — double-click to add block | select text to create link | ri
 // TEST EXPORTS (Node.js / Vitest only — not used in browser)
 // ═══════════════════════════════════════════════════════
 if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
-  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, loadState,
     saveState, restoreFromStorage,
     createLink, removeLink,
     copyNodes, cutNodes, pasteNodes, toggleMultiSel,

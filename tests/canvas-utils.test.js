@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
+  esc, EXT_LANG, langFromPath, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES,
   injectAnchor, splitHtmlLines, addLineNumbers,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
 } from '../canvas-utils.js';
@@ -74,6 +74,39 @@ describe('NODE_COLORS', () => {
   it('contains red', () => expect(NODE_COLORS.some(c => c.id === 'red')).toBe(true));
 });
 
+// ─── TEXT_COLORS ─────────────────────────────────────────
+describe('TEXT_COLORS', () => {
+  it('is an array', () => expect(Array.isArray(TEXT_COLORS)).toBe(true));
+
+  it('has 10 entries', () => expect(TEXT_COLORS.length).toBe(10));
+
+  it('each entry has id, label, and hex fields', () => {
+    for (const c of TEXT_COLORS) {
+      expect(typeof c.id).toBe('string');
+      expect(typeof c.label).toBe('string');
+      expect(c.hex).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it('all ids are unique', () => {
+    const ids = TEXT_COLORS.map(c => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('contains white as the first entry (default text color)', () => {
+    expect(TEXT_COLORS[0].id).toBe('white');
+  });
+
+  it('contains common named colors', () => {
+    const ids = TEXT_COLORS.map(c => c.id);
+    expect(ids).toContain('white');
+    expect(ids).toContain('yellow');
+    expect(ids).toContain('green');
+    expect(ids).toContain('blue');
+    expect(ids).toContain('red');
+  });
+});
+
 // ─── FONT_PRESETS ─────────────────────────────────────────
 describe('FONT_PRESETS', () => {
   it('is a flat array', () => {
@@ -123,10 +156,11 @@ describe('FONT_PRESETS', () => {
 
 // ─── FONT_SIZES ───────────────────────────────────────────
 describe('FONT_SIZES', () => {
-  it('has keys for code, bubble, and frame', () => {
+  it('has keys for code, bubble, frame, and text', () => {
     expect(FONT_SIZES).toHaveProperty('code');
     expect(FONT_SIZES).toHaveProperty('bubble');
     expect(FONT_SIZES).toHaveProperty('frame');
+    expect(FONT_SIZES).toHaveProperty('text');
   });
 
   it('each list contains only positive numbers', () => {
@@ -148,6 +182,14 @@ describe('FONT_SIZES', () => {
 
   it('frame sizes include default 12', () => {
     expect(FONT_SIZES.frame).toContain(12);
+  });
+
+  it('text sizes include default 20', () => {
+    expect(FONT_SIZES.text).toContain(20);
+  });
+
+  it('text sizes include large values (>=64)', () => {
+    expect(FONT_SIZES.text.some(s => s >= 64)).toBe(true);
   });
 
   it('code sizes include large values (>=32)', () => {

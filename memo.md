@@ -25881,3 +25881,972 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Churned for 1m 46s
 ```
+
+```
+❯ 新しいオブジェクトとして、任意のテキストをキャンバスに配置できるようにして。文字列の色とフォントを変更できるようにして
+
+⏺ まず現在のコードベースを確認します。
+
+  Searched for 1 pattern, read 6 files (ctrl+o to expand)
+
+⏺ Now I have a complete picture. Let me implement the "text label" node type. Here's my plan:
+
+  1. canvas-utils.js — Add TEXT_COLORS and FONT_SIZES.text
+  2. canvas-node-rendering.js — Add text node render logic
+  3. canvas-nodes.js — Add addText function
+  4. canvas.js — Wire up + save/load support + toolbar button
+  5. canvas.html — Add toolbar button
+  6. canvas.css — Add .text-node styles
+
+  Let me start:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全体像を把握しました。実装を進めます。
+
+  変更ファイル一覧:
+  1. canvas-utils.js — TEXT_COLORS と FONT_SIZES.text を追加
+  2. canvas-node-rendering.js — テキストノードのレンダリング追加
+  3. canvas-nodes.js — addText 関数と関連修正
+  4. canvas.js — ワイアリング・保存/復元・ツールバー
+  5. canvas.html — ツールバーボタン追加
+  6. canvas.css — .text-node スタイル追加
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 18 lines
+      111    code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+      112    bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+      113    frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32],
+      114 +  text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96],
+      115  };
+      116
+      117 +// ═══════════════════════════════════════════════════════
+      118 +// TEXT NODE COLORS
+      119 +// ═══════════════════════════════════════════════════════
+      120 +// Bright colors readable on the dark canvas background.
+      121 +export const TEXT_COLORS = [
+      122 +  { id: 'white',  label: 'White',  hex: '#e6edf3' },
+      123 +  { id: 'yellow', label: 'Yellow', hex: '#f2c55a' },
+      124 +  { id: 'green',  label: 'Green',  hex: '#56d364' },
+      125 +  { id: 'blue',   label: 'Blue',   hex: '#79c0ff' },
+      126 +  { id: 'purple', label: 'Purple', hex: '#bc8cff' },
+      127 +  { id: 'red',    label: 'Red',    hex: '#ff7b72' },
+      128 +  { id: 'orange', label: 'Orange', hex: '#ffa657' },
+      129 +  { id: 'cyan',   label: 'Cyan',   hex: '#56d4dd' },
+      130 +  { id: 'pink',   label: 'Pink',   hex: '#ff9ed2' },
+      131 +  { id: 'gray',   label: 'Gray',   hex: '#8b949e' },
+      132 +];
+      133 +
+      134  // Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
+      135  // and never inside an already-injected link-anchor span.
+      136  // rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 1 line
+      1 -import { esc, NODE_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
+      1 +import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
+      2           injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
+      3
+      4  // hljs is a browser global (loaded from CDN script tag in canvas.html)
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line
+       97      code:   "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace",
+       98      bubble: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+       99      frame:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      100 +    text:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      101    };
+      102
+      103    function applyNodeFont(n, el) {
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 6 lines, removed 3 lines
+      101    };
+      102
+      103    function applyNodeFont(n, el) {
+      104 -    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+      104 +    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+      105      const fid = n.fontFamily ?? 'default';
+      106      const family = fid === 'default'
+      107        ? DEFAULT_FONT_FAMILY[type]
+     ...
+      112      } else if (type === 'bubble') {
+      113        el.style.setProperty('--bubble-font-family', family);
+      114        el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+      115 +    } else if (type === 'text') {
+      116 +      el.style.setProperty('--text-font-family', family);
+      117 +      el.style.setProperty('--text-font-size',   (n.fontSize ?? 20) + 'px');
+      118      } else {
+      119        el.style.setProperty('--frame-font-family', family);
+      120        el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
+     ...
+      122    }
+      123
+      124    function fontControlsHTML(n) {
+      122 -    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+      125 +    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+      126      const currentFamily = n.fontFamily ?? 'default';
+      124 -    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
+      127 +    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : type === 'text' ? 20 : 12);
+      128      const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
+      129        `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+      130      ).join('');
+
+⏺ Now update applyNodeColor to handle 'text' type:
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 5 lines, removed 1 line
+      62    }
+      63
+      64    function applyNodeColor(n, el) {
+      65 -    if (n.type === 'bubble') {
+      65 +    if (n.type === 'text') {
+      66 +      const c = TEXT_COLORS.find(c => c.id === (n.textColor ?? 'white')) ?? TEXT_COLORS[0];
+      67 +      el.style.setProperty('--tn-color', c.hex);
+      68 +      el.style.setProperty('--tn-glow',  c.hex + '33');
+      69 +    } else if (n.type === 'bubble') {
+      70        const c = NODE_COLORS.find(c => c.id === (n.color ?? 'green')) ?? NODE_COLORS.find(c => c.id === 'green');
+      71        el.style.setProperty('--bn-bg',         c.bgDark);
+      72        el.style.setProperty('--bn-border',     c.hex);
+
+⏺ Now add the text node HTML builders and renderTextContent. I'll add them after the BUBBLE CONTENT section and before the FRAME CONTENT section:
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 105 lines
+      361    }
+      362
+      363    // ═══════════════════════════════════════════════════════
+      364 +  // TEXT NODE CONTENT
+      365 +  // ═══════════════════════════════════════════════════════
+      366 +  function textColorSwatchesHTML(n) {
+      367 +    const active = n.textColor ?? 'white';
+      368 +    return `<div class="color-swatches">${
+      369 +      TEXT_COLORS.map(c =>
+      370 +        `<span class="color-swatch${c.id === active ? ' active' : ''}" data-textcolor="${c.id}" style="background:${c.hex}" title=
+          +"${c.label}"></span>`
+      371 +      ).join('')
+      372 +    }</div>`;
+      373 +  }
+      374 +
+      375 +  function textViewHTML(n) {
+      376 +    const body = n.text
+      377 +      ? `<div class="text-content">${esc(n.text).replace(/\n/g, '<br>')}</div>`
+      378 +      : `<div class="text-content text-content-empty">Text…</div>`;
+      379 +    return `
+      380 +    <div class="text-node-header">
+      381 +      <div class="node-actions">
+      382 +        <button class="node-btn btn-edit">Edit</button>
+      383 +        <button class="node-btn danger btn-del">✕</button>
+      384 +      </div>
+      385 +    </div>
+      386 +    <div class="text-body">${body}</div>
+      387 +    <div class="resize-handle"></div>`;
+      388 +  }
+      389 +
+      390 +  function textEditHTML(n) {
+      391 +    return `
+      392 +    <div class="text-node-header">
+      393 +      <div class="node-actions" style="opacity:1">
+      394 +        <div class="edit-menu-wrap">
+      395 +          <button class="node-btn btn-edit-menu" title="More options">•••</button>
+      396 +          <div class="edit-menu">
+      397 +            <div class="edit-menu-section-label">Text Color</div>
+      398 +            ${textColorSwatchesHTML(n)}
+      399 +            ${fontControlsHTML(n)}
+      400 +            ${zOrderMenuHTML()}
+      401 +          </div>
+      402 +        </div>
+      403 +        <button class="node-btn btn-done">✓ Done</button>
+      404 +        <button class="node-btn danger btn-del">Delete</button>
+      405 +      </div>
+      406 +    </div>
+      407 +    <div class="text-body">
+      408 +      <textarea class="text-textarea" spellcheck="false">${esc(n.text ?? '')}</textarea>
+      409 +    </div>
+      410 +    <div class="resize-handle"></div>`;
+      411 +  }
+      412 +
+      413 +  function renderTextContent(n, el) {
+      414 +    el.classList.toggle('is-editing', S.editing === n.id);
+      415 +    if (S.editing === n.id) {
+      416 +      el.innerHTML = textEditHTML(n);
+      417 +      const ta = el.querySelector('textarea');
+      418 +      ta.style.height = '100%';
+      419 +      ta.addEventListener('input', () => { n.text = ta.value; });
+      420 +      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      421 +      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      422 +      el.querySelectorAll('[data-textcolor]').forEach(sw => {
+      423 +        sw.addEventListener('mousedown', e => e.stopPropagation());
+      424 +        sw.addEventListener('click', e => {
+      425 +          e.stopPropagation();
+      426 +          n.textColor = sw.dataset.textcolor;
+      427 +          applyNodeColor(n, el);
+      428 +          el.querySelectorAll('[data-textcolor]').forEach(s =>
+      429 +            s.classList.toggle('active', s.dataset.textcolor === n.textColor));
+      430 +          scheduleSave();
+      431 +        });
+      432 +      });
+      433 +      const menuWrap = el.querySelector('.edit-menu-wrap');
+      434 +      const menuBtn  = el.querySelector('.btn-edit-menu');
+      435 +      if (menuBtn) {
+      436 +        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      437 +        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      438 +      }
+      439 +      bindZOrderButtons(n, el);
+      440 +      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      441 +      el.querySelector('.sel-font-family').addEventListener('change', e => {
+      442 +        e.stopPropagation();
+      443 +        n.fontFamily = e.target.value;
+      444 +        applyNodeFont(n, el);
+      445 +        scheduleSave();
+      446 +      });
+      447 +      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      448 +      el.querySelector('.inp-font-size').addEventListener('change', e => {
+      449 +        e.stopPropagation();
+      450 +        const v = parseFloat(e.target.value);
+      451 +        if (!isNaN(v) && v >= 6 && v <= 96) {
+      452 +          n.fontSize = v;
+      453 +          applyNodeFont(n, el);
+      454 +          scheduleSave();
+      455 +        } else {
+      456 +          e.target.value = n.fontSize ?? 20;
+      457 +        }
+      458 +      });
+      459 +      ta.focus({ preventScroll: true });
+      460 +    } else {
+      461 +      el.innerHTML = textViewHTML(n);
+      462 +      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+      463 +      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      464 +      el.querySelector('.text-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+      465 +    }
+      466 +  }
+      467 +
+      468 +  // ═══════════════════════════════════════════════════════
+      469    // FRAME CONTENT
+      470    // ═══════════════════════════════════════════════════════
+      471    function renderFrameContent(n, el) {
+
+⏺ Now update renderNode to dispatch to renderTextContent:
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines
+      583
+      584      if (n.type === 'frame') {
+      585        renderFrameContent(n, el);
+      586 +    } else if (n.type === 'text') {
+      587 +      renderTextContent(n, el);
+      588      } else if (n.type === 'bubble') {
+      589        renderBubbleContent(n, el);
+      590        renderBubbleTail(n);
+
+⏺ Now update canvas-nodes.js. First, add addText function and update setupNodeEvents and pasteNodes:
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 25 lines
+      249      });
+      250    }
+      251
+      252 +  function addText(x, y) {
+      253 +    pushUndo();
+      254 +    const n = {
+      255 +      id: S.nid++, type: 'text',
+      256 +      x, y, w: 200, h: 80,
+      257 +      text: '',
+      258 +      textColor: 'white',
+      259 +      fontFamily: 'default', fontSize: 20,
+      260 +    };
+      261 +    S.nodes.push(n);
+      262 +    const el = document.createElement('div');
+      263 +    el.className = 'text-node';
+      264 +    el.id = 'nd-' + n.id;
+      265 +    canvas.appendChild(el);
+      266 +    setupNodeEvents(n, el);
+      267 +    renderNode(n, el);
+      268 +    renderLinks();
+      269 +    selectNode(n.id);
+      270 +    suppressUndo(true);
+      271 +    startEdit(n.id);
+      272 +    suppressUndo(false);
+      273 +    scheduleSave();
+      274 +    return n;
+      275 +  }
+      276 +
+      277    function addFrame(x, y, w, h, label, color) {
+      278      pushUndo();
+      279      const n = {
+
+⏺ Update setupNodeEvents to allow text nodes to be dragged from anywhere (not just header) and to dblclick-to-edit:
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 4 lines, removed 1 line
+      378          return;
+      379        }
+      380
+      381 -      const onHeader = e.target.closest('.node-header, .bubble-header') && !e.target.closest('.node-btn') && !e.target.closest('in
+          -put');
+      381 +      const onHeader = (
+      382 +        e.target.closest('.node-header, .bubble-header, .text-node-header') ||
+      383 +        (n.type === 'text' && !e.target.closest('textarea'))
+      384 +      ) && !e.target.closest('.node-btn') && !e.target.closest('input');
+      385
+      386        // If clicking a node already in multi-selection: keep selection, start group drag
+      387        if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 3 lines
+      419
+      420      el.addEventListener('dblclick', e => {
+      421        e.stopPropagation();
+      422 +      if (n.type === 'text' && !e.target.closest('.node-btn') && S.editing !== n.id) {
+      423 +        startEdit(n.id);
+      424 +      }
+      425      });
+      426    }
+      427
+
+⏺ Update pasteNodes to handle 'text' type CSS class:
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line
+      704          S.nodes.push(n);
+      705          const el = document.createElement('div');
+      706          el.className = n.type === 'frame' ? 'frame-node'
+      707 +                     : n.type === 'text'  ? 'text-node'
+      708                       : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+      709          el.id = 'nd-' + n.id;
+      710          canvas.appendChild(el);
+
+⏺ Update the return statement to export addText:
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      818    }
+      819
+      820    return {
+      821 -    addNode, addBubble, addFrame, removeNode,
+      821 +    addNode, addBubble, addFrame, addText, removeNode,
+      822      selectNode, toggleMultiSel, clearMultiSel,
+      823      startEdit, stopEdit, autoFitNode,
+      824      setupNodeEvents, setupFrameEvents,
+
+⏺ Now update canvas.js. First, add addText to the let declarations:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      205  let renderNode, renderLinks, renderFreeLines;
+      206  let startEdit, stopEdit, autoFitNode;
+      207  let selectNode, toggleMultiSel, clearMultiSel, removeNode;
+      208 -let addNode, addBubble, addFrame;
+      208 +let addNode, addBubble, addFrame, addText;
+      209  let setupNodeEvents, setupFrameEvents;
+      210  let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
+      211  let getSelectedIds, copyNodes, cutNodes, pasteNodes;
+
+⏺ Update the wiring destructuring:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      288  }));
+      289
+      290  // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)
+      291 -({ addNode, addBubble, addFrame, removeNode,
+      291 +({ addNode, addBubble, addFrame, addText, removeNode,
+      292     selectNode, toggleMultiSel, clearMultiSel,
+      293     startEdit, stopEdit, autoFitNode,
+      294     setupNodeEvents, setupFrameEvents,
+
+⏺ Update saveState to serialize text nodes:
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines
+      365          const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+      366          return { id, type, x, y, w, h, label, color, fontFamily, fontSize };
+      367        }
+      368 +      if (n.type === 'text') {
+      369 +        const { id, type, x, y, w, h, text, textColor, fontFamily, fontSize } = n;
+      370 +        return { id, type, x, y, w, h, text, textColor, fontFamily, fontSize };
+      371 +      }
+      372        const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
+      373        return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
+      374      }),
+
+⏺ Update loadState to deserialize text nodes:
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines
+      461        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      462              label: nd.label ?? '', color: nd.color ?? 'blue',
+      463              fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 12 };
+      464 +    } else if (nd.type === 'text') {
+      465 +      n = { id: nd.id, type: 'text', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      466 +            text: nd.text ?? '',
+      467 +            textColor: nd.textColor ?? 'white',
+      468 +            fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 20 };
+      469      } else {
+      470        n = { id: nd.id, x: nd.x, y: nd.y, w: nd.w, h: nd.h, code: nd.code,
+      471              lang: nd.lang ?? 'text', title: nd.title ?? '', filePath: nd.filePath ?? '',
+
+⏺ Update the el.className assignment in loadState:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      475      S.nodes.push(n);
+      476      const el = document.createElement('div');
+      477      el.className = n.type === 'frame' ? 'frame-node'
+      478 +                 : n.type === 'text'  ? 'text-node'
+      479                   : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+      480      el.id = 'nd-' + n.id;
+      481      canvas.appendChild(el);
+
+⏺ Update resize minW/minH to allow smaller text nodes:
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      731        const dx   = (e.clientX - S.resize.sx) * r;
+      732        const dy   = (e.clientY - S.resize.sy) * r;
+      733        const edge = S.resize.edge;
+      734 -      const minW = (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
+      735 -      const minH = (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
+      734 +      const minW = n.type === 'text' ? 60 : (n.type === 'frame' || n.type === 'bubble') ? 120 : 250;
+      735 +      const minH = n.type === 'text' ? 30 : (n.type === 'frame' || n.type === 'bubble') ? 60  : 120;
+      736        if (edge === 'n') {
+      737          const newH = Math.max(minH, S.resize.oh - dy);
+      738          n.y = S.resize.oy + S.resize.oh - newH;
+
+⏺ Now find the toolbar button section and add the text button handler. First, let me find where btn-add-bubble is handled:
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines
+      981    addNode(p.x - 215, p.y - 135);
+      982  });
+      983
+      984 +document.getElementById('btn-add-text')?.addEventListener('click', () => {
+      985 +  const p = s2c(wrap.clientWidth / 2, wrap.clientHeight / 2);
+      986 +  addText(p.x - 100, p.y - 40);
+      987 +});
+      988 +
+      989  document.getElementById('btn-add-line')?.addEventListener('click', () => {
+      990    if (S.lineDrawMode) exitLineDrawMode();
+      991    else enterLineDrawMode();
+
+⏺ Update TEST EXPORTS:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1224  // TEST EXPORTS (Node.js / Vitest only — not used in browser)
+      1225  // ═══════════════════════════════════════════════════════
+      1226  if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
+      1227 -  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+      1227 +  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, loadState,
+      1228      saveState, restoreFromStorage,
+      1229      createLink, removeLink,
+      1230      copyNodes, cutNodes, pasteNodes, toggleMultiSel,
+
+⏺ Now add the toolbar button to canvas.html:
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      21    <button class="tb-btn" id="btn-add">+ Add Block</button>
+      22    <button class="tb-btn" id="btn-add-bubble">💬 Bubble</button>
+      23    <button class="tb-btn" id="btn-group">⬜ Frame</button>
+      24 +  <button class="tb-btn" id="btn-add-text">T Text</button>
+      25    <button class="tb-btn" id="btn-add-line">― Line</button>
+      26    <div class="sep"></div>
+      27    <button class="tb-btn" id="btn-global-config">⎇ Global Config</button>
+
+⏺ Now add CSS styles for the text node. Let me find the right place in canvas.css — after the frame-node styles:
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 87 lines
+      618  .node-title.meta-empty  { opacity: 0.28; font-weight: 400; font-style: italic; }
+      619  .node-filepath.meta-empty { opacity: 0.28; font-style: italic; }
+      620
+      621 +/* ── Text nodes ── */
+      622 +.text-node {
+      623 +  position: absolute;
+      624 +  display: flex; flex-direction: column;
+      625 +  background: transparent;
+      626 +  border: 2px dashed transparent;
+      627 +  border-radius: 6px;
+      628 +  min-width: 60px; min-height: 30px;
+      629 +  user-select: none;
+      630 +  transition: border-color 0.15s, box-shadow 0.15s;
+      631 +  z-index: 1;
+      632 +}
+      633 +.text-node:hover {
+      634 +  border-color: rgba(255,255,255,0.18);
+      635 +}
+      636 +.text-node.selected {
+      637 +  border-color: var(--tn-color, #e6edf3);
+      638 +  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+      639 +}
+      640 +.text-node.multi-selected {
+      641 +  border-color: var(--tn-color, #e6edf3);
+      642 +  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+      643 +}
+      644 +.text-node.is-editing {
+      645 +  border-color: var(--tn-color, #e6edf3);
+      646 +  border-style: solid;
+      647 +  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+      648 +}
+      649 +.text-node.dragging { opacity: 0.6; }
+      650 +
+      651 +.text-node-header {
+      652 +  display: flex; align-items: center;
+      653 +  justify-content: flex-end;
+      654 +  padding: 2px 4px;
+      655 +  min-height: 26px;
+      656 +  cursor: grab;
+      657 +}
+      658 +.text-node-header:active { cursor: grabbing; }
+      659 +.text-node-header .node-actions {
+      660 +  opacity: 0;
+      661 +  margin-left: auto;
+      662 +}
+      663 +.text-node:hover .text-node-header .node-actions,
+      664 +.text-node.selected .text-node-header .node-actions,
+      665 +.text-node.is-editing .text-node-header .node-actions { opacity: 1; }
+      666 +
+      667 +.text-body {
+      668 +  flex: 1;
+      669 +  display: flex;
+      670 +  padding: 4px 8px 8px;
+      671 +  overflow: hidden;
+      672 +  cursor: text;
+      673 +}
+      674 +.text-content {
+      675 +  font-size: var(--text-font-size, 20px);
+      676 +  font-family: var(--text-font-family, system-ui, sans-serif);
+      677 +  color: var(--tn-color, #e6edf3);
+      678 +  white-space: pre-wrap;
+      679 +  word-break: break-word;
+      680 +  line-height: 1.35;
+      681 +  user-select: text;
+      682 +  flex: 1;
+      683 +}
+      684 +.text-content-empty {
+      685 +  opacity: 0.3;
+      686 +  font-style: italic;
+      687 +}
+      688 +.text-textarea {
+      689 +  width: 100%;
+      690 +  background: transparent;
+      691 +  border: none;
+      692 +  outline: none;
+      693 +  resize: none;
+      694 +  font-size: var(--text-font-size, 20px);
+      695 +  font-family: var(--text-font-family, system-ui, sans-serif);
+      696 +  color: var(--tn-color, #e6edf3);
+      697 +  white-space: pre-wrap;
+      698 +  word-break: break-word;
+      699 +  line-height: 1.35;
+      700 +  padding: 0;
+      701 +}
+      702 +.edit-menu-section-label {
+      703 +  font-size: 10px; font-weight: 600; text-transform: uppercase;
+      704 +  letter-spacing: 0.5px; color: #8b949e;
+      705 +  padding: 2px 4px 4px;
+      706 +}
+      707 +
+      708  /* ── Bubble nodes ── */
+      709  .bubble-node {
+      710    background: var(--bn-bg, #162116);
+
+⏺ Now let me verify the key changes are consistent. Let me check the canvas-node-rendering.js for the fontControlsHTML function — it uses
+  FONT_SIZES[type] but needs to include 'text':
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Good, FONT_SIZES[type] will use FONT_SIZES.text since we added it. Now let me do a quick sanity check on the canvas-utils.js import in
+  canvas-node-rendering.js:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Also check canvas.js imports TEXT_COLORS is not needed there (it's only used in canvas-node-rendering.js). Let me verify the canvas.js import line
+   doesn't need updating:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Good — canvas.js doesn't directly use TEXT_COLORS, so no change needed there.
+
+  Now let me run a quick check to make sure there are no syntax issues by verifying the structure of the key modified sections:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Looks good. Let me also check the renderNode dispatch:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Everything looks correct. Let me also quickly verify the canvas-nodes.js addText function was added properly:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Wait, I need to check which dblclick handler belongs to which function:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Good — the setupNodeEvents dblclick now starts edit for text nodes. The setupFrameEvents dblclick (the one at line ~244 I saw earlier) is
+  separate. Everything looks correct.
+
+  Let me now run the tests to check nothing broke:
+
+⏺ Bash(npm test 2>&1 | tail -30)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全テスト通過です。実装内容をまとめます。
+
+  ---
+  実装内容
+
+  新しい Text ノードタイプをキャンバスに追加しました。
+
+  使い方
+
+  - ツールバーの 「T Text」 ボタンをクリックして配置
+  - ダブルクリックでテキスト編集開始
+  - 「•••」メニューから以下を変更可能:
+    - Text Color — 10色のカラースウォッチ（White / Yellow / Green / Blue / Purple / Red / Orange / Cyan / Pink / Gray）
+    - Font family — 既存のモノスペース/プロポーショナルフォント全プリセットに対応
+    - Font size — 10〜96px（テキスト用の大きいサイズも含む）
+    - Z-order（前面/背面に移動）
+
+  動作の特徴
+
+  - 背景なし・透明 — テキストがキャンバス上に直接浮かぶデザイン
+  - ホバー時に薄い破線ボーダー、選択/編集時にテキスト色のボーダー
+  - ノード全体をドラッグで移動可能（ヘッダー以外の部分からも）
+  - コピー/ペースト・アンドゥ・保存/復元すべて対応
+
+✻ Brewed for 6m 5s
+```
+
+```
+❯ テストコードとドキュメントを更新して
+
+⏺ 現在の変更内容を確認します。
+
+⏺ Bash(git diff HEAD -- canvas-utils.js canvas-node-rendering.js canvas-nodes.js canvas.js | head -300)
+  ⎿  diff --git a/canvas-node-rendering.js b/canvas-node-rendering.js
+     index 0b78771..4351aaa 100644
+     --- a/canvas-node-rendering.js
+     … +89 lines (ctrl+o to expand)
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD -- canvas.js | grep -A5 -B5 'addText\|text-node\|TEXT_COLORS\|text type' | head -100)
+  ⎿  @@ -205,7 +205,7 @@ function undo() {
+      let renderNode, renderLinks, renderFreeLines;
+      let startEdit, stopEdit, autoFitNode;
+     … +34 lines (ctrl+o to expand)
+
+⏺ テストを実行して現状を確認します。
+
+⏺ Bash(npm test 2>&1 | tail -60)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全テストがパスしています。次に、addText のテストケースが不足していることと、CLAUDE.md のドキュメント更新が必要なことを確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD -- canvas.css | head -100)
+  ⎿  diff --git a/canvas.css b/canvas.css
+     index 48feaed..e2caffc 100644
+     --- a/canvas.css
+     … +54 lines (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD -- canvas.html | grep -E '^\+' | head -40)
+  ⎿  +++ b/canvas.html
+     +  <button class="tb-btn" id="btn-add-text">T Text</button>
+
+⏺ 必要な変更点が全て把握できました。テストケースの追加とCLAUDE.mdの更新を行います。
+
+  まず canvas-dom.test.js に addText のテストを追加します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 48 lines
+      346    });
+      347  });
+      348
+      349 +// ─── addText ───────────────────────────────────────────
+      350 +describe('addText', () => {
+      351 +  it('adds a text entry to S.nodes with type "text"', () => {
+      352 +    addText(50, 60);
+      353 +    expect(S.nodes).toHaveLength(1);
+      354 +    expect(S.nodes[0].type).toBe('text');
+      355 +  });
+      356 +
+      357 +  it('stores correct position', () => {
+      358 +    addText(30, 40);
+      359 +    expect(S.nodes[0].x).toBe(30);
+      360 +    expect(S.nodes[0].y).toBe(40);
+      361 +  });
+      362 +
+      363 +  it('renders a DOM element with the text-node class', () => {
+      364 +    const n = addText(0, 0);
+      365 +    const el = document.getElementById('nd-' + n.id);
+      366 +    expect(el).not.toBeNull();
+      367 +    expect(el.classList.contains('text-node')).toBe(true);
+      368 +  });
+      369 +
+      370 +  it('defaults textColor to "white"', () => {
+      371 +    const n = addText(0, 0);
+      372 +    expect(n.textColor).toBe('white');
+      373 +  });
+      374 +
+      375 +  it('defaults fontSize to 20', () => {
+      376 +    const n = addText(0, 0);
+      377 +    expect(n.fontSize).toBe(20);
+      378 +  });
+      379 +
+      380 +  it('defaults fontFamily to "default"', () => {
+      381 +    const n = addText(0, 0);
+      382 +    expect(n.fontFamily).toBe('default');
+      383 +  });
+      384 +
+      385 +  it('defaults text to empty string', () => {
+      386 +    const n = addText(0, 0);
+      387 +    expect(n.text).toBe('');
+      388 +  });
+      389 +
+      390 +  it('assigns default dimensions (200 x 80)', () => {
+      391 +    const n = addText(0, 0);
+      392 +    expect(n.w).toBe(200);
+      393 +    expect(n.h).toBe(80);
+      394 +  });
+      395 +});
+      396 +
+      397  // ─── addFrame ──────────────────────────────────────────
+      398  describe('addFrame', () => {
+      399    it('adds a frame entry to S.nodes with type "frame"', () => {
+
+⏺ 次に、フォントデフォルト・CSS プロパティ・永続化・フォントサイズ入力のセクションにも addText のケースを追加します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 10 lines
+      599      const n = addFrame(0, 0, 200, 100);
+      600      expect(n.fontSize).toBe(12);
+      601    });
+      602 +
+      603 +  it('addText sets fontFamily to "default"', () => {
+      604 +    const n = addText(0, 0);
+      605 +    expect(n.fontFamily).toBe('default');
+      606 +  });
+      607 +
+      608 +  it('addText sets fontSize to 20', () => {
+      609 +    const n = addText(0, 0);
+      610 +    expect(n.fontSize).toBe(20);
+      611 +  });
+      612  });
+      613
+      614  // ─── Font CSS custom properties ───────────────────────────
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 18 lines
+      648      const el = document.getElementById('nd-' + n.id);
+      649      expect(el.style.getPropertyValue('--frame-font-family')).not.toBe('');
+      650    });
+      651 +
+      652 +  it('text node element has --text-font-size set', () => {
+      653 +    const n = addText(0, 0);
+      654 +    const el = document.getElementById('nd-' + n.id);
+      655 +    expect(el.style.getPropertyValue('--text-font-size')).toBe('20px');
+      656 +  });
+      657 +
+      658 +  it('text node element has --text-font-family set', () => {
+      659 +    const n = addText(0, 0);
+      660 +    const el = document.getElementById('nd-' + n.id);
+      661 +    expect(el.style.getPropertyValue('--text-font-family')).not.toBe('');
+      662 +  });
+      663 +
+      664 +  it('text node element has --tn-color set', () => {
+      665 +    const n = addText(0, 0);
+      666 +    const el = document.getElementById('nd-' + n.id);
+      667 +    expect(el.style.getPropertyValue('--tn-color')).not.toBe('');
+      668 +  });
+      669  });
+      670
+      671  // ─── Font persistence ─────────────────────────────────────
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 14 lines
+      694      expect(restored.fontSize).toBe(16);
+      695    });
+      696
+      697 +  it('fontFamily, fontSize, and textColor survive a round-trip for text nodes', () => {
+      698 +    const n = addText(0, 0);
+      699 +    n.fontFamily = 'georgia';
+      700 +    n.fontSize   = 32;
+      701 +    n.textColor  = 'blue';
+      702 +    saveState();
+      703 +    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      704 +    loadState(saved);
+      705 +    const restored = S.nodes.find(x => x.id === n.id);
+      706 +    expect(restored.fontFamily).toBe('georgia');
+      707 +    expect(restored.fontSize).toBe(32);
+      708 +    expect(restored.textColor).toBe('blue');
+      709 +  });
+      710 +
+      711    it('old saves without fontFamily/fontSize load without errors', () => {
+      712      const legacyState = {
+      713        nodes: [{ id: 1, x: 0, y: 0, w: 100, h: 100, code: 'x', lang: 'js', color: 'blue' }],
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 8 lines
+      802      expect(el.querySelector('.inp-font-size')).not.toBeNull();
+      803      stopEdit();
+      804    });
+      805 +
+      806 +  it('text node also has inp-font-size in edit mode', () => {
+      807 +    const n = addText(0, 0);
+      808 +    // addText starts in edit mode automatically; element already has the edit UI
+      809 +    const el = document.getElementById('nd-' + n.id);
+      810 +    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+      811 +    stopEdit();
+      812 +  });
+      813  });
+
+⏺ 次に CLAUDE.md を更新します。
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      11  | File | Description |
+      12  |------|-------------|
+      13  | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and
+           `canvas.js` as an ES module (`<script type="module">`). |
+      14 -| `canvas.css` | All styles. Three major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment n
+         -odes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), and frame nodes (`.frame-node`, `.frame-header`, `.frame-label`). |
+      14 +| `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment no
+         +des (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text n
+         +odes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
+      15  | `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+          thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+      16  | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT
+          HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameCo
+          ntent`, `renderNode`. |
+      17  | `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+          bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `removeNode`, `startEdit`, `stopEdi
+          t`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`
+          , `jumpTo`. |
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      14  | `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment no
+          des (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text n
+          odes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
+      15  | `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+          thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+      16  | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT
+          HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameCo
+          ntent`, `renderNode`. |
+      17 -| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+         -bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `removeNode`, `startEdit`, `stopEdi
+         -t`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`
+         -, `jumpTo`. |
+      17 +| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+         +bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit
+         +`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PAST
+         +E, `fitAll`, `jumpTo`. |
+      18  | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `target
+          EntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
+      19  | `canvas-free-lines.js` | Freehand lines. `initFreeLines(deps)` → free-line functions. Contains: `renderFreeLines`, `addFreeLine`,
+           `removeFreeLine`, `selectFreeLine`, line draw mode, line context menu. |
+      20  | `canvas-dialogs.js` | All modal dialog logic (Global Config, Repo sub-dialog, Group Frame, Git Fetch, codesnippetd). Initialized
+          via `initDialogs(deps)` called from `canvas.js`. |
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      56
+      57  - `esc(s)` — HTML escape
+      58  - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
+      59 -- `NODE_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants
+      59 +- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants (`TEXT_COLORS` is used exclusively by text node
+         +s)
+      60  - `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
+      61  - `svgE(tag, attrs)` — SVG element factory
+      62  - `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      68
+      69  ## Key patterns
+      70
+      71 -- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         -LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Fr
+         -ame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`.
+      71 +- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         +LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Fr
+         +ame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFam
+         +ily, fontSize }`.
+      72  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderBubbleContent()`, or the code-block view/edit HTML ge
+          nerators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      73  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      74  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      69  ## Key patterns
+      70
+      71  - **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+          LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Fr
+          ame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFam
+          ily, fontSize }`.
+      72 -- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderBubbleContent()`, or the code-block view/edit HTML ge
+         -nerators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      72 +- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+         +block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      73  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      74  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+      75  - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free
+          -lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line
+      85  | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNum
+          berStart`, `color` |
+      86  | `bubble` | "💬 Bubble" button | `text`, `tailX`, `tailY`, `color`, `showTail` |
+      87  | `frame` | "⬜ Group" button | `label`, `color` |
+      88 +| `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+      89
+      90  ## Keyboard shortcuts
+      91
+
+⏺ テストを実行して全て通ることを確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全258テストがパスしました。変更内容をまとめます。
+
+  テストの追加 (tests/canvas-dom.test.js) — 15テスト追加 (78 → 93):
+
+  - addText describe ブロック (8テスト): type, 座標, CSSクラス, textColor/fontSize/fontFamily/text のデフォルト値, デフォルトサイズ
+  - Font defaults on new nodes: addText の fontFamily/fontSize デフォルト値 (2テスト)
+  - Font CSS custom properties: --text-font-size, --text-font-family, --tn-color (3テスト)
+  - Font persistence: textColor を含むラウンドトリップ (1テスト)
+  - Font size input: text ノードの edit mode に inp-font-size が存在すること (1テスト)
+
+  ドキュメントの更新 (CLAUDE.md):
+
+  - canvas.css の説明に text node スタイル (.text-node 等) を追加
+  - canvas-nodes.js の説明に addText を追加
+  - canvas-utils.js exports に TEXT_COLORS を追加
+  - Node data model に text ノードのフィールド説明を追加
+  - renderNode の dispatch 先に renderTextContent() を追加
+  - Node types テーブルに text 行を追加
+
+✻ Worked for 2m 1s
+```

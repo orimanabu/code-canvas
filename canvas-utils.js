@@ -111,7 +111,25 @@ export const FONT_SIZES = {
   code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
   bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
   frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32],
+  text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96],
 };
+
+// ═══════════════════════════════════════════════════════
+// TEXT NODE COLORS
+// ═══════════════════════════════════════════════════════
+// Bright colors readable on the dark canvas background.
+export const TEXT_COLORS = [
+  { id: 'white',  label: 'White',  hex: '#e6edf3' },
+  { id: 'yellow', label: 'Yellow', hex: '#f2c55a' },
+  { id: 'green',  label: 'Green',  hex: '#56d364' },
+  { id: 'blue',   label: 'Blue',   hex: '#79c0ff' },
+  { id: 'purple', label: 'Purple', hex: '#bc8cff' },
+  { id: 'red',    label: 'Red',    hex: '#ff7b72' },
+  { id: 'orange', label: 'Orange', hex: '#ffa657' },
+  { id: 'cyan',   label: 'Cyan',   hex: '#56d4dd' },
+  { id: 'pink',   label: 'Pink',   hex: '#ff9ed2' },
+  { id: 'gray',   label: 'Gray',   hex: '#8b949e' },
+];
 
 // Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
 // and never inside an already-injected link-anchor span.

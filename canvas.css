@@ -618,6 +618,93 @@ body.tail-attach-mode .bubble-node:hover {
 .node-title.meta-empty  { opacity: 0.28; font-weight: 400; font-style: italic; }
 .node-filepath.meta-empty { opacity: 0.28; font-style: italic; }
 
+/* ── Text nodes ── */
+.text-node {
+  position: absolute;
+  display: flex; flex-direction: column;
+  background: transparent;
+  border: 2px dashed transparent;
+  border-radius: 6px;
+  min-width: 60px; min-height: 30px;
+  user-select: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  z-index: 1;
+}
+.text-node:hover {
+  border-color: rgba(255,255,255,0.18);
+}
+.text-node.selected {
+  border-color: var(--tn-color, #e6edf3);
+  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+}
+.text-node.multi-selected {
+  border-color: var(--tn-color, #e6edf3);
+  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+}
+.text-node.is-editing {
+  border-color: var(--tn-color, #e6edf3);
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--tn-glow, rgba(230,237,243,0.15));
+}
+.text-node.dragging { opacity: 0.6; }
+
+.text-node-header {
+  display: flex; align-items: center;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  min-height: 26px;
+  cursor: grab;
+}
+.text-node-header:active { cursor: grabbing; }
+.text-node-header .node-actions {
+  opacity: 0;
+  margin-left: auto;
+}
+.text-node:hover .text-node-header .node-actions,
+.text-node.selected .text-node-header .node-actions,
+.text-node.is-editing .text-node-header .node-actions { opacity: 1; }
+
+.text-body {
+  flex: 1;
+  display: flex;
+  padding: 4px 8px 8px;
+  overflow: hidden;
+  cursor: text;
+}
+.text-content {
+  font-size: var(--text-font-size, 20px);
+  font-family: var(--text-font-family, system-ui, sans-serif);
+  color: var(--tn-color, #e6edf3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.35;
+  user-select: text;
+  flex: 1;
+}
+.text-content-empty {
+  opacity: 0.3;
+  font-style: italic;
+}
+.text-textarea {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-size: var(--text-font-size, 20px);
+  font-family: var(--text-font-family, system-ui, sans-serif);
+  color: var(--tn-color, #e6edf3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.35;
+  padding: 0;
+}
+.edit-menu-section-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: #8b949e;
+  padding: 2px 4px 4px;
+}
+
 /* ── Bubble nodes ── */
 .bubble-node {
   background: var(--bn-bg, #162116);

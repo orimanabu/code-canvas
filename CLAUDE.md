@@ -11,10 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | File | Description |
 |------|-------------|
 | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and `canvas.js` as an ES module (`<script type="module">`). |
-| `canvas.css` | All styles. Three major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), and frame nodes (`.frame-node`, `.frame-header`, `.frame-label`). |
+| `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text nodes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
 | `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
 | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameContent`, `renderNode`. |
-| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
+| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
 | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `targetEntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
 | `canvas-free-lines.js` | Freehand lines. `initFreeLines(deps)` → free-line functions. Contains: `renderFreeLines`, `addFreeLine`, `removeFreeLine`, `selectFreeLine`, line draw mode, line context menu. |
 | `canvas-dialogs.js` | All modal dialog logic (Global Config, Repo sub-dialog, Group Frame, Git Fetch, codesnippetd). Initialized via `initDialogs(deps)` called from `canvas.js`. |
@@ -56,7 +56,7 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 
 - `esc(s)` — HTML escape
 - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
-- `NODE_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants
+- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants (`TEXT_COLORS` is used exclusively by text nodes)
 - `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
 - `svgE(tag, attrs)` — SVG element factory
 - `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
@@ -68,8 +68,8 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 
 ## Key patterns
 
-- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`.
-- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderBubbleContent()`, or the code-block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
 - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
 - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in `S.links[]`; rendered as SVG paths on every viewport change.
 - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free-lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
@@ -85,6 +85,7 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNumberStart`, `color` |
 | `bubble` | "💬 Bubble" button | `text`, `tailX`, `tailY`, `color`, `showTail` |
 | `frame` | "⬜ Group" button | `label`, `color` |
+| `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
 
 ## Keyboard shortcuts
 

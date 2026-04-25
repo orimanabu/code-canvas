@@ -1,4 +1,4 @@
-import { esc, NODE_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
+import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
          injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
 
 // hljs is a browser global (loaded from CDN script tag in canvas.html)
@@ -62,7 +62,11 @@ export function initNodeRendering(deps) {
   }
 
   function applyNodeColor(n, el) {
-    if (n.type === 'bubble') {
+    if (n.type === 'text') {
+      const c = TEXT_COLORS.find(c => c.id === (n.textColor ?? 'white')) ?? TEXT_COLORS[0];
+      el.style.setProperty('--tn-color', c.hex);
+      el.style.setProperty('--tn-glow',  c.hex + '33');
+    } else if (n.type === 'bubble') {
       const c = NODE_COLORS.find(c => c.id === (n.color ?? 'green')) ?? NODE_COLORS.find(c => c.id === 'green');
       el.style.setProperty('--bn-bg',         c.bgDark);
       el.style.setProperty('--bn-border',     c.hex);
@@ -97,10 +101,11 @@ export function initNodeRendering(deps) {
     code:   "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace",
     bubble: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     frame:  "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    text:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
   function applyNodeFont(n, el) {
-    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
     const fid = n.fontFamily ?? 'default';
     const family = fid === 'default'
       ? DEFAULT_FONT_FAMILY[type]
@@ -111,6 +116,9 @@ export function initNodeRendering(deps) {
     } else if (type === 'bubble') {
       el.style.setProperty('--bubble-font-family', family);
       el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+    } else if (type === 'text') {
+      el.style.setProperty('--text-font-family', family);
+      el.style.setProperty('--text-font-size',   (n.fontSize ?? 20) + 'px');
     } else {
       el.style.setProperty('--frame-font-family', family);
       el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
@@ -118,9 +126,9 @@ export function initNodeRendering(deps) {
   }
 
   function fontControlsHTML(n) {
-    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : 'code';
+    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
     const currentFamily = n.fontFamily ?? 'default';
-    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : 12);
+    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : type === 'text' ? 20 : 12);
     const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
       `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
     ).join('');
@@ -353,6 +361,111 @@ export function initNodeRendering(deps) {
   }
 
   // ═══════════════════════════════════════════════════════
+  // TEXT NODE CONTENT
+  // ═══════════════════════════════════════════════════════
+  function textColorSwatchesHTML(n) {
+    const active = n.textColor ?? 'white';
+    return `<div class="color-swatches">${
+      TEXT_COLORS.map(c =>
+        `<span class="color-swatch${c.id === active ? ' active' : ''}" data-textcolor="${c.id}" style="background:${c.hex}" title="${c.label}"></span>`
+      ).join('')
+    }</div>`;
+  }
+
+  function textViewHTML(n) {
+    const body = n.text
+      ? `<div class="text-content">${esc(n.text).replace(/\n/g, '<br>')}</div>`
+      : `<div class="text-content text-content-empty">Text…</div>`;
+    return `
+    <div class="text-node-header">
+      <div class="node-actions">
+        <button class="node-btn btn-edit">Edit</button>
+        <button class="node-btn danger btn-del">✕</button>
+      </div>
+    </div>
+    <div class="text-body">${body}</div>
+    <div class="resize-handle"></div>`;
+  }
+
+  function textEditHTML(n) {
+    return `
+    <div class="text-node-header">
+      <div class="node-actions" style="opacity:1">
+        <div class="edit-menu-wrap">
+          <button class="node-btn btn-edit-menu" title="More options">•••</button>
+          <div class="edit-menu">
+            <div class="edit-menu-section-label">Text Color</div>
+            ${textColorSwatchesHTML(n)}
+            ${fontControlsHTML(n)}
+            ${zOrderMenuHTML()}
+          </div>
+        </div>
+        <button class="node-btn btn-done">✓ Done</button>
+        <button class="node-btn danger btn-del">Delete</button>
+      </div>
+    </div>
+    <div class="text-body">
+      <textarea class="text-textarea" spellcheck="false">${esc(n.text ?? '')}</textarea>
+    </div>
+    <div class="resize-handle"></div>`;
+  }
+
+  function renderTextContent(n, el) {
+    el.classList.toggle('is-editing', S.editing === n.id);
+    if (S.editing === n.id) {
+      el.innerHTML = textEditHTML(n);
+      const ta = el.querySelector('textarea');
+      ta.style.height = '100%';
+      ta.addEventListener('input', () => { n.text = ta.value; });
+      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      el.querySelectorAll('[data-textcolor]').forEach(sw => {
+        sw.addEventListener('mousedown', e => e.stopPropagation());
+        sw.addEventListener('click', e => {
+          e.stopPropagation();
+          n.textColor = sw.dataset.textcolor;
+          applyNodeColor(n, el);
+          el.querySelectorAll('[data-textcolor]').forEach(s =>
+            s.classList.toggle('active', s.dataset.textcolor === n.textColor));
+          scheduleSave();
+        });
+      });
+      const menuWrap = el.querySelector('.edit-menu-wrap');
+      const menuBtn  = el.querySelector('.btn-edit-menu');
+      if (menuBtn) {
+        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      }
+      bindZOrderButtons(n, el);
+      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      el.querySelector('.sel-font-family').addEventListener('change', e => {
+        e.stopPropagation();
+        n.fontFamily = e.target.value;
+        applyNodeFont(n, el);
+        scheduleSave();
+      });
+      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      el.querySelector('.inp-font-size').addEventListener('change', e => {
+        e.stopPropagation();
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v >= 6 && v <= 96) {
+          n.fontSize = v;
+          applyNodeFont(n, el);
+          scheduleSave();
+        } else {
+          e.target.value = n.fontSize ?? 20;
+        }
+      });
+      ta.focus({ preventScroll: true });
+    } else {
+      el.innerHTML = textViewHTML(n);
+      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      el.querySelector('.text-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
   // FRAME CONTENT
   // ═══════════════════════════════════════════════════════
   function renderFrameContent(n, el) {
@@ -470,6 +583,8 @@ export function initNodeRendering(deps) {
 
     if (n.type === 'frame') {
       renderFrameContent(n, el);
+    } else if (n.type === 'text') {
+      renderTextContent(n, el);
     } else if (n.type === 'bubble') {
       renderBubbleContent(n, el);
       renderBubbleTail(n);

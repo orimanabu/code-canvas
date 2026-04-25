@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import '../canvas.js';
 const {
-  S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, loadState,
+  S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, loadState,
   saveState, restoreFromStorage,
   createLink, toggleMultiSel,
   copyNodes, cutNodes, pasteNodes,
@@ -346,6 +346,54 @@ describe('addFreeLine / removeFreeLine', () => {
   });
 });
 
+// ─── addText ───────────────────────────────────────────
+describe('addText', () => {
+  it('adds a text entry to S.nodes with type "text"', () => {
+    addText(50, 60);
+    expect(S.nodes).toHaveLength(1);
+    expect(S.nodes[0].type).toBe('text');
+  });
+
+  it('stores correct position', () => {
+    addText(30, 40);
+    expect(S.nodes[0].x).toBe(30);
+    expect(S.nodes[0].y).toBe(40);
+  });
+
+  it('renders a DOM element with the text-node class', () => {
+    const n = addText(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el).not.toBeNull();
+    expect(el.classList.contains('text-node')).toBe(true);
+  });
+
+  it('defaults textColor to "white"', () => {
+    const n = addText(0, 0);
+    expect(n.textColor).toBe('white');
+  });
+
+  it('defaults fontSize to 20', () => {
+    const n = addText(0, 0);
+    expect(n.fontSize).toBe(20);
+  });
+
+  it('defaults fontFamily to "default"', () => {
+    const n = addText(0, 0);
+    expect(n.fontFamily).toBe('default');
+  });
+
+  it('defaults text to empty string', () => {
+    const n = addText(0, 0);
+    expect(n.text).toBe('');
+  });
+
+  it('assigns default dimensions (200 x 80)', () => {
+    const n = addText(0, 0);
+    expect(n.w).toBe(200);
+    expect(n.h).toBe(80);
+  });
+});
+
 // ─── addFrame ──────────────────────────────────────────
 describe('addFrame', () => {
   it('adds a frame entry to S.nodes with type "frame"', () => {
@@ -551,6 +599,16 @@ describe('Font defaults on new nodes', () => {
     const n = addFrame(0, 0, 200, 100);
     expect(n.fontSize).toBe(12);
   });
+
+  it('addText sets fontFamily to "default"', () => {
+    const n = addText(0, 0);
+    expect(n.fontFamily).toBe('default');
+  });
+
+  it('addText sets fontSize to 20', () => {
+    const n = addText(0, 0);
+    expect(n.fontSize).toBe(20);
+  });
 });
 
 // ─── Font CSS custom properties ───────────────────────────
@@ -590,6 +648,24 @@ describe('Font CSS custom properties on node elements', () => {
     const el = document.getElementById('nd-' + n.id);
     expect(el.style.getPropertyValue('--frame-font-family')).not.toBe('');
   });
+
+  it('text node element has --text-font-size set', () => {
+    const n = addText(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--text-font-size')).toBe('20px');
+  });
+
+  it('text node element has --text-font-family set', () => {
+    const n = addText(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--text-font-family')).not.toBe('');
+  });
+
+  it('text node element has --tn-color set', () => {
+    const n = addText(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.getPropertyValue('--tn-color')).not.toBe('');
+  });
 });
 
 // ─── Font persistence ─────────────────────────────────────
@@ -616,6 +692,20 @@ describe('Font persistence via saveState/loadState', () => {
     const restored = S.nodes.find(x => x.id === n.id);
     expect(restored.fontFamily).toBe('georgia');
     expect(restored.fontSize).toBe(16);
+  });
+
+  it('fontFamily, fontSize, and textColor survive a round-trip for text nodes', () => {
+    const n = addText(0, 0);
+    n.fontFamily = 'georgia';
+    n.fontSize   = 32;
+    n.textColor  = 'blue';
+    saveState();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    loadState(saved);
+    const restored = S.nodes.find(x => x.id === n.id);
+    expect(restored.fontFamily).toBe('georgia');
+    expect(restored.fontSize).toBe(32);
+    expect(restored.textColor).toBe('blue');
   });
 
   it('old saves without fontFamily/fontSize load without errors', () => {
@@ -708,6 +798,14 @@ describe('Font size input (inp-font-size)', () => {
   it('frame node also has inp-font-size in edit mode', () => {
     const n = addFrame(0, 0, 200, 100);
     startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+    stopEdit();
+  });
+
+  it('text node also has inp-font-size in edit mode', () => {
+    const n = addText(0, 0);
+    // addText starts in edit mode automatically; element already has the edit UI
     const el = document.getElementById('nd-' + n.id);
     expect(el.querySelector('.inp-font-size')).not.toBeNull();
     stopEdit();

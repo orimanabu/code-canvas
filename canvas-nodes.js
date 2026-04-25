@@ -249,6 +249,31 @@ export function initNodes(deps) {
     });
   }
 
+  function addText(x, y) {
+    pushUndo();
+    const n = {
+      id: S.nid++, type: 'text',
+      x, y, w: 200, h: 80,
+      text: '',
+      textColor: 'white',
+      fontFamily: 'default', fontSize: 20,
+    };
+    S.nodes.push(n);
+    const el = document.createElement('div');
+    el.className = 'text-node';
+    el.id = 'nd-' + n.id;
+    canvas.appendChild(el);
+    setupNodeEvents(n, el);
+    renderNode(n, el);
+    renderLinks();
+    selectNode(n.id);
+    suppressUndo(true);
+    startEdit(n.id);
+    suppressUndo(false);
+    scheduleSave();
+    return n;
+  }
+
   function addFrame(x, y, w, h, label, color) {
     pushUndo();
     const n = {
@@ -353,7 +378,10 @@ export function initNodes(deps) {
         return;
       }
 
-      const onHeader = e.target.closest('.node-header, .bubble-header') && !e.target.closest('.node-btn') && !e.target.closest('input');
+      const onHeader = (
+        e.target.closest('.node-header, .bubble-header, .text-node-header') ||
+        (n.type === 'text' && !e.target.closest('textarea'))
+      ) && !e.target.closest('.node-btn') && !e.target.closest('input');
 
       // If clicking a node already in multi-selection: keep selection, start group drag
       if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
@@ -391,6 +419,9 @@ export function initNodes(deps) {
 
     el.addEventListener('dblclick', e => {
       e.stopPropagation();
+      if (n.type === 'text' && !e.target.closest('.node-btn') && S.editing !== n.id) {
+        startEdit(n.id);
+      }
     });
   }
 
@@ -673,6 +704,7 @@ export function initNodes(deps) {
         S.nodes.push(n);
         const el = document.createElement('div');
         el.className = n.type === 'frame' ? 'frame-node'
+                     : n.type === 'text'  ? 'text-node'
                      : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
         el.id = 'nd-' + n.id;
         canvas.appendChild(el);
@@ -786,7 +818,7 @@ export function initNodes(deps) {
   }
 
   return {
-    addNode, addBubble, addFrame, removeNode,
+    addNode, addBubble, addFrame, addText, removeNode,
     selectNode, toggleMultiSel, clearMultiSel,
     startEdit, stopEdit, autoFitNode,
     setupNodeEvents, setupFrameEvents,
