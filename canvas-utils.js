@@ -107,9 +107,9 @@ export const FONT_PRESETS = {
   ],
 };
 export const FONT_SIZES = {
-  code:   [10, 11, 12, 12.5, 13, 14, 16],
-  bubble: [11, 12, 13, 14, 16, 18],
-  frame:  [10, 11, 12, 13, 14],
+  code:   [10, 11, 12, 12.5, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+  bubble: [11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48],
+  frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32],
 };
 
 // Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),

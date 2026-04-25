@@ -227,12 +227,14 @@ function fontControlsHTML(n) {
   const familyOpts = FONT_PRESETS[type].map(p =>
     `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
   ).join('');
-  const sizeOpts = FONT_SIZES[type].map(s =>
-    `<option value="${s}"${s === currentSize ? ' selected' : ''}>${s}px</option>`
-  ).join('');
+  const dlId = `font-size-dl-${n.id}`;
+  const sizeOpts = FONT_SIZES[type].map(s => `<option value="${s}">`).join('');
   return `<div class="font-controls">
     <select class="sel-font-family" title="Font family">${familyOpts}</select>
-    <select class="sel-font-size" title="Font size">${sizeOpts}</select>
+    <input class="inp-font-size" type="number" title="Font size (px)"
+           value="${currentSize}" min="6" max="96" step="0.5"
+           list="${dlId}">
+    <datalist id="${dlId}">${sizeOpts}</datalist>
   </div>`;
 }
 
@@ -361,12 +363,17 @@ function renderNode(n, el) {
       applyNodeFont(n, el);
       scheduleSave();
     });
-    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
-    el.querySelector('.sel-font-size').addEventListener('change', e => {
+    el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.inp-font-size').addEventListener('change', e => {
       e.stopPropagation();
-      n.fontSize = parseFloat(e.target.value);
-      applyNodeFont(n, el);
-      scheduleSave();
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 6 && v <= 96) {
+        n.fontSize = v;
+        applyNodeFont(n, el);
+        scheduleSave();
+      } else {
+        e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      }
     });
 
     ta.focus({ preventScroll: true });
@@ -558,12 +565,17 @@ function renderBubbleContent(n, el) {
       applyNodeFont(n, el);
       scheduleSave();
     });
-    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
-    el.querySelector('.sel-font-size').addEventListener('change', e => {
+    el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.inp-font-size').addEventListener('change', e => {
       e.stopPropagation();
-      n.fontSize = parseFloat(e.target.value);
-      applyNodeFont(n, el);
-      scheduleSave();
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 6 && v <= 96) {
+        n.fontSize = v;
+        applyNodeFont(n, el);
+        scheduleSave();
+      } else {
+        e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      }
     });
     ta.focus({ preventScroll: true });
   } else {
@@ -805,12 +817,17 @@ function renderFrameContent(n, el) {
       applyNodeFont(n, el);
       scheduleSave();
     });
-    el.querySelector('.sel-font-size').addEventListener('mousedown', e => e.stopPropagation());
-    el.querySelector('.sel-font-size').addEventListener('change', e => {
+    el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.inp-font-size').addEventListener('change', e => {
       e.stopPropagation();
-      n.fontSize = parseFloat(e.target.value);
-      applyNodeFont(n, el);
-      scheduleSave();
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 6 && v <= 96) {
+        n.fontSize = v;
+        applyNodeFont(n, el);
+        scheduleSave();
+      } else {
+        e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      }
     });
     inp.focus(); inp.select();
   } else {

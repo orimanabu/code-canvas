@@ -8,6 +8,7 @@ const {
   copyNodes, cutNodes, pasteNodes,
   addFreeLine, removeFreeLine,
   pushUndo, undo,
+  startEdit, stopEdit,
   s2c, zoom,
 } = globalThis.__canvasApp;
 
@@ -625,5 +626,90 @@ describe('Font persistence via saveState/loadState', () => {
     expect(() => loadState(legacyState)).not.toThrow();
     // Node without fontFamily/fontSize should still render a DOM element
     expect(document.getElementById('nd-1')).not.toBeNull();
+  });
+});
+
+// ─── Font size input (inp-font-size) ──────────────────────
+describe('Font size input (inp-font-size)', () => {
+  it('inp-font-size input is present in edit mode', () => {
+    const n = addNode(0, 0);
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+    stopEdit();
+  });
+
+  it('inp-font-size reflects the current fontSize value', () => {
+    const n = addNode(0, 0);
+    stopEdit();          // exit auto-started edit mode so startEdit re-renders
+    n.fontSize = 20;
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(parseFloat(el.querySelector('.inp-font-size').value)).toBe(20);
+    stopEdit();
+  });
+
+  it('changing inp-font-size to a valid value updates node fontSize', () => {
+    const n = addNode(0, 0);
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    const input = el.querySelector('.inp-font-size');
+    input.value = '24';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(n.fontSize).toBe(24);
+    stopEdit();
+  });
+
+  it('changing inp-font-size updates --node-font-size CSS property', () => {
+    const n = addNode(0, 0);
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    const input = el.querySelector('.inp-font-size');
+    input.value = '32';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(el.style.getPropertyValue('--node-font-size')).toBe('32px');
+    stopEdit();
+  });
+
+  it('out-of-range value (too large) reverts input and leaves fontSize unchanged', () => {
+    const n = addNode(0, 0);
+    stopEdit();
+    n.fontSize = 14;
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    const input = el.querySelector('.inp-font-size');
+    input.value = '200';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(n.fontSize).toBe(14);
+    expect(parseFloat(input.value)).toBe(14);
+    stopEdit();
+  });
+
+  it('out-of-range value (too small) reverts input and leaves fontSize unchanged', () => {
+    const n = addNode(0, 0);
+    // fontSize defaults to 12.5 — no need for stopEdit/startEdit cycle
+    startEdit(n.id);  // already in edit mode from addNode, startEdit is no-op but DOM is correct
+    const el = document.getElementById('nd-' + n.id);
+    const input = el.querySelector('.inp-font-size');
+    input.value = '2';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(n.fontSize).toBe(12.5);
+    stopEdit();
+  });
+
+  it('bubble node also has inp-font-size in edit mode', () => {
+    const n = addBubble(0, 0);
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+    stopEdit();
+  });
+
+  it('frame node also has inp-font-size in edit mode', () => {
+    const n = addFrame(0, 0, 200, 100);
+    startEdit(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+    stopEdit();
   });
 });

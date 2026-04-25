@@ -149,6 +149,26 @@ describe('FONT_SIZES', () => {
   it('frame sizes include default 12', () => {
     expect(FONT_SIZES.frame).toContain(12);
   });
+
+  it('code sizes include large values (>=32)', () => {
+    expect(FONT_SIZES.code.some(s => s >= 32)).toBe(true);
+  });
+
+  it('bubble sizes include large values (>=32)', () => {
+    expect(FONT_SIZES.bubble.some(s => s >= 32)).toBe(true);
+  });
+
+  it('frame sizes include large values (>=24)', () => {
+    expect(FONT_SIZES.frame.some(s => s >= 24)).toBe(true);
+  });
+
+  it('all lists are sorted in ascending order', () => {
+    for (const list of Object.values(FONT_SIZES)) {
+      for (let i = 1; i < list.length; i++) {
+        expect(list[i]).toBeGreaterThan(list[i - 1]);
+      }
+    }
+  });
 });
 
 // ─── splitHtmlLines ──────────────────────────────────────

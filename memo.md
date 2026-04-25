@@ -23739,3 +23739,292 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ⏺ 更新しました。README.ja.md と同じ内容を英語で反映しています。
 ```
+
+```
+❯ テストとドキュメントの更新もお願いします
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+⏺ テスト更新
+
+  まず canvas-dom.test.js に startEdit/stopEdit のインポートを追加し、フォントサイズ入力のテストを追加します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 1 line
+       8    copyNodes, cutNodes, pasteNodes,
+       9    addFreeLine, removeFreeLine,
+      10    pushUndo, undo,
+      11 +  startEdit, stopEdit,
+      12    s2c, zoom,
+      13  } = globalThis.__canvasApp;
+      14
+
+⏺ canvas-utils.test.js の FONT_SIZES テストに大きいサイズと範囲の確認を追加します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 20 lines
+      149    it('frame sizes include default 12', () => {
+      150      expect(FONT_SIZES.frame).toContain(12);
+      151    });
+      152 +
+      153 +  it('code sizes include large values (>=32)', () => {
+      154 +    expect(FONT_SIZES.code.some(s => s >= 32)).toBe(true);
+      155 +  });
+      156 +
+      157 +  it('bubble sizes include large values (>=32)', () => {
+      158 +    expect(FONT_SIZES.bubble.some(s => s >= 32)).toBe(true);
+      159 +  });
+      160 +
+      161 +  it('frame sizes include large values (>=24)', () => {
+      162 +    expect(FONT_SIZES.frame.some(s => s >= 24)).toBe(true);
+      163 +  });
+      164 +
+      165 +  it('all lists are sorted in ascending order', () => {
+      166 +    for (const list of Object.values(FONT_SIZES)) {
+      167 +      for (let i = 1; i < list.length; i++) {
+      168 +        expect(list[i]).toBeGreaterThan(list[i - 1]);
+      169 +      }
+      170 +    }
+      171 +  });
+      172  });
+      173
+      174  // ─── splitHtmlLines ──────────────────────────────────────
+
+⏺ canvas-dom.test.js にフォントサイズ直接入力のテストを追加します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 83 lines
+      628      expect(document.getElementById('nd-1')).not.toBeNull();
+      629    });
+      630  });
+      631 +
+      632 +// ─── Font size input (inp-font-size) ──────────────────────
+      633 +describe('Font size input (inp-font-size)', () => {
+      634 +  it('inp-font-size input is present in edit mode', () => {
+      635 +    const n = addNode(0, 0);
+      636 +    startEdit(n.id);
+      637 +    const el = document.getElementById('nd-' + n.id);
+      638 +    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+      639 +    stopEdit();
+      640 +  });
+      641 +
+      642 +  it('inp-font-size reflects the current fontSize value', () => {
+      643 +    const n = addNode(0, 0);
+      644 +    n.fontSize = 20;
+      645 +    startEdit(n.id);
+      646 +    const el = document.getElementById('nd-' + n.id);
+      647 +    expect(parseFloat(el.querySelector('.inp-font-size').value)).toBe(20);
+      648 +    stopEdit();
+      649 +  });
+      650 +
+      651 +  it('changing inp-font-size to a valid value updates node fontSize', () => {
+      652 +    const n = addNode(0, 0);
+      653 +    startEdit(n.id);
+      654 +    const el = document.getElementById('nd-' + n.id);
+      655 +    const input = el.querySelector('.inp-font-size');
+      656 +    input.value = '24';
+      657 +    input.dispatchEvent(new Event('change', { bubbles: true }));
+      658 +    expect(n.fontSize).toBe(24);
+      659 +    stopEdit();
+      660 +  });
+      661 +
+      662 +  it('changing inp-font-size updates --node-font-size CSS property', () => {
+      663 +    const n = addNode(0, 0);
+      664 +    startEdit(n.id);
+      665 +    const el = document.getElementById('nd-' + n.id);
+      666 +    const input = el.querySelector('.inp-font-size');
+      667 +    input.value = '32';
+      668 +    input.dispatchEvent(new Event('change', { bubbles: true }));
+      669 +    expect(el.style.getPropertyValue('--node-font-size')).toBe('32px');
+      670 +    stopEdit();
+      671 +  });
+      672 +
+      673 +  it('out-of-range value (too large) reverts input and leaves fontSize unchanged', () => {
+      674 +    const n = addNode(0, 0);
+      675 +    n.fontSize = 14;
+      676 +    startEdit(n.id);
+      677 +    const el = document.getElementById('nd-' + n.id);
+      678 +    const input = el.querySelector('.inp-font-size');
+      679 +    input.value = '200';
+      680 +    input.dispatchEvent(new Event('change', { bubbles: true }));
+      681 +    expect(n.fontSize).toBe(14);
+      682 +    expect(parseFloat(input.value)).toBe(14);
+      683 +    stopEdit();
+      684 +  });
+      685 +
+      686 +  it('out-of-range value (too small) reverts input and leaves fontSize unchanged', () => {
+      687 +    const n = addNode(0, 0);
+      688 +    n.fontSize = 12.5;
+      689 +    startEdit(n.id);
+      690 +    const el = document.getElementById('nd-' + n.id);
+      691 +    const input = el.querySelector('.inp-font-size');
+      692 +    input.value = '2';
+      693 +    input.dispatchEvent(new Event('change', { bubbles: true }));
+      694 +    expect(n.fontSize).toBe(12.5);
+      695 +    stopEdit();
+      696 +  });
+      697 +
+      698 +  it('bubble node also has inp-font-size in edit mode', () => {
+      699 +    const n = addBubble(0, 0);
+      700 +    startEdit(n.id);
+      701 +    const el = document.getElementById('nd-' + n.id);
+      702 +    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+      703 +    stopEdit();
+      704 +  });
+      705 +
+      706 +  it('frame node also has inp-font-size in edit mode', () => {
+      707 +    const n = addFrame(0, 0, 200, 100);
+      708 +    startEdit(n.id);
+      709 +    const el = document.getElementById('nd-' + n.id);
+      710 +    expect(el.querySelector('.inp-font-size')).not.toBeNull();
+      711 +    stopEdit();
+      712 +  });
+      713 +});
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(unset NODE_OPTIONS && npx vitest run 2>&1)
+  ⎿  Error: Exit code 1
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (83 tests) 18ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 362ms
+      ✓ tests/canvas-integration.test.js (26 tests) 503ms
+      ❯ tests/canvas-dom.test.js (78 tests | 1 failed) 599ms
+        × Font size input (inp-font-size) > inp-font-size reflects the current fontSize value 14ms
+          → expected 12.5 to be 20 // Object.is equality
+     … +27 lines (ctrl+o to see all)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ addNode が内部で startEdit を呼ぶため S.editing === n.id になり、再呼び出しが即 return される設計です。stopEdit() を挟んで修正します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 1 line
+      641
+      642    it('inp-font-size reflects the current fontSize value', () => {
+      643      const n = addNode(0, 0);
+      644 +    stopEdit();          // exit auto-started edit mode so startEdit re-renders
+      645      n.fontSize = 20;
+      646      startEdit(n.id);
+      647      const el = document.getElementById('nd-' + n.id);
+
+⏺ 同じ理由で out-of-range テストも stopEdit() が必要か確認して修正します。
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 3 lines, removed 2 lines
+      673
+      674    it('out-of-range value (too large) reverts input and leaves fontSize unchanged', () => {
+      675      const n = addNode(0, 0);
+      676 +    stopEdit();
+      677      n.fontSize = 14;
+      678      startEdit(n.id);
+      679      const el = document.getElementById('nd-' + n.id);
+     ...
+      687
+      688    it('out-of-range value (too small) reverts input and leaves fontSize unchanged', () => {
+      689      const n = addNode(0, 0);
+      689 -    n.fontSize = 12.5;
+      690 -    startEdit(n.id);
+      690 +    // fontSize defaults to 12.5 — no need for stopEdit/startEdit cycle
+      691 +    startEdit(n.id);  // already in edit mode from addNode, startEdit is no-op but DOM is correct
+      692      const el = document.getElementById('nd-' + n.id);
+      693      const input = el.querySelector('.inp-font-size');
+      694      input.value = '2';
+
+⏺ Bash(unset NODE_OPTIONS && npx vitest run 2>&1)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (83 tests) 20ms
+     … +9 lines (ctrl+o to expand)
+
+⏺ 236テスト全通過。次にドキュメントを更新します。
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      106  | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+      107  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      108  | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"cascadia-code"`
+           , `"consolas"`). Defaults to `"default"` |
+      109 -| `fontSize` | number | Font size in px. Defaults to `12.5` |
+      109 +| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–48 px). Defaults to `12.5` |
+      110
+      111  ## Node object (bubble)
+      112
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      126  | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+      127  | `showTail` | boolean | Whether to show the tail (default: `true`) |
+      128  | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      129 -| `fontSize` | number | Font size in px. Defaults to `13` |
+      129 +| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (11–48 px). Defaults to `13` |
+      130  | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+           k). `null` when not anchored. |
+      131  | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+      132  | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      146  | `label` | string | Label text displayed in the frame header |
+      147  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      148  | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      149 -| `fontSize` | number | Font size in px. Defaults to `12` |
+      149 +| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
+      150
+      151  ## Link object
+      152
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+       96  | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト：`1`） |
+       97  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+       98  | `fontFamily` | string | フォントファミリーID（例：`"default"`、`"jetbrains-mono"`、`"fira-code"`、`"menlo"`、`"cascadia-code"`、
+           `"consolas"`）。省略時は `"default"` |
+       99 -| `fontSize` | number | フォントサイズ（px）。省略時は `12.5` |
+       99 +| `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜48 px）から選択するか直接入力可能。省略時は `12.5` |
+      100
+      101  ## Nodeオブジェクト（吹き出し）
+      102
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+      116  | `color` | string | カラーテーマID（例：`"green"`、`"blue"`、`"red"`） |
+      117  | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
+      118  | `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+      119 -| `fontSize` | number | フォントサイズ（px）。省略時は `13` |
+      119 +| `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
+      120
+      121  ## Nodeオブジェクト（フレーム）
+      122
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+      133  | `label` | string | フレームヘッダーに表示されるラベルテキスト |
+      134  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+      135  | `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+      136 -| `fontSize` | number | フォントサイズ（px）。省略時は `12` |
+      136 +| `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜32 px）から選択するか直接入力可能。省略時は `12` |
+      137
+      138  ## Linkオブジェクト
+      139
+
+⏺ 完了です。変更内容まとめ:
+
+  テスト (canvas-utils.test.js):
+  - 大きいサイズ (≥32/24) の存在確認テスト追加
+  - 各リストが昇順ソートされていることの確認テスト追加
+
+  テスト (canvas-dom.test.js):
+  - startEdit/stopEdit をインポートに追加
+  - inp-font-size 入力の存在確認（code/bubble/frame）
+  - fontSize 変更が入力値に反映されること
+  - 有効な値入力で n.fontSize と CSS変数が更新されること
+  - 範囲外の値（大きすぎ/小さすぎ）は入力を元に戻し n.fontSize を変更しないこと
+
+  ドキュメント (README.md / README.ja.md):
+  - fontSize フィールドの説明に「6〜96px」の範囲とプリセット範囲、直接入力可能である旨を追記
+
+✻ Brewed for 2m 43s
+```

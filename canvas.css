@@ -303,15 +303,20 @@ body {
 .font-controls {
   display: flex; gap: 4px; align-items: center; margin-bottom: 4px;
 }
-.font-controls select {
+.font-controls select,
+.font-controls input[type="number"] {
   background: #21262d; color: #c9d1d9;
   border: 1px solid #30363d; border-radius: 4px;
-  font-size: 11px; padding: 2px 4px; cursor: pointer;
+  font-size: 11px; padding: 2px 4px;
   outline: none;
 }
-.font-controls select:hover { border-color: #484f58; }
+.font-controls select { cursor: pointer; }
+.font-controls select:hover,
+.font-controls input[type="number"]:hover { border-color: #484f58; }
+.font-controls input[type="number"]:focus { border-color: #388bfd; }
 .font-controls .sel-font-family { flex: 1; min-width: 0; }
-.font-controls .sel-font-size { width: 58px; flex-shrink: 0; }
+.font-controls .inp-font-size { width: 52px; flex-shrink: 0; }
+.font-controls input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
 
 /* ── Link context menu ── */
 #link-ctx {

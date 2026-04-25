@@ -106,7 +106,7 @@ A node is a code block when the `type` field is absent or `"code"`.
 | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
 | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"cascadia-code"`, `"consolas"`). Defaults to `"default"` |
-| `fontSize` | number | Font size in px. Defaults to `12.5` |
+| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–48 px). Defaults to `12.5` |
 
 ## Node object (bubble)
 
@@ -126,7 +126,7 @@ A node is a bubble when `type` is `"bubble"`.
 | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
 | `showTail` | boolean | Whether to show the tail (default: `true`) |
 | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
-| `fontSize` | number | Font size in px. Defaults to `13` |
+| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (11–48 px). Defaults to `13` |
 | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code block). `null` when not anchored. |
 | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
 | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
@@ -146,7 +146,7 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `label` | string | Label text displayed in the frame header |
 | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
 | `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
-| `fontSize` | number | Font size in px. Defaults to `12` |
+| `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
 
 ## Link object
 
