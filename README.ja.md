@@ -95,7 +95,7 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 | `showLineNumbers` | boolean | 行番号を表示するかどうか（デフォルト：`true`） |
 | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト：`1`） |
 | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
-| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"jetbrains-mono"`、`"fira-code"`、`"menlo"`、`"cascadia-code"`、`"consolas"`）。省略時は `"default"` |
+| `fontFamily` | string | フォントファミリーID。`"default"` / `"ui-monospace"` / `"jetbrains-mono"` / `"fira-code"` / `"menlo"` / `"monaco"` / `"cascadia-code"` / `"consolas"` / `"courier-new"` のいずれか。省略時は `"default"` |
 | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜48 px）から選択するか直接入力可能。省略時は `12.5` |
 
 ## Nodeオブジェクト（吹き出し）
@@ -115,7 +115,7 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 | `tailY` | number | キャンバス上の尾部先端のY座標（本体とは独立して移動可能） |
 | `color` | string | カラーテーマID（例：`"green"`、`"blue"`、`"red"`） |
 | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
-| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"trebuchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
 | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
 
 ## Nodeオブジェクト（フレーム）
@@ -132,7 +132,7 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 | `h` | number | フレームの高さ |
 | `label` | string | フレームヘッダーに表示されるラベルテキスト |
 | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
-| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"trebuchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
 | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜32 px）から選択するか直接入力可能。省略時は `12` |
 
 ## Linkオブジェクト

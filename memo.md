@@ -24028,3 +24028,216 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Brewed for 2m 43s
 ```
+
+```
+❯ font familyの選択肢を増やしたいです。ブラウザで標準的に使えるものが他にあれば、選択肢に追加してください
+
+⏺ ブラウザで広く使えるフォントを調査してから追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 追加するフォントを整理します:
+
+  Code (monospace 追加):
+  - ui-monospace — CSS システムキーワード（macOS: SF Mono、Windows: Cascadia Code など OS最適）
+  - Courier New — 全 OS で利用可能な古典的モノスペース
+  - Monaco — macOS 標準のターミナルフォント
+
+  Bubble/Frame (sans-serif 追加):
+  - system-ui — CSS システムキーワード（macOS: SF Pro、Windows: Segoe UI）
+  - Verdana — 画面可読性向けに設計、全 OS で利用可能
+  - Trebuchet MS — Windows/Mac で広く利用可能
+  - Helvetica Neue — macOS/iOS 標準
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 19 lines, removed 8 lines
+       87  export const FONT_PRESETS = {
+       88    code: [
+       89      { id: 'default',       label: 'Default',        family: "'Source Code Pro', 'Menlo', 'Cascadia Mono', 'Consolas', 'DejaVu Sans
+            Mono', 'Liberation Mono', 'Ubuntu Mono', monospace" },
+       90 +    { id: 'ui-monospace',  label: 'System Mono',    family: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Menlo', monospace" },
+       91      { id: 'jetbrains-mono',label: 'JetBrains Mono', family: "'JetBrains Mono', monospace" },
+       92      { id: 'fira-code',     label: 'Fira Code',      family: "'Fira Code', monospace" },
+       93      { id: 'menlo',         label: 'Menlo',           family: "'Menlo', monospace" },
+       94 +    { id: 'monaco',        label: 'Monaco',          family: "'Monaco', 'Menlo', monospace" },
+       95      { id: 'cascadia-code', label: 'Cascadia Code',   family: "'Cascadia Code', 'Cascadia Mono', monospace" },
+       96      { id: 'consolas',      label: 'Consolas',        family: "'Consolas', monospace" },
+       97 +    { id: 'courier-new',   label: 'Courier New',     family: "'Courier New', Courier, monospace" },
+       98    ],
+       99    bubble: [
+       97 -    { id: 'default', label: 'Default', family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+       98 -    { id: 'inter',   label: 'Inter',   family: "'Inter', sans-serif" },
+       99 -    { id: 'georgia', label: 'Georgia', family: "'Georgia', serif" },
+      100 -    { id: 'arial',   label: 'Arial',   family: "'Arial', sans-serif" },
+      100 +    { id: 'default',        label: 'Default',        family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+      101 +    { id: 'system-ui',      label: 'System UI',      family: "system-ui, sans-serif" },
+      102 +    { id: 'inter',          label: 'Inter',          family: "'Inter', sans-serif" },
+      103 +    { id: 'helvetica-neue', label: 'Helvetica Neue', family: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
+      104 +    { id: 'verdana',        label: 'Verdana',        family: "'Verdana', sans-serif" },
+      105 +    { id: 'trebuchet-ms',   label: 'Trebuchet MS',   family: "'Trebuchet MS', sans-serif" },
+      106 +    { id: 'arial',          label: 'Arial',          family: "'Arial', sans-serif" },
+      107 +    { id: 'georgia',        label: 'Georgia',        family: "'Georgia', serif" },
+      108    ],
+      109    frame: [
+      103 -    { id: 'default', label: 'Default', family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+      104 -    { id: 'inter',   label: 'Inter',   family: "'Inter', sans-serif" },
+      105 -    { id: 'georgia', label: 'Georgia', family: "'Georgia', serif" },
+      106 -    { id: 'arial',   label: 'Arial',   family: "'Arial', sans-serif" },
+      110 +    { id: 'default',        label: 'Default',        family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+      111 +    { id: 'system-ui',      label: 'System UI',      family: "system-ui, sans-serif" },
+      112 +    { id: 'inter',          label: 'Inter',          family: "'Inter', sans-serif" },
+      113 +    { id: 'helvetica-neue', label: 'Helvetica Neue', family: "'Helvetica Neue', Helvetica, Arial, sans-serif" },
+      114 +    { id: 'verdana',        label: 'Verdana',        family: "'Verdana', sans-serif" },
+      115 +    { id: 'trebuchet-ms',   label: 'Trebuchet MS',   family: "'Trebuchet MS', sans-serif" },
+      116 +    { id: 'arial',          label: 'Arial',          family: "'Arial', sans-serif" },
+      117 +    { id: 'georgia',        label: 'Georgia',        family: "'Georgia', serif" },
+      118    ],
+      119  };
+      120  export const FONT_SIZES = {
+
+⏺ テストとドキュメントを更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 24 lines
+      112      expect(FONT_PRESETS.code.some(p => p.id === 'fira-code')).toBe(true);
+      113    });
+      114
+      115 +  it('code presets include ui-monospace (System Mono)', () => {
+      116 +    expect(FONT_PRESETS.code.some(p => p.id === 'ui-monospace')).toBe(true);
+      117 +  });
+      118 +
+      119 +  it('code presets include Courier New', () => {
+      120 +    expect(FONT_PRESETS.code.some(p => p.id === 'courier-new')).toBe(true);
+      121 +  });
+      122 +
+      123 +  it('code presets include Monaco', () => {
+      124 +    expect(FONT_PRESETS.code.some(p => p.id === 'monaco')).toBe(true);
+      125 +  });
+      126 +
+      127 +  it('bubble presets include system-ui', () => {
+      128 +    expect(FONT_PRESETS.bubble.some(p => p.id === 'system-ui')).toBe(true);
+      129 +  });
+      130 +
+      131 +  it('bubble presets include Verdana', () => {
+      132 +    expect(FONT_PRESETS.bubble.some(p => p.id === 'verdana')).toBe(true);
+      133 +  });
+      134 +
+      135 +  it('bubble presets include Helvetica Neue', () => {
+      136 +    expect(FONT_PRESETS.bubble.some(p => p.id === 'helvetica-neue')).toBe(true);
+      137 +  });
+      138 +
+      139    it('all family strings are non-empty', () => {
+      140      for (const list of Object.values(FONT_PRESETS)) {
+      141        for (const p of list) {
+
+⏺ ドキュメントの fontFamily 欄を更新します。
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      105  | `showLineNumbers` | boolean | Whether to show line numbers (default: `true`) |
+      106  | `lineNumberStart` | number | Line number shown at the first line (default: `1`) |
+      107  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      108 -| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo"`, `"cascadia-code"`
+          -, `"consolas"`). Defaults to `"default"` |
+      108 +| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"ui-monospace"`, `"jetbrains-mono"`, `"fira-code"`, `"menlo
+          +"`, `"monaco"`, `"cascadia-code"`, `"consolas"`, `"courier-new"`. Defaults to `"default"` |
+      109  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–48 px). Defaults to `12.5` |
+      110
+      111  ## Node object (bubble)
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines, removed 2 lines
+      125  | `tailY` | number | Y coordinate of the tail tip on the canvas (used when not anchored) |
+      126  | `color` | string | Color theme ID (e.g. `"green"`, `"blue"`, `"red"`) |
+      127  | `showTail` | boolean | Whether to show the tail (default: `true`) |
+      128 -| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      128 +| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `
+          +"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+      129  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (11–48 px). Defaults to `13` |
+      130  | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+           k). `null` when not anchored. |
+      131  | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+     ...
+      145  | `h` | number | Height of the frame |
+      146  | `label` | string | Label text displayed in the frame header |
+      147  | `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+      148 -| `fontFamily` | string | Font family preset ID (e.g. `"default"`, `"inter"`, `"georgia"`, `"arial"`). Defaults to `"default"` |
+      148 +| `fontFamily` | string | Font family preset ID. One of: `"default"`, `"system-ui"`, `"inter"`, `"helvetica-neue"`, `"verdana"`, `
+          +"trebuchet-ms"`, `"arial"`, `"georgia"`. Defaults to `"default"` |
+      149  | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
+      150
+      151  ## Link object
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+       95  | `showLineNumbers` | boolean | 行番号を表示するかどうか（デフォルト：`true`） |
+       96  | `lineNumberStart` | number | 先頭行に表示する行番号（デフォルト：`1`） |
+       97  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+       98 -| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"jetbrains-mono"`、`"fira-code"`、`"menlo"`、`"cascadia-code"`、
+          -`"consolas"`）。省略時は `"default"` |
+       98 +| `fontFamily` | string | フォントファミリーID。`"default"` / `"ui-monospace"` / `"jetbrains-mono"` / `"fira-code"` / `"menlo"` /
+          +`"monaco"` / `"cascadia-code"` / `"consolas"` / `"courier-new"` のいずれか。省略時は `"default"` |
+       99  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜48 px）から選択するか直接入力可能。省略時は `12.5` |
+      100
+      101  ## Nodeオブジェクト（吹き出し）
+
+⏺ Update(README.ja.md)
+  ⎿  Added 2 lines, removed 2 lines
+      115  | `tailY` | number | キャンバス上の尾部先端のY座標（本体とは独立して移動可能） |
+      116  | `color` | string | カラーテーマID（例：`"green"`、`"blue"`、`"red"`） |
+      117  | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
+      118 -| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+      118 +| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"tre
+          +buchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
+      119  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
+      120
+      121  ## Nodeオブジェクト（フレーム）
+     ...
+      132  | `h` | number | フレームの高さ |
+      133  | `label` | string | フレームヘッダーに表示されるラベルテキスト |
+      134  | `color` | string | カラーテーマID（例：`"blue"`、`"green"`、`"red"`） |
+      135 -| `fontFamily` | string | フォントファミリーID（例：`"default"`、`"inter"`、`"georgia"`、`"arial"`）。省略時は `"default"` |
+      135 +| `fontFamily` | string | フォントファミリーID。`"default"` / `"system-ui"` / `"inter"` / `"helvetica-neue"` / `"verdana"` / `"tre
+          +buchet-ms"` / `"arial"` / `"georgia"` のいずれか。省略時は `"default"` |
+      136  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（10〜32 px）から選択するか直接入力可能。省略時は `12` |
+      137
+      138  ## Linkオブジェクト
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(unset NODE_OPTIONS && npx vitest run 2>&1)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (89 tests) 21ms
+     … +9 lines (ctrl+o to expand)
+
+⏺ 242テスト全通過。追加した選択肢のまとめ:
+
+  Code (モノスペース 3種追加):
+
+  ┌──────────────┬─────────────┬─────────────────────────────────────────────────────────────────┐
+  │      ID      │  フォント   │                              特徴                               │
+  ├──────────────┼─────────────┼─────────────────────────────────────────────────────────────────┤
+  │ ui-monospace │ System Mono │ CSS システムキーワード — macOS: SF Mono、Windows: Cascadia Code │
+  ├──────────────┼─────────────┼─────────────────────────────────────────────────────────────────┤
+  │ monaco       │ Monaco      │ macOS 標準ターミナルフォント                                    │
+  ├──────────────┼─────────────┼─────────────────────────────────────────────────────────────────┤
+  │ courier-new  │ Courier New │ 全 OS で利用可能な最も普遍的なモノスペース                      │
+  └──────────────┴─────────────┴─────────────────────────────────────────────────────────────────┘
+
+  Bubble/Frame (サンセリフ 3種追加):
+
+  ┌────────────────┬────────────────┬───────────────────────────────────────────────────────────┐
+  │       ID       │    フォント    │                           特徴                            │
+  ├────────────────┼────────────────┼───────────────────────────────────────────────────────────┤
+  │ system-ui      │ System UI      │ CSS システムキーワード — macOS: SF Pro、Windows: Segoe UI │
+  ├────────────────┼────────────────┼───────────────────────────────────────────────────────────┤
+  │ helvetica-neue │ Helvetica Neue │ macOS/iOS 標準、Helvetica → Arial にフォールバック        │
+  ├────────────────┼────────────────┼───────────────────────────────────────────────────────────┤
+  │ verdana        │ Verdana        │ 画面可読性向けに設計、全 OS で利用可能                    │
+  ├────────────────┼────────────────┼───────────────────────────────────────────────────────────┤
+  │ trebuchet-ms   │ Trebuchet MS   │ Windows/Mac で広く利用可能なヒューマニスト体              │
+  └────────────────┴────────────────┴───────────────────────────────────────────────────────────┘
+
+✻ Worked for 1m 21s
+```

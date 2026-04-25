@@ -112,6 +112,30 @@ describe('FONT_PRESETS', () => {
     expect(FONT_PRESETS.code.some(p => p.id === 'fira-code')).toBe(true);
   });
 
+  it('code presets include ui-monospace (System Mono)', () => {
+    expect(FONT_PRESETS.code.some(p => p.id === 'ui-monospace')).toBe(true);
+  });
+
+  it('code presets include Courier New', () => {
+    expect(FONT_PRESETS.code.some(p => p.id === 'courier-new')).toBe(true);
+  });
+
+  it('code presets include Monaco', () => {
+    expect(FONT_PRESETS.code.some(p => p.id === 'monaco')).toBe(true);
+  });
+
+  it('bubble presets include system-ui', () => {
+    expect(FONT_PRESETS.bubble.some(p => p.id === 'system-ui')).toBe(true);
+  });
+
+  it('bubble presets include Verdana', () => {
+    expect(FONT_PRESETS.bubble.some(p => p.id === 'verdana')).toBe(true);
+  });
+
+  it('bubble presets include Helvetica Neue', () => {
+    expect(FONT_PRESETS.bubble.some(p => p.id === 'helvetica-neue')).toBe(true);
+  });
+
   it('all family strings are non-empty', () => {
     for (const list of Object.values(FONT_PRESETS)) {
       for (const p of list) {
