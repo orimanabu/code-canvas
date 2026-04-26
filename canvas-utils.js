@@ -113,6 +113,7 @@ export const FONT_SIZES = {
   frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128, 192, 256, 384, 500],
   text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96, 128, 192, 256, 384, 500],
 };
+export const DEFAULT_FONT_SIZE = { code: 12.5, bubble: 13, text: 20, frame: 12 };
 
 // ═══════════════════════════════════════════════════════
 // TEXT NODE COLORS
@@ -131,118 +132,90 @@ export const TEXT_COLORS = [
   { id: 'gray',   label: 'Gray',   hex: '#8b949e' },
 ];
 
-// Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
-// and never inside an already-injected link-anchor span.
-// rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
-// escape before building the regex pattern and use the escaped form in the replacement too.
-// Matches in the first line of the block (before the first \n) are intentionally skipped
-// so that function/type signatures at the top of a code block are never used as anchor points.
-export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
-  const escapedText = esc(rawText);
-  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Add word-boundary assertions on whichever sides of the pattern begin/end
-  // with a word character (\w).  This prevents "start" from matching the
-  // "start" prefix inside "startNoPodLock" while still matching "start()" or
-  // "start" when surrounded by non-word characters.
-  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
-  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
-  const re  = new RegExp(prefix + pat + suffix, 'g');
-  // split on HTML tags
+// Shared core for injectAnchor and injectTailAnchor.
+// Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
+// Skips the first line; when `trackCount` is true, first-line matches still
+// advance `matchCount` so `buildSpan(idx)` receives the correct global index.
+// `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
+function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
   const parts = html.split(/(<[^>]*>)/);
-  // Track whether we are currently inside an existing link-anchor span.
-  // link-anchor spans are always leaf spans (no child tags), so a simple
-  // boolean toggle on open/close is sufficient.
-  let insideLinkAnchor = false;
-  // Skip the first line: do not inject anchors until we have seen the first \n.
+  let insideAnchor = false;
   let firstLinePassed = false;
-  // Global match counter across all text segments (including first-line ones
-  // that are counted but not replaced). Used to mark the selected occurrence
-  // with data-lid-primary when anchorMatchIdx >= 0.
   let matchCount = 0;
 
-  // Replace all regex matches in str with link-anchor spans, tracking matchCount.
-  // The match at position anchorMatchIdx gets data-lid-primary="1".
   function replaceSegment(str) {
     const cre = new RegExp(re.source, re.flags);
-    let out = '';
-    let last = 0;
-    let m;
+    let out = '', last = 0, m;
     while ((m = cre.exec(str)) !== null) {
       out += str.slice(last, m.index);
-      const primary = anchorMatchIdx >= 0 && matchCount === anchorMatchIdx
-        ? ' data-lid-primary="1"' : '';
-      out += `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      out += buildSpan(matchCount++);
       last = m.index + m[0].length;
-      matchCount++;
     }
     return out + str.slice(last);
   }
 
-  // Count matches in str without replacing (for first-line segments that are
-  // skipped for injection but still advance the global matchCount).
-  function countSegment(str) {
+  function countOnly(str) {
     const cre = new RegExp(re.source, re.flags);
     while (cre.exec(str) !== null) matchCount++;
   }
 
   return parts.map((p, i) => {
     if (i % 2 === 1) { // tag segment
-      if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
-      else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
-      return p;
-    }
-    if (!firstLinePassed) {
-      const nlIdx = p.indexOf('\n');
-      if (nlIdx === -1) {
-        countSegment(p); // still on first line: count but don't replace
-        return p;
-      }
-      // The newline marks the end of the first line; only replace after it.
-      firstLinePassed = true;
-      const before = p.slice(0, nlIdx + 1);
-      const after  = p.slice(nlIdx + 1);
-      countSegment(before); // first-line portion: count but don't replace
-      if (insideLinkAnchor) return p;
-      return before + replaceSegment(after);
-    }
-    if (insideLinkAnchor) return p; // skip text already owned by another anchor
-    return replaceSegment(p);
-  }).join('');
-}
-
-// Inject a tail-anchor span around all occurrences of rawText in highlighted HTML.
-// Structurally identical to injectAnchor but uses class="tail-anchor" and data-taid.
-export function injectTailAnchor(html, rawText, taid) {
-  const escapedText = esc(rawText);
-  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
-  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
-  const re  = new RegExp(prefix + pat + suffix, 'g');
-  const parts = html.split(/(<[^>]*>)/);
-  let insideAnchor = false;
-  let firstLinePassed = false;
-  return parts.map((p, i) => {
-    if (i % 2 === 1) { // tag segment
-      if (/^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/.test(p)) insideAnchor = true;
+      if (insidePattern.test(p)) insideAnchor = true;
       else if (p === '</span>' && insideAnchor) insideAnchor = false;
       return p;
     }
     if (!firstLinePassed) {
       const nlIdx = p.indexOf('\n');
-      if (nlIdx === -1) return p;
+      if (nlIdx === -1) {
+        if (trackCount) countOnly(p);
+        return p;
+      }
       firstLinePassed = true;
       const before = p.slice(0, nlIdx + 1);
       const after  = p.slice(nlIdx + 1);
+      if (trackCount) countOnly(before);
       if (insideAnchor) return p;
-      return before + after.replace(re, () =>
-        `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
-      );
+      return before + replaceSegment(after);
     }
     if (insideAnchor) return p;
-    return p.replace(re, () =>
-      `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
-    );
+    return replaceSegment(p);
   }).join('');
+}
+
+// Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
+// Matches in the first line are skipped (but counted) so the global occurrence index
+// `anchorMatchIdx` stays consistent with the selection offset computed at link-creation time.
+export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+  const escapedText = esc(rawText);
+  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Word-boundary assertions prevent "start" from matching inside "startNoPodLock".
+  const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+  const re = new RegExp(prefix + pat + suffix, 'g');
+  return _injectSpans(html, re,
+    /^<span[^>]+class="[^"]*\blink-anchor\b/,
+    idx => {
+      const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
+      return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+    },
+    true,
+  );
+}
+
+// Inject tail-anchor spans around all occurrences of rawText in highlighted HTML.
+// Structurally identical to injectAnchor but uses class="tail-anchor" / data-taid.
+export function injectTailAnchor(html, rawText, taid) {
+  const escapedText = esc(rawText);
+  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+  const re = new RegExp(prefix + pat + suffix, 'g');
+  return _injectSpans(html, re,
+    /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/,
+    () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+    false,
+  );
 }
 
 // Split highlighted HTML into per-line strings, correctly handling spans that
@@ -318,6 +291,8 @@ export const LINK_DASHES = [
   { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
 ];
 
+export const READY_STATUS = 'Ready — double-click to add block | select text to create link | right-click link to delete';
+
 // ═══════════════════════════════════════════════════════
 // SVG HELPER
 // ═══════════════════════════════════════════════════════
@@ -326,6 +301,34 @@ export function svgE(tag, attrs = {}) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
   return el;
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTEXT MENU HELPER
+// ═══════════════════════════════════════════════════════
+// Show `el` at (x,y), clamped to stay inside the viewport.
+export function positionCtxMenu(el, x, y) {
+  el.style.display = 'block';
+  const cw = el.offsetWidth;
+  const ch = el.offsetHeight;
+  el.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+  el.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+}
+
+// ═══════════════════════════════════════════════════════
+// CONTEXT MENU SVG SNIPPETS
+// ═══════════════════════════════════════════════════════
+// Shared by canvas-links.js and canvas-free-lines.js.
+export function makeDashSvg(dash, color) {
+  const sw = 2, w = 36, h = 12;
+  const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+    (dash ? ` stroke-dasharray="${dash}"` : '');
+  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+}
+
+export function makeWidthSvg(width, color) {
+  const w = 28, h = 16;
+  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="round"/></svg>`;
 }
 
 // ═══════════════════════════════════════════════════════

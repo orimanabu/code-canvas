@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|-------------|
 | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and `canvas.js` as an ES module (`<script type="module">`). |
 | `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text nodes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
-| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable without jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `makeDashSvg`, `makeWidthSvg`, `positionCtxMenu`, `READY_STATUS`, `DEFAULT_FONT_SIZE` shared by other modules. |
 | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameContent`, `renderNode`. |
 | `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
 | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `targetEntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
@@ -56,11 +56,13 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 
 - `esc(s)` — HTML escape
 - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
-- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants (`TEXT_COLORS` is used exclusively by text nodes)
-- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
+- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES`, `DEFAULT_FONT_SIZE` — color/font constants. `TEXT_COLORS` is used exclusively by text nodes. `DEFAULT_FONT_SIZE` maps type key (`code`/`bubble`/`frame`/`text`) to its default `fontSize` value.
+- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `READY_STATUS` — link/line style constants and the shared status-bar ready message
 - `svgE(tag, attrs)` — SVG element factory
-- `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
-- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor span
+- `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport
+- `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor spans into highlighted HTML; shares core logic with `injectTailAnchor` via internal `_injectSpans`
+- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor spans
 - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
 - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
 - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect

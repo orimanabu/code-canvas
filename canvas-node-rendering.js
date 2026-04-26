@@ -1,4 +1,4 @@
-import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
+import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, DEFAULT_FONT_SIZE, langFromPath,
          injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
 
 // hljs is a browser global (loaded from CDN script tag in canvas.html)
@@ -104,31 +104,39 @@ export function initNodeRendering(deps) {
     text:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   };
 
+  // Maps a node to its type key used for font/size lookups.
+  function nodeTypeKey(n) {
+    return n.type === 'bubble' ? 'bubble'
+         : n.type === 'frame'  ? 'frame'
+         : n.type === 'text'   ? 'text'
+         : 'code';
+  }
+
   function applyNodeFont(n, el) {
-    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+    const type = nodeTypeKey(n);
     const fid = n.fontFamily ?? 'default';
     const family = fid === 'default'
       ? DEFAULT_FONT_FAMILY[type]
       : (FONT_PRESETS.find(p => p.id === fid)?.family ?? DEFAULT_FONT_FAMILY[type]);
     if (type === 'code') {
       el.style.setProperty('--node-font-family', family);
-      el.style.setProperty('--node-font-size',   (n.fontSize ?? 12.5) + 'px');
+      el.style.setProperty('--node-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.code) + 'px');
     } else if (type === 'bubble') {
       el.style.setProperty('--bubble-font-family', family);
-      el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+      el.style.setProperty('--bubble-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.bubble) + 'px');
     } else if (type === 'text') {
       el.style.setProperty('--text-font-family', family);
-      el.style.setProperty('--text-font-size',   (n.fontSize ?? 20) + 'px');
+      el.style.setProperty('--text-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.text) + 'px');
     } else {
       el.style.setProperty('--frame-font-family', family);
-      el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
+      el.style.setProperty('--frame-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.frame) + 'px');
     }
   }
 
   function fontControlsHTML(n) {
-    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+    const type = nodeTypeKey(n);
     const currentFamily = n.fontFamily ?? 'default';
-    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : type === 'text' ? 20 : 12);
+    const currentSize   = n.fontSize ?? DEFAULT_FONT_SIZE[type];
     const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
       `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
     ).join('');
@@ -148,6 +156,56 @@ export function initNodeRendering(deps) {
              list="${dlId}">
       <datalist id="${dlId}">${sizeOpts}</datalist>
     </div>`;
+  }
+
+  // Bind font-family and font-size controls inside `el` to node `n`.
+  function bindFontControls(el, n) {
+    el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.sel-font-family').addEventListener('change', e => {
+      e.stopPropagation();
+      n.fontFamily = e.target.value;
+      applyNodeFont(n, el);
+      scheduleSave();
+    });
+    el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+    el.querySelector('.inp-font-size').addEventListener('change', e => {
+      e.stopPropagation();
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 6 && v <= 500) {
+        n.fontSize = v;
+        applyNodeFont(n, el);
+        scheduleSave();
+      } else {
+        e.target.value = n.fontSize ?? DEFAULT_FONT_SIZE[nodeTypeKey(n)];
+      }
+    });
+  }
+
+  // Bind color swatches (data-color) inside `el` to node property `n.color`.
+  function bindColorSwatches(el, n) {
+    el.querySelectorAll('.color-swatch').forEach(sw => {
+      sw.addEventListener('mousedown', e => e.stopPropagation());
+      sw.addEventListener('click', e => {
+        e.stopPropagation();
+        n.color = sw.dataset.color;
+        applyNodeColor(n, el);
+        el.querySelectorAll('.color-swatch').forEach(s =>
+          s.classList.toggle('active', s.dataset.color === n.color));
+        scheduleSave();
+      });
+    });
+  }
+
+  // Bind the edit-menu toggle button inside `el`. Returns the menuWrap element
+  // so callers can close the menu from other button handlers.
+  function bindEditMenu(el) {
+    const menuWrap = el.querySelector('.edit-menu-wrap');
+    const menuBtn  = el.querySelector('.btn-edit-menu');
+    if (menuBtn) {
+      menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+    }
+    return menuWrap;
   }
 
   // ═══════════════════════════════════════════════════════
@@ -307,43 +365,10 @@ export function initNodeRendering(deps) {
       ta.addEventListener('input', () => { n.text = ta.value; });
       el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
       el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
-      el.querySelectorAll('.color-swatch').forEach(sw => {
-        sw.addEventListener('mousedown', e => e.stopPropagation());
-        sw.addEventListener('click', e => {
-          e.stopPropagation();
-          n.color = sw.dataset.color;
-          applyNodeColor(n, el);
-          el.querySelectorAll('.color-swatch').forEach(s =>
-            s.classList.toggle('active', s.dataset.color === n.color));
-          scheduleSave();
-        });
-      });
-      const menuWrap = el.querySelector('.edit-menu-wrap');
-      const menuBtn  = el.querySelector('.btn-edit-menu');
-      if (menuBtn) {
-        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
-        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
-      }
+      bindColorSwatches(el, n);
+      bindEditMenu(el);
       bindZOrderButtons(n, el);
-      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.sel-font-family').addEventListener('change', e => {
-        e.stopPropagation();
-        n.fontFamily = e.target.value;
-        applyNodeFont(n, el);
-        scheduleSave();
-      });
-      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.inp-font-size').addEventListener('change', e => {
-        e.stopPropagation();
-        const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 500) {
-          n.fontSize = v;
-          applyNodeFont(n, el);
-          scheduleSave();
-        } else {
-          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
-        }
-      });
+      bindFontControls(el, n);
       ta.focus({ preventScroll: true });
     } else {
       el.innerHTML = bubbleViewHTML(n);
@@ -420,6 +445,7 @@ export function initNodeRendering(deps) {
       ta.addEventListener('input', () => { n.text = ta.value; });
       el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
       el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      // Text nodes use data-textcolor swatches instead of data-color.
       el.querySelectorAll('[data-textcolor]').forEach(sw => {
         sw.addEventListener('mousedown', e => e.stopPropagation());
         sw.addEventListener('click', e => {
@@ -431,32 +457,9 @@ export function initNodeRendering(deps) {
           scheduleSave();
         });
       });
-      const menuWrap = el.querySelector('.edit-menu-wrap');
-      const menuBtn  = el.querySelector('.btn-edit-menu');
-      if (menuBtn) {
-        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
-        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
-      }
+      bindEditMenu(el);
       bindZOrderButtons(n, el);
-      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.sel-font-family').addEventListener('change', e => {
-        e.stopPropagation();
-        n.fontFamily = e.target.value;
-        applyNodeFont(n, el);
-        scheduleSave();
-      });
-      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.inp-font-size').addEventListener('change', e => {
-        e.stopPropagation();
-        const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 500) {
-          n.fontSize = v;
-          applyNodeFont(n, el);
-          scheduleSave();
-        } else {
-          e.target.value = n.fontSize ?? 20;
-        }
-      });
+      bindFontControls(el, n);
       ta.focus({ preventScroll: true });
     } else {
       el.innerHTML = textViewHTML(n);
@@ -493,43 +496,10 @@ export function initNodeRendering(deps) {
       inp.addEventListener('mousedown', e => e.stopPropagation());
       el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
       el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
-      el.querySelectorAll('.color-swatch').forEach(sw => {
-        sw.addEventListener('mousedown', e => e.stopPropagation());
-        sw.addEventListener('click', e => {
-          e.stopPropagation();
-          n.color = sw.dataset.color;
-          applyNodeColor(n, el);
-          el.querySelectorAll('.color-swatch').forEach(s =>
-            s.classList.toggle('active', s.dataset.color === n.color));
-          scheduleSave();
-        });
-      });
-      const menuWrap = el.querySelector('.edit-menu-wrap');
-      const menuBtn  = el.querySelector('.btn-edit-menu');
-      if (menuBtn) {
-        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
-        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
-      }
+      bindColorSwatches(el, n);
+      bindEditMenu(el);
       bindZOrderButtons(n, el);
-      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.sel-font-family').addEventListener('change', e => {
-        e.stopPropagation();
-        n.fontFamily = e.target.value;
-        applyNodeFont(n, el);
-        scheduleSave();
-      });
-      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.inp-font-size').addEventListener('change', e => {
-        e.stopPropagation();
-        const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 500) {
-          n.fontSize = v;
-          applyNodeFont(n, el);
-          scheduleSave();
-        } else {
-          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
-        }
-      });
+      bindFontControls(el, n);
       inp.focus(); inp.select();
     } else {
       const labelHtml = n.label
@@ -612,28 +582,8 @@ export function initNodeRendering(deps) {
       el.querySelector('.btn-del').addEventListener('click', e => {
         e.stopPropagation(); removeNode(n.id);
       });
-      el.querySelectorAll('.color-swatch').forEach(sw => {
-        sw.addEventListener('mousedown', e => e.stopPropagation());
-        sw.addEventListener('click', e => {
-          e.stopPropagation();
-          n.color = sw.dataset.color;
-          applyNodeColor(n, el);
-          el.querySelectorAll('.color-swatch').forEach(s =>
-            s.classList.toggle('active', s.dataset.color === n.color));
-          scheduleSave();
-        });
-      });
-
-      // Edit menu toggle
-      const menuWrap = el.querySelector('.edit-menu-wrap');
-      const menuBtn  = el.querySelector('.btn-edit-menu');
-      if (menuBtn) {
-        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
-        menuBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          menuWrap.classList.toggle('open');
-        });
-      }
+      bindColorSwatches(el, n);
+      const menuWrap = bindEditMenu(el);
       const btnFetchEdit = el.querySelector('.btn-fetch-git');
       if (btnFetchEdit) {
         btnFetchEdit.addEventListener('mousedown', e => e.stopPropagation());
@@ -652,27 +602,7 @@ export function initNodeRendering(deps) {
         });
       }
       bindZOrderButtons(n, el);
-
-      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.sel-font-family').addEventListener('change', e => {
-        e.stopPropagation();
-        n.fontFamily = e.target.value;
-        applyNodeFont(n, el);
-        scheduleSave();
-      });
-      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.inp-font-size').addEventListener('change', e => {
-        e.stopPropagation();
-        const v = parseFloat(e.target.value);
-        if (!isNaN(v) && v >= 6 && v <= 500) {
-          n.fontSize = v;
-          applyNodeFont(n, el);
-          scheduleSave();
-        } else {
-          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
-        }
-      });
-
+      bindFontControls(el, n);
       ta.focus({ preventScroll: true });
     } else {
       const { html, lang } = n.code

@@ -1,4 +1,5 @@
-import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
 
 export function initFreeLines(deps) {
   const { S, c2s,
@@ -212,7 +213,7 @@ export function initFreeLines(deps) {
     document.body.classList.remove('line-draw-mode');
     renderFreeLines();
     document.getElementById('btn-add-line').classList.remove('active');
-    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+    setStatus(READY_STATUS);
   }
 
   function finishDrawingLine() {
@@ -220,19 +221,6 @@ export function initFreeLines(deps) {
     if (!dl || dl.points.length < 2) { exitLineDrawMode(); return; }
     addFreeLine(dl.points, 'polyline', '#e6edf3', 2, '');
     exitLineDrawMode();
-  }
-
-  function makeDashSvg(dash, color) {
-    const sw = 2;
-    const w = 36, h = 12;
-    const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
-      (dash ? ` stroke-dasharray="${dash}"` : '');
-    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
-  }
-
-  function makeWidthSvg(width, color) {
-    const w = 28, h = 16;
-    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="round"/></svg>`;
   }
 
   function showLineCtx(lineId, x, y) {
@@ -318,11 +306,7 @@ export function initFreeLines(deps) {
 
     lineCtxDel.onclick = () => { hideLineCtx(); removeFreeLine(lineId); };
 
-    lineCtxEl.style.display = 'block';
-    const cw = lineCtxEl.offsetWidth || 220;
-    const ch = lineCtxEl.offsetHeight || 200;
-    lineCtxEl.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
-    lineCtxEl.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+    positionCtxMenu(lineCtxEl, x, y);
   }
 
   function hideLineCtx() {

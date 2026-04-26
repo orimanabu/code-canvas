@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   esc, EXT_LANG, langFromPath, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES,
-  injectAnchor, splitHtmlLines, addLineNumbers,
+  DEFAULT_FONT_SIZE, READY_STATUS,
+  injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+  makeDashSvg, makeWidthSvg,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
 } from '../canvas-utils.js';
 
@@ -151,6 +153,40 @@ describe('FONT_PRESETS', () => {
     for (const p of FONT_PRESETS) {
       expect(p.family.trim().length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ─── DEFAULT_FONT_SIZE ────────────────────────────────────
+describe('DEFAULT_FONT_SIZE', () => {
+  it('has keys for all four node types', () => {
+    expect(DEFAULT_FONT_SIZE).toHaveProperty('code');
+    expect(DEFAULT_FONT_SIZE).toHaveProperty('bubble');
+    expect(DEFAULT_FONT_SIZE).toHaveProperty('frame');
+    expect(DEFAULT_FONT_SIZE).toHaveProperty('text');
+  });
+
+  it('code default is 12.5', () => expect(DEFAULT_FONT_SIZE.code).toBe(12.5));
+  it('bubble default is 13',  () => expect(DEFAULT_FONT_SIZE.bubble).toBe(13));
+  it('frame default is 12',   () => expect(DEFAULT_FONT_SIZE.frame).toBe(12));
+  it('text default is 20',    () => expect(DEFAULT_FONT_SIZE.text).toBe(20));
+
+  it('each default is contained in the corresponding FONT_SIZES list', () => {
+    for (const [type, size] of Object.entries(DEFAULT_FONT_SIZE)) {
+      expect(FONT_SIZES[type]).toContain(size);
+    }
+  });
+});
+
+// ─── READY_STATUS ─────────────────────────────────────────
+describe('READY_STATUS', () => {
+  it('is a non-empty string', () => {
+    expect(typeof READY_STATUS).toBe('string');
+    expect(READY_STATUS.length).toBeGreaterThan(0);
+  });
+
+  it('mentions double-click and link creation', () => {
+    expect(READY_STATUS).toContain('double-click');
+    expect(READY_STATUS).toContain('link');
   });
 });
 
@@ -334,6 +370,88 @@ describe('injectAnchor', () => {
   it('leaves text unchanged when no match', () => {
     const html = 'first line\nhello world';
     expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+  });
+});
+
+// ─── injectTailAnchor ────────────────────────────────────
+describe('injectTailAnchor', () => {
+  it('wraps matching text on line 2+ in a tail-anchor span', () => {
+    const result = injectTailAnchor('first line\nhello world', 'world', 42);
+    expect(result).toContain('class="tail-anchor"');
+    expect(result).toContain('data-taid="42"');
+    expect(result).toContain('world');
+  });
+
+  it('does not inject on the first line', () => {
+    const result = injectTailAnchor('hello world', 'world', 1);
+    expect(result).not.toContain('tail-anchor');
+    expect(result).toBe('hello world');
+  });
+
+  it('does not inject when match is only on the first line', () => {
+    const result = injectTailAnchor('world\nsecond line', 'world', 1);
+    expect(result).not.toContain('tail-anchor');
+    expect(result.startsWith('world\n')).toBe(true);
+  });
+
+  it('does not alter surrounding text', () => {
+    const result = injectTailAnchor('line1\nhello world', 'world', 5);
+    expect(result).toContain('hello ');
+  });
+
+  it('leaves text unchanged when no match', () => {
+    const html = 'first line\nhello world';
+    expect(injectTailAnchor(html, 'notfound', 1)).toBe(html);
+  });
+
+  it('does not modify HTML tags', () => {
+    const html = 'first line\n<span class="kw">return</span>';
+    const result = injectTailAnchor(html, 'return', 7);
+    expect(result).toContain('class="kw"');
+    expect(result).toContain('class="tail-anchor"');
+  });
+
+  it('uses word boundaries — does not match partial words', () => {
+    const result = injectTailAnchor('first\nstartNoPodLock', 'start', 1);
+    expect(result).not.toContain('tail-anchor');
+  });
+});
+
+// ─── makeDashSvg ─────────────────────────────────────────
+describe('makeDashSvg', () => {
+  it('returns an SVG string', () => {
+    const svg = makeDashSvg('', '#ffffff');
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('</svg>');
+  });
+
+  it('includes the provided color', () => {
+    expect(makeDashSvg('', '#ff0000')).toContain('#ff0000');
+  });
+
+  it('includes stroke-dasharray when dash is non-empty', () => {
+    expect(makeDashSvg('8 4', '#fff')).toContain('stroke-dasharray="8 4"');
+  });
+
+  it('omits stroke-dasharray when dash is empty', () => {
+    expect(makeDashSvg('', '#fff')).not.toContain('stroke-dasharray');
+  });
+});
+
+// ─── makeWidthSvg ─────────────────────────────────────────
+describe('makeWidthSvg', () => {
+  it('returns an SVG string', () => {
+    const svg = makeWidthSvg(2, '#ffffff');
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('</svg>');
+  });
+
+  it('includes the provided color', () => {
+    expect(makeWidthSvg(3, '#00ff00')).toContain('#00ff00');
+  });
+
+  it('includes the provided stroke-width', () => {
+    expect(makeWidthSvg(5, '#fff')).toContain('stroke-width="5"');
   });
 });
 

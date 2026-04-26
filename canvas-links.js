@@ -1,4 +1,5 @@
-import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide } from './canvas-utils.js';
+import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide,
+         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
 
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
@@ -197,7 +198,7 @@ export function initLinks(deps) {
     document.body.classList.remove('link-mode');
     linkTip.style.display = 'none';
     linkPreviewEl.style.display = 'none';
-    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+    setStatus(READY_STATUS);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -214,25 +215,12 @@ export function initLinks(deps) {
     S.tailAttachMode = false;
     S.tailPending = null;
     document.body.classList.remove('tail-attach-mode');
-    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+    setStatus(READY_STATUS);
   }
 
   // ═══════════════════════════════════════════════════════
   // LINK CONTEXT MENU
   // ═══════════════════════════════════════════════════════
-  function makeDashSvg(dash, color) {
-    const sw = 2;
-    const w = 36, h = 12;
-    const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
-      (dash ? ` stroke-dasharray="${dash}"` : '');
-    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
-  }
-
-  function makeWidthSvg(width, color) {
-    const w = 28, h = 16;
-    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width}" fill="none" stroke-linecap="round"/></svg>`;
-  }
-
   function showLinkCtx(linkId, x, y) {
     const lnk = S.links.find(l => l.id === linkId);
     if (!lnk) return;
@@ -300,12 +288,7 @@ export function initLinks(deps) {
       removeLink(linkId);
     };
 
-    // Position (keep on screen)
-    linkCtx.style.display = 'block';
-    const cw = linkCtx.offsetWidth || 210;
-    const ch = linkCtx.offsetHeight || 160;
-    linkCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
-    linkCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+    positionCtxMenu(linkCtx, x, y);
   }
 
   function hideLinkCtx() {
@@ -345,11 +328,7 @@ export function initLinks(deps) {
       scheduleSave();
     };
 
-    anchorCtx.style.display = 'block';
-    const cw = anchorCtx.offsetWidth || 220;
-    const ch = anchorCtx.offsetHeight || 70;
-    anchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
-    anchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+    positionCtxMenu(anchorCtx, x, y);
   }
 
   function hideAnchorCtx() {
@@ -372,11 +351,7 @@ export function initLinks(deps) {
       renderBubbleTail(bubble);
       scheduleSave();
     };
-    tailAnchorCtx.style.display = 'block';
-    const cw = tailAnchorCtx.offsetWidth || 200;
-    const ch = tailAnchorCtx.offsetHeight || 40;
-    tailAnchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
-    tailAnchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+    positionCtxMenu(tailAnchorCtx, x, y);
   }
 
   function hideTailAnchorCtx() {
@@ -414,9 +389,13 @@ export function initLinks(deps) {
     }
 
     const ar = S.pending.anchorRect;
-    let fp = ar
-      ? { x: ar.left + ar.width / 2, y: ar.top + ar.height / 2 }
-      : c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+    let fp;
+    if (ar) {
+      fp = { x: ar.left + ar.width / 2, y: ar.top + ar.height / 2 };
+    } else {
+      const ep = edgePoint(fn, tn);
+      fp = c2s(ep.x, ep.y);
+    }
     const { point: tp, side } = targetEntryPoint(fp, tn);
     if (ar) fp = anchorFpFromSide(ar, side);
     const dx = tp.x - fp.x;

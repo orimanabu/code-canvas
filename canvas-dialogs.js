@@ -24,6 +24,17 @@ export function initDialogs(deps) {
 }
 
 // ═══════════════════════════════════════════════════════
+// DIALOG HELPERS
+// ═══════════════════════════════════════════════════════
+// Returns a setNote(msg, type) function bound to a specific note element.
+function makeSetNote(el) {
+  return (msg, type) => {
+    el.textContent = msg;
+    el.className = 'git-form-note' + (type ? ' ' + type : '');
+  };
+}
+
+// ═══════════════════════════════════════════════════════
 // GIT UTILITIES
 // ═══════════════════════════════════════════════════════
 function parseGitHubUrl(url) {
@@ -97,11 +108,7 @@ function initRepoDialog() {
   const cancelBtn    = document.getElementById('repo-cancel');
 
   let _onSave = null;
-
-  function setNote(msg, type) {
-    noteEl.textContent = msg;
-    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
-  }
+  const setNote = makeSetNote(noteEl);
 
   // Auto-fill nickname from URL last path segment (only when not manually edited)
   urlEl.addEventListener('input', () => {
@@ -384,11 +391,7 @@ function initFetchDialog() {
   const okBtn      = document.getElementById('fetch-ok');
   const cancelBtn  = document.getElementById('fetch-cancel');
   let targetNodeId = null;
-
-  function setNote(msg, type) {
-    noteEl.textContent = msg;
-    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
-  }
+  const setNote = makeSetNote(noteEl);
 
   function updateInfo() {
     const repos = S.globalConfig.repositories || [];
@@ -596,15 +599,8 @@ function initCodeSnippetdDialog() {
     updateApiTypeUI();
   });
 
-  function setNote(msg, type) {
-    noteEl.textContent = msg;
-    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
-  }
-
-  function setResultsNote(msg, type) {
-    resultsNoteEl.textContent = msg;
-    resultsNoteEl.className = 'git-form-note' + (type ? ' ' + type : '');
-  }
+  const setNote        = makeSetNote(noteEl);
+  const setResultsNote = makeSetNote(resultsNoteEl);
 
   function close() {
     overlay.style.display = 'none';
@@ -629,10 +625,7 @@ function initCodeSnippetdDialog() {
     wasmResultsDiv.style.display = '';
   }
 
-  function setWasmStatus(msg, type) {
-    wasmStatusEl.textContent = msg;
-    wasmStatusEl.className = 'git-form-note' + (type ? ' ' + type : '');
-  }
+  const setWasmStatus = makeSetNote(wasmStatusEl);
 
   function buildWasmTable(tags) {
     if (tags.length === 0) {

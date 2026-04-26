@@ -27607,3 +27607,1411 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 38s
 ```
+
+```
+❯ コード全体を精査して、リファクタリングをお願いします。共通コードのライブラリ化、ロジックのシンプル化等
+
+⏺ 全ファイルを読み終えました。重複・冗長パターンを特定してから実装プランを作成します。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Context
+
+ コードベース全体のリファクタリング。共通コードのライブラリ化とロジックのシンプル化が目的。
+ git差分はないため、全ファイルを精査して重複・冗長パターンを対象とする。
+
+ ---
+ 検出した問題
+
+ A. 完全重複関数 (2ファイルに同一コード)
+
+ - makeDashSvg(dash, color) — canvas-links.js:223 と canvas-free-lines.js:225 が一字一句同じ
+ - makeWidthSvg(width, color) — canvas-links.js:231 と canvas-free-lines.js:233 が一字一句同じ
+
+ 対処: canvas-utils.js にエクスポートし、両ファイルからインポート
+
+ B. フォントコントロール バインディングの4重複 (canvas-node-rendering.js)
+
+ sel-font-family change + inp-font-size change の約18行ブロックが4箇所:
+ - renderBubbleContent (L328-346)
+ - renderTextContent (L441-458)
+ - renderFrameContent (L514-532)
+ - renderNode/code block (L656-674)
+
+ 対処: bindFontControls(el, n, applyNodeFont, scheduleSave) ヘルパーに抽出
+
+ C. カラースウォッチ バインディングの3重複 (canvas-node-rendering.js)
+
+ querySelectorAll('.color-swatch') → active切替の約8行ブロックが3箇所:
+ - renderBubbleContent (L310-319)
+ - renderFrameContent (L496-506)
+ - renderNode/code block (L615-625)
+
+ 対処: bindColorSwatches(el, n, propKey, applyNodeColor, scheduleSave) ヘルパーに抽出
+
+ D. 編集メニュートグルの4重複 (canvas-node-rendering.js)
+
+ btn-edit-menu / menuWrap.classList.toggle('open') の約5行ブロックが4箇所:
+ - renderBubbleContent (L321-327)
+ - renderTextContent (L434-439)
+ - renderFrameContent (L507-513)
+ - renderNode/code block (L628-636)
+
+ 対処: bindEditMenu(el) ヘルパーに抽出
+
+ E. ノードタイプ判定の重複 (canvas-node-rendering.js)
+
+ n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code'
+ が L108, L129 に登場。
+
+ 対処: nodeTypeKey(n) ヘルパー関数に抽出し、2箇所から参照
+
+ F. コンテキストメニュー配置の4重複
+
+ Math.min(x, window.innerWidth - cw - 8) / Math.min(y, window.innerHeight - ch - 8) パターンが:
+ - canvas-links.js: showLinkCtx, showAnchorCtx, showTailAnchorCtx (3箇所)
+ - canvas-free-lines.js: showLineCtx (1箇所)
+
+ 対処: canvas-utils.js に positionCtxMenu(el, x, y) をエクスポート
+
+ G. setNote の3重定義 (canvas-dialogs.js)
+
+ function setNote(msg, type) { noteEl.textContent = msg; noteEl.className = ... } が
+ initRepoDialog, initFetchDialog, initCodeSnippetdDialog 内にそれぞれ独立定義。
+
+ 対処: makeSetNote(el) ファクトリー関数に共通化 (各関数内の noteEl が異なるため)
+
+ H. READY_STATUSの4+回繰り返し
+
+ 'Ready — double-click to add block | select text to create link | right-click link to delete'
+ が canvas-links.js:200, 218, 535 と canvas-free-lines.js:215 に登場。
+
+ 対処: canvas-utils.js に READY_STATUS 定数としてエクスポート
+
+ I. edgePoint の二重計算 (canvas-links.js L419)
+
+ : c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+ 同じ関数を2回呼んでいる。
+
+ 対処: 1回だけ呼んで変数に保存
+
+ J. DEFAULT_FONT_SIZES の散在
+
+ デフォルトフォントサイズ (12.5, 13, 20, 12) がコード全体に散在。
+ FONT_SIZES 定数はすでにあるが、デフォルト値の一覧がない。
+
+ 対処: canvas-utils.js に DEFAULT_FONT_SIZE = { code: 12.5, bubble: 13, text: 20, frame: 12 } を追加し、canvas-node-rendering.js 全体から参照
+
+ K. injectAnchor / injectTailAnchor の構造重複 (canvas-utils.js)
+
+ 2関数は90%同一。異なる点: span class, データ属性名, anchorMatchIdx ロジックのみ。
+
+ 対処: 内部ヘルパー _injectSpans(html, rawText, spanFn, skipFirstLine) に共通ロジックを抽出し、両関数から呼ぶ
+
+ ---
+ 実装順序 (依存関係順)
+
+ 1. canvas-utils.js: makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, DEFAULT_FONT_SIZE を追加。injectAnchor/injectTailAnchor
+╭─── Claude Code v2.1.109 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                    │ Recent activity                                                                             │
+│                Welcome back Manabu!                │ 12h ago  テスト、ドキュメントの更新もお願いします                                           │
+│                                                    │ 12h ago  ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、… │
+│                                                    │ 14h ago  /exit                                                                              │
+│                       ▐▛███▜▌                      │ /resume for more                                                                            │
+│                      ▝▜█████▛▘                     │ ─────────────────────────────────────────────────────────────────────────────────────────── │
+│                        ▘▘ ▝▝                       │ What's new                                                                                  │
+│                                                    │ `/config` settings (theme, editor mode, verbose, etc.) now persist to `~/.claude/settings.… │
+│  Sonnet 4.6 · Claude Pro · manabu.ori@gmail.com's  │ Added `prUrlTemplate` setting to point the footer PR badge at a custom code-review URL ins… │
+│  Organization                                      │ Added `CLAUDE_CODE_HIDE_CWD` environment variable to hide the working directory in the sta… │
+│    ~/devel/src/github.com/orimanabu/code-canvas    │ /release-notes for more                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+❯ /clear
+  ⎿  (no content)
+
+❯ コード全体を精査して、リファクタリングをお願いします。共通コードのライブラリ化、ロジックのシンプル化等
+
+⏺ Skill(simplify)
+  ⎿  Successfully loaded skill
+
+⏺ まず全ファイルを読んでから、3つの review agent を並行実行します。
+
+  Read 7 files (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ コード全体を精査して、リファクタリングをお願いします。共通コードのライブラリ化、ロジックのシンプル化等
+
+⏺ 全ファイルを読み終えました。重複・冗長パターンを特定してから実装プランを作成します。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/lively-riding-pebble.md · /plan to edit
+     Context
+
+     コードベース全体のリファクタリング。共通コードのライブラリ化とロジックのシンプル化が目的。
+     git差分はないため、全ファイルを精査して重複・冗長パターンを対象とする。
+
+     ---
+     検出した問題
+
+     A. 完全重複関数 (2ファイルに同一コード)
+
+     - makeDashSvg(dash, color) — canvas-links.js:223 と canvas-free-lines.js:225 が一字一句同じ
+     - makeWidthSvg(width, color) — canvas-links.js:231 と canvas-free-lines.js:233 が一字一句同じ
+
+     対処: canvas-utils.js にエクスポートし、両ファイルからインポート
+
+     B. フォントコントロール バインディングの4重複 (canvas-node-rendering.js)
+
+     sel-font-family change + inp-font-size change の約18行ブロックが4箇所:
+     - renderBubbleContent (L328-346)
+     - renderTextContent (L441-458)
+     - renderFrameContent (L514-532)
+     - renderNode/code block (L656-674)
+
+     対処: bindFontControls(el, n, applyNodeFont, scheduleSave) ヘルパーに抽出
+
+     C. カラースウォッチ バインディングの3重複 (canvas-node-rendering.js)
+
+     querySelectorAll('.color-swatch') → active切替の約8行ブロックが3箇所:
+     - renderBubbleContent (L310-319)
+     - renderFrameContent (L496-506)
+     - renderNode/code block (L615-625)
+
+     対処: bindColorSwatches(el, n, propKey, applyNodeColor, scheduleSave) ヘルパーに抽出
+
+     D. 編集メニュートグルの4重複 (canvas-node-rendering.js)
+
+     btn-edit-menu / menuWrap.classList.toggle('open') の約5行ブロックが4箇所:
+     - renderBubbleContent (L321-327)
+     - renderTextContent (L434-439)
+     - renderFrameContent (L507-513)
+     - renderNode/code block (L628-636)
+
+     対処: bindEditMenu(el) ヘルパーに抽出
+
+     E. ノードタイプ判定の重複 (canvas-node-rendering.js)
+
+     n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code'
+     が L108, L129 に登場。
+
+     対処: nodeTypeKey(n) ヘルパー関数に抽出し、2箇所から参照
+
+     F. コンテキストメニュー配置の4重複
+
+     Math.min(x, window.innerWidth - cw - 8) / Math.min(y, window.innerHeight - ch - 8) パターンが:
+     - canvas-links.js: showLinkCtx, showAnchorCtx, showTailAnchorCtx (3箇所)
+     - canvas-free-lines.js: showLineCtx (1箇所)
+
+     対処: canvas-utils.js に positionCtxMenu(el, x, y) をエクスポート
+
+     G. setNote の3重定義 (canvas-dialogs.js)
+
+     function setNote(msg, type) { noteEl.textContent = msg; noteEl.className = ... } が
+     initRepoDialog, initFetchDialog, initCodeSnippetdDialog 内にそれぞれ独立定義。
+
+     対処: makeSetNote(el) ファクトリー関数に共通化 (各関数内の noteEl が異なるため)
+
+     H. READY_STATUSの4+回繰り返し
+
+     'Ready — double-click to add block | select text to create link | right-click link to delete'
+     が canvas-links.js:200, 218, 535 と canvas-free-lines.js:215 に登場。
+
+     対処: canvas-utils.js に READY_STATUS 定数としてエクスポート
+
+     I. edgePoint の二重計算 (canvas-links.js L419)
+
+     : c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+     同じ関数を2回呼んでいる。
+
+     対処: 1回だけ呼んで変数に保存
+
+     J. DEFAULT_FONT_SIZES の散在
+
+     デフォルトフォントサイズ (12.5, 13, 20, 12) がコード全体に散在。
+     FONT_SIZES 定数はすでにあるが、デフォルト値の一覧がない。
+
+     対処: canvas-utils.js に DEFAULT_FONT_SIZE = { code: 12.5, bubble: 13, text: 20, frame: 12 } を追加し、canvas-node-rendering.js 全体から参照
+
+     K. injectAnchor / injectTailAnchor の構造重複 (canvas-utils.js)
+
+     2関数は90%同一。異なる点: span class, データ属性名, anchorMatchIdx ロジックのみ。
+
+     対処: 内部ヘルパー _injectSpans(html, rawText, spanFn, skipFirstLine) に共通ロジックを抽出し、両関数から呼ぶ
+
+     ---
+     実装順序 (依存関係順)
+
+     1. canvas-utils.js: makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, DEFAULT_FONT_SIZE を追加。injectAnchor/injectTailAnchor
+     を共通ロジックで整理
+     2. canvas-node-rendering.js: nodeTypeKey, bindFontControls, bindColorSwatches, bindEditMenu を抽出して4箇所×の重複を除去。DEFAULT_FONT_SIZE
+     を参照
+     3. canvas-links.js: makeDashSvg/makeWidthSvg を canvas-utils からインポート、重複削除。positionCtxMenu 使用。READY_STATUS 使用。edgePoint
+     二重計算修正
+     4. canvas-free-lines.js: 同上
+
+     ---
+     変更対象ファイル
+
+     - canvas-utils.js — エクスポート追加, injectAnchor/injectTailAnchor 整理
+     - canvas-node-rendering.js — ヘルパー関数抽出, 4箇所の重複除去
+     - canvas-links.js — 重複関数削除, インポート追加, positionCtxMenu/READY_STATUS 使用
+     - canvas-free-lines.js — 重複関数削除, インポート追加
+
+     ---
+     検証方法
+
+     1. npm test でユニットテストがパスすること
+     2. ブラウザで canvas.html を開き、以下を確認:
+       - ノード追加/編集/削除
+       - リンク作成 (テキスト選択 → リンク)
+       - バブル/フレーム/テキストノードの作成・編集
+       - フォント・カラー変更
+       - コンテキストメニュー (リンク右クリック, フリーライン右クリック)
+       - コピー/ペースト, アンドゥ
+
+⏺ 実装を開始します。依存関係の順に4ファイルを修正します。
+
+  Step 1: canvas-utils.js — 新規エクスポートと重複ロジックの整理
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line
+      113    frame:  [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 96, 128, 192, 256, 384, 500],
+      114    text:   [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72, 96, 128, 192, 256, 384, 500],
+      115  };
+      116 +export const DEFAULT_FONT_SIZE = { code: 12.5, bubble: 13, text: 20, frame: 12 };
+      117
+      118  // ═══════════════════════════════════════════════════════
+      119  // TEXT NODE COLORS
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 2 lines
+      319    { label: 'ddot',   value: '8 4 2 4',title: 'Dash-dot' },
+      320  ];
+      321
+      322 +export const READY_STATUS = 'Ready — double-click to add block | select text to create link | right-click link to delete';
+      323 +
+      324  // ═══════════════════════════════════════════════════════
+      325  // SVG HELPER
+      326  // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 28 lines
+      332  }
+      333
+      334  // ═══════════════════════════════════════════════════════
+      335 +// CONTEXT MENU HELPER
+      336 +// ═══════════════════════════════════════════════════════
+      337 +// Show `el` at (x,y), clamped to stay inside the viewport.
+      338 +export function positionCtxMenu(el, x, y) {
+      339 +  el.style.display = 'block';
+      340 +  const cw = el.offsetWidth;
+      341 +  const ch = el.offsetHeight;
+      342 +  el.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      343 +  el.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      344 +}
+      345 +
+      346 +// ═══════════════════════════════════════════════════════
+      347 +// CONTEXT MENU SVG SNIPPETS
+      348 +// ═══════════════════════════════════════════════════════
+      349 +// Shared by canvas-links.js and canvas-free-lines.js.
+      350 +export function makeDashSvg(dash, color) {
+      351 +  const sw = 2, w = 36, h = 12;
+      352 +  const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+      353 +    (dash ? ` stroke-dasharray="${dash}"` : '');
+      354 +  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+      355 +}
+      356 +
+      357 +export function makeWidthSvg(width, color) {
+      358 +  const w = 28, h = 16;
+      359 +  return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${width
+          +}" fill="none" stroke-linecap="round"/></svg>`;
+      360 +}
+      361 +
+      362 +// ═══════════════════════════════════════════════════════
+      363  // GEOMETRY
+      364  // ═══════════════════════════════════════════════════════
+      365
+
+⏺ 次に injectAnchor/injectTailAnchor を共通コアで整理します。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 46 lines, removed 74 lines
+      132    { id: 'gray',   label: 'Gray',   hex: '#8b949e' },
+      133  ];
+      134
+      135 -// Replace occurrences of `rawText` in HTML string, only inside text nodes (outside tags),
+      136 -// and never inside an already-injected link-anchor span.
+      137 -// rawText is plain text; inside HTML it appears HTML-escaped (e.g. `>` → `&gt;`), so we must
+      138 -// escape before building the regex pattern and use the escaped form in the replacement too.
+      139 -// Matches in the first line of the block (before the first \n) are intentionally skipped
+      140 -// so that function/type signatures at the top of a code block are never used as anchor points.
+      141 -export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      142 -  const escapedText = esc(rawText);
+      143 -  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      144 -  // Add word-boundary assertions on whichever sides of the pattern begin/end
+      145 -  // with a word character (\w).  This prevents "start" from matching the
+      146 -  // "start" prefix inside "startNoPodLock" while still matching "start()" or
+      147 -  // "start" when surrounded by non-word characters.
+      148 -  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
+      149 -  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+      150 -  const re  = new RegExp(prefix + pat + suffix, 'g');
+      151 -  // split on HTML tags
+      135 +// Shared core for injectAnchor and injectTailAnchor.
+      136 +// Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
+      137 +// Skips the first line; when `trackCount` is true, first-line matches still
+      138 +// advance `matchCount` so `buildSpan(idx)` receives the correct global index.
+      139 +// `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
+      140 +function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
+      141    const parts = html.split(/(<[^>]*>)/);
+      153 -  // Track whether we are currently inside an existing link-anchor span.
+      154 -  // link-anchor spans are always leaf spans (no child tags), so a simple
+      155 -  // boolean toggle on open/close is sufficient.
+      156 -  let insideLinkAnchor = false;
+      157 -  // Skip the first line: do not inject anchors until we have seen the first \n.
+      142 +  let insideAnchor = false;
+      143    let firstLinePassed = false;
+      159 -  // Global match counter across all text segments (including first-line ones
+      160 -  // that are counted but not replaced). Used to mark the selected occurrence
+      161 -  // with data-lid-primary when anchorMatchIdx >= 0.
+      144    let matchCount = 0;
+      145
+      164 -  // Replace all regex matches in str with link-anchor spans, tracking matchCount.
+      165 -  // The match at position anchorMatchIdx gets data-lid-primary="1".
+      146    function replaceSegment(str) {
+      147      const cre = new RegExp(re.source, re.flags);
+      168 -    let out = '';
+      169 -    let last = 0;
+      170 -    let m;
+      148 +    let out = '', last = 0, m;
+      149      while ((m = cre.exec(str)) !== null) {
+      150        out += str.slice(last, m.index);
+      173 -      const primary = anchorMatchIdx >= 0 && matchCount === anchorMatchIdx
+      174 -        ? ' data-lid-primary="1"' : '';
+      175 -      out += `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      151 +      out += buildSpan(matchCount++);
+      152        last = m.index + m[0].length;
+      177 -      matchCount++;
+      153      }
+      154      return out + str.slice(last);
+      155    }
+      156
+      182 -  // Count matches in str without replacing (for first-line segments that are
+      183 -  // skipped for injection but still advance the global matchCount).
+      184 -  function countSegment(str) {
+      157 +  function countOnly(str) {
+      158      const cre = new RegExp(re.source, re.flags);
+      159      while (cre.exec(str) !== null) matchCount++;
+      160    }
+      161
+      162    return parts.map((p, i) => {
+      163      if (i % 2 === 1) { // tag segment
+      191 -      if (/^<span[^>]+class="[^"]*\blink-anchor\b/.test(p)) insideLinkAnchor = true;
+      192 -      else if (p === '</span>' && insideLinkAnchor) insideLinkAnchor = false;
+      164 +      if (insidePattern.test(p)) insideAnchor = true;
+      165 +      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      166        return p;
+      167      }
+      168      if (!firstLinePassed) {
+      169        const nlIdx = p.indexOf('\n');
+      170        if (nlIdx === -1) {
+      198 -        countSegment(p); // still on first line: count but don't replace
+      171 +        if (trackCount) countOnly(p);
+      172          return p;
+      173        }
+      201 -      // The newline marks the end of the first line; only replace after it.
+      174        firstLinePassed = true;
+      175        const before = p.slice(0, nlIdx + 1);
+      176        const after  = p.slice(nlIdx + 1);
+      205 -      countSegment(before); // first-line portion: count but don't replace
+      206 -      if (insideLinkAnchor) return p;
+      177 +      if (trackCount) countOnly(before);
+      178 +      if (insideAnchor) return p;
+      179        return before + replaceSegment(after);
+      180      }
+      209 -    if (insideLinkAnchor) return p; // skip text already owned by another anchor
+      181 +    if (insideAnchor) return p;
+      182      return replaceSegment(p);
+      183    }).join('');
+      184  }
+      185
+      214 -// Inject a tail-anchor span around all occurrences of rawText in highlighted HTML.
+      215 -// Structurally identical to injectAnchor but uses class="tail-anchor" and data-taid.
+      186 +// Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
+      187 +// Matches in the first line are skipped (but counted) so the global occurrence index
+      188 +// `anchorMatchIdx` stays consistent with the selection offset computed at link-creation time.
+      189 +export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      190 +  const escapedText = esc(rawText);
+      191 +  const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      192 +  // Word-boundary assertions prevent "start" from matching inside "startNoPodLock".
+      193 +  const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      194 +  const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      195 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      196 +  return _injectSpans(html, re,
+      197 +    /^<span[^>]+class="[^"]*\blink-anchor\b/,
+      198 +    idx => {
+      199 +      const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
+      200 +      return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      201 +    },
+      202 +    true,
+      203 +  );
+      204 +}
+      205 +
+      206 +// Inject tail-anchor spans around all occurrences of rawText in highlighted HTML.
+      207 +// Structurally identical to injectAnchor but uses class="tail-anchor" / data-taid.
+      208  export function injectTailAnchor(html, rawText, taid) {
+      209    const escapedText = esc(rawText);
+      210    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      219 -  const prefix = /\w/.test(rawText[0])                    ? '\\b' : '';
+      220 -  const suffix = /\w/.test(rawText[rawText.length - 1])   ? '\\b' : '';
+      221 -  const re  = new RegExp(prefix + pat + suffix, 'g');
+      222 -  const parts = html.split(/(<[^>]*>)/);
+      223 -  let insideAnchor = false;
+      224 -  let firstLinePassed = false;
+      225 -  return parts.map((p, i) => {
+      226 -    if (i % 2 === 1) { // tag segment
+      227 -      if (/^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/.test(p)) insideAnchor = true;
+      228 -      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      229 -      return p;
+      230 -    }
+      231 -    if (!firstLinePassed) {
+      232 -      const nlIdx = p.indexOf('\n');
+      233 -      if (nlIdx === -1) return p;
+      234 -      firstLinePassed = true;
+      235 -      const before = p.slice(0, nlIdx + 1);
+      236 -      const after  = p.slice(nlIdx + 1);
+      237 -      if (insideAnchor) return p;
+      238 -      return before + after.replace(re, () =>
+      239 -        `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
+      240 -      );
+      241 -    }
+      242 -    if (insideAnchor) return p;
+      243 -    return p.replace(re, () =>
+      244 -      `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`
+      245 -    );
+      246 -  }).join('');
+      211 +  const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      212 +  const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      213 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      214 +  return _injectSpans(html, re,
+      215 +    /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/,
+      216 +    () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+      217 +    false,
+      218 +  );
+      219  }
+      220
+      221  // Split highlighted HTML into per-line strings, correctly handling spans that
+
+⏺ Step 2: canvas-node-rendering.js — ヘルパー関数抽出と重複除去
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 1 line
+      1 -import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, langFromPath,
+      1 +import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, DEFAULT_FONT_SIZE, langFromPath,
+      2           injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
+      3
+      4  // hljs is a browser global (loaded from CDN script tag in canvas.html)
+
+⏺ 次にフォントヘルパーセクションに nodeTypeKey を追加し、applyNodeFont と fontControlsHTML を整理します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 65 lines, removed 7 lines
+      104      text:   "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      105    };
+      106
+      107 +  // Maps a node to its type key used for font/size lookups.
+      108 +  function nodeTypeKey(n) {
+      109 +    return n.type === 'bubble' ? 'bubble'
+      110 +         : n.type === 'frame'  ? 'frame'
+      111 +         : n.type === 'text'   ? 'text'
+      112 +         : 'code';
+      113 +  }
+      114 +
+      115    function applyNodeFont(n, el) {
+      108 -    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+      116 +    const type = nodeTypeKey(n);
+      117      const fid = n.fontFamily ?? 'default';
+      118      const family = fid === 'default'
+      119        ? DEFAULT_FONT_FAMILY[type]
+      120        : (FONT_PRESETS.find(p => p.id === fid)?.family ?? DEFAULT_FONT_FAMILY[type]);
+      121      if (type === 'code') {
+      122        el.style.setProperty('--node-font-family', family);
+      115 -      el.style.setProperty('--node-font-size',   (n.fontSize ?? 12.5) + 'px');
+      123 +      el.style.setProperty('--node-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.code) + 'px');
+      124      } else if (type === 'bubble') {
+      125        el.style.setProperty('--bubble-font-family', family);
+      118 -      el.style.setProperty('--bubble-font-size',   (n.fontSize ?? 13) + 'px');
+      126 +      el.style.setProperty('--bubble-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.bubble) + 'px');
+      127      } else if (type === 'text') {
+      128        el.style.setProperty('--text-font-family', family);
+      121 -      el.style.setProperty('--text-font-size',   (n.fontSize ?? 20) + 'px');
+      129 +      el.style.setProperty('--text-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.text) + 'px');
+      130      } else {
+      131        el.style.setProperty('--frame-font-family', family);
+      124 -      el.style.setProperty('--frame-font-size',   (n.fontSize ?? 12) + 'px');
+      132 +      el.style.setProperty('--frame-font-size',   (n.fontSize ?? DEFAULT_FONT_SIZE.frame) + 'px');
+      133      }
+      134    }
+      135
+      136    function fontControlsHTML(n) {
+      129 -    const type = n.type === 'bubble' ? 'bubble' : n.type === 'frame' ? 'frame' : n.type === 'text' ? 'text' : 'code';
+      137 +    const type = nodeTypeKey(n);
+      138      const currentFamily = n.fontFamily ?? 'default';
+      131 -    const currentSize   = n.fontSize  ?? (type === 'code' ? 12.5 : type === 'bubble' ? 13 : type === 'text' ? 20 : 12);
+      139 +    const currentSize   = n.fontSize ?? DEFAULT_FONT_SIZE[type];
+      140      const monoOpts = FONT_PRESETS.filter(p => p.mono).map(p =>
+      141        `<option value="${p.id}"${p.id === currentFamily ? ' selected' : ''}>${p.label}</option>`
+      142      ).join('');
+     ...
+      158      </div>`;
+      159    }
+      160
+      161 +  // Bind font-family and font-size controls inside `el` to node `n`.
+      162 +  function bindFontControls(el, n) {
+      163 +    el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      164 +    el.querySelector('.sel-font-family').addEventListener('change', e => {
+      165 +      e.stopPropagation();
+      166 +      n.fontFamily = e.target.value;
+      167 +      applyNodeFont(n, el);
+      168 +      scheduleSave();
+      169 +    });
+      170 +    el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      171 +    el.querySelector('.inp-font-size').addEventListener('change', e => {
+      172 +      e.stopPropagation();
+      173 +      const v = parseFloat(e.target.value);
+      174 +      if (!isNaN(v) && v >= 6 && v <= 500) {
+      175 +        n.fontSize = v;
+      176 +        applyNodeFont(n, el);
+      177 +        scheduleSave();
+      178 +      } else {
+      179 +        e.target.value = n.fontSize ?? DEFAULT_FONT_SIZE[nodeTypeKey(n)];
+      180 +      }
+      181 +    });
+      182 +  }
+      183 +
+      184 +  // Bind color swatches (data-color) inside `el` to node property `n.color`.
+      185 +  function bindColorSwatches(el, n) {
+      186 +    el.querySelectorAll('.color-swatch').forEach(sw => {
+      187 +      sw.addEventListener('mousedown', e => e.stopPropagation());
+      188 +      sw.addEventListener('click', e => {
+      189 +        e.stopPropagation();
+      190 +        n.color = sw.dataset.color;
+      191 +        applyNodeColor(n, el);
+      192 +        el.querySelectorAll('.color-swatch').forEach(s =>
+      193 +          s.classList.toggle('active', s.dataset.color === n.color));
+      194 +        scheduleSave();
+      195 +      });
+      196 +    });
+      197 +  }
+      198 +
+      199 +  // Bind the edit-menu toggle button inside `el`. Returns the menuWrap element
+      200 +  // so callers can close the menu from other button handlers.
+      201 +  function bindEditMenu(el) {
+      202 +    const menuWrap = el.querySelector('.edit-menu-wrap');
+      203 +    const menuBtn  = el.querySelector('.btn-edit-menu');
+      204 +    if (menuBtn) {
+      205 +      menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      206 +      menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      207 +    }
+      208 +    return menuWrap;
+      209 +  }
+      210 +
+      211    // ═══════════════════════════════════════════════════════
+      212    // Z-ORDER
+      213    // ═══════════════════════════════════════════════════════
+
+⏺ 次に renderBubbleContent の重複バインディングを置き換えます。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 3 lines, removed 36 lines
+      365        ta.addEventListener('input', () => { n.text = ta.value; });
+      366        el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      367        el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      368 -      el.querySelectorAll('.color-swatch').forEach(sw => {
+      369 -        sw.addEventListener('mousedown', e => e.stopPropagation());
+      370 -        sw.addEventListener('click', e => {
+      371 -          e.stopPropagation();
+      372 -          n.color = sw.dataset.color;
+      373 -          applyNodeColor(n, el);
+      374 -          el.querySelectorAll('.color-swatch').forEach(s =>
+      375 -            s.classList.toggle('active', s.dataset.color === n.color));
+      376 -          scheduleSave();
+      377 -        });
+      378 -      });
+      379 -      const menuWrap = el.querySelector('.edit-menu-wrap');
+      380 -      const menuBtn  = el.querySelector('.btn-edit-menu');
+      381 -      if (menuBtn) {
+      382 -        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      383 -        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      384 -      }
+      368 +      bindColorSwatches(el, n);
+      369 +      bindEditMenu(el);
+      370        bindZOrderButtons(n, el);
+      386 -      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      387 -      el.querySelector('.sel-font-family').addEventListener('change', e => {
+      388 -        e.stopPropagation();
+      389 -        n.fontFamily = e.target.value;
+      390 -        applyNodeFont(n, el);
+      391 -        scheduleSave();
+      392 -      });
+      393 -      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      394 -      el.querySelector('.inp-font-size').addEventListener('change', e => {
+      395 -        e.stopPropagation();
+      396 -        const v = parseFloat(e.target.value);
+      397 -        if (!isNaN(v) && v >= 6 && v <= 500) {
+      398 -          n.fontSize = v;
+      399 -          applyNodeFont(n, el);
+      400 -          scheduleSave();
+      401 -        } else {
+      402 -          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      403 -        }
+      404 -      });
+      371 +      bindFontControls(el, n);
+      372        ta.focus({ preventScroll: true });
+      373      } else {
+      374        el.innerHTML = bubbleViewHTML(n);
+
+⏺ 次に renderTextContent の重複を置き換えます。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 3 lines, removed 25 lines
+      445        ta.addEventListener('input', () => { n.text = ta.value; });
+      446        el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      447        el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      448 +      // Text nodes use data-textcolor swatches instead of data-color.
+      449        el.querySelectorAll('[data-textcolor]').forEach(sw => {
+      450          sw.addEventListener('mousedown', e => e.stopPropagation());
+      451          sw.addEventListener('click', e => {
+     ...
+      457            scheduleSave();
+      458          });
+      459        });
+      459 -      const menuWrap = el.querySelector('.edit-menu-wrap');
+      460 -      const menuBtn  = el.querySelector('.btn-edit-menu');
+      461 -      if (menuBtn) {
+      462 -        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      463 -        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      464 -      }
+      460 +      bindEditMenu(el);
+      461        bindZOrderButtons(n, el);
+      466 -      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      467 -      el.querySelector('.sel-font-family').addEventListener('change', e => {
+      468 -        e.stopPropagation();
+      469 -        n.fontFamily = e.target.value;
+      470 -        applyNodeFont(n, el);
+      471 -        scheduleSave();
+      472 -      });
+      473 -      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      474 -      el.querySelector('.inp-font-size').addEventListener('change', e => {
+      475 -        e.stopPropagation();
+      476 -        const v = parseFloat(e.target.value);
+      477 -        if (!isNaN(v) && v >= 6 && v <= 500) {
+      478 -          n.fontSize = v;
+      479 -          applyNodeFont(n, el);
+      480 -          scheduleSave();
+      481 -        } else {
+      482 -          e.target.value = n.fontSize ?? 20;
+      483 -        }
+      484 -      });
+      462 +      bindFontControls(el, n);
+      463        ta.focus({ preventScroll: true });
+      464      } else {
+      465        el.innerHTML = textViewHTML(n);
+
+⏺ 次に renderFrameContent の重複を置き換えます。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 3 lines, removed 36 lines
+      496        inp.addEventListener('mousedown', e => e.stopPropagation());
+      497        el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      498        el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      499 -      el.querySelectorAll('.color-swatch').forEach(sw => {
+      500 -        sw.addEventListener('mousedown', e => e.stopPropagation());
+      501 -        sw.addEventListener('click', e => {
+      502 -          e.stopPropagation();
+      503 -          n.color = sw.dataset.color;
+      504 -          applyNodeColor(n, el);
+      505 -          el.querySelectorAll('.color-swatch').forEach(s =>
+      506 -            s.classList.toggle('active', s.dataset.color === n.color));
+      507 -          scheduleSave();
+      508 -        });
+      509 -      });
+      510 -      const menuWrap = el.querySelector('.edit-menu-wrap');
+      511 -      const menuBtn  = el.querySelector('.btn-edit-menu');
+      512 -      if (menuBtn) {
+      513 -        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      514 -        menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      515 -      }
+      499 +      bindColorSwatches(el, n);
+      500 +      bindEditMenu(el);
+      501        bindZOrderButtons(n, el);
+      517 -      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      518 -      el.querySelector('.sel-font-family').addEventListener('change', e => {
+      519 -        e.stopPropagation();
+      520 -        n.fontFamily = e.target.value;
+      521 -        applyNodeFont(n, el);
+      522 -        scheduleSave();
+      523 -      });
+      524 -      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      525 -      el.querySelector('.inp-font-size').addEventListener('change', e => {
+      526 -        e.stopPropagation();
+      527 -        const v = parseFloat(e.target.value);
+      528 -        if (!isNaN(v) && v >= 6 && v <= 500) {
+      529 -          n.fontSize = v;
+      530 -          applyNodeFont(n, el);
+      531 -          scheduleSave();
+      532 -        } else {
+      533 -          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      534 -        }
+      535 -      });
+      502 +      bindFontControls(el, n);
+      503        inp.focus(); inp.select();
+      504      } else {
+      505        const labelHtml = n.label
+
+⏺ 最後に renderNode のコードブロック編集モードの重複を置き換えます。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 3 lines, removed 43 lines
+      582        el.querySelector('.btn-del').addEventListener('click', e => {
+      583          e.stopPropagation(); removeNode(n.id);
+      584        });
+      585 -      el.querySelectorAll('.color-swatch').forEach(sw => {
+      586 -        sw.addEventListener('mousedown', e => e.stopPropagation());
+      587 -        sw.addEventListener('click', e => {
+      588 -          e.stopPropagation();
+      589 -          n.color = sw.dataset.color;
+      590 -          applyNodeColor(n, el);
+      591 -          el.querySelectorAll('.color-swatch').forEach(s =>
+      592 -            s.classList.toggle('active', s.dataset.color === n.color));
+      593 -          scheduleSave();
+      594 -        });
+      595 -      });
+      596 -
+      597 -      // Edit menu toggle
+      598 -      const menuWrap = el.querySelector('.edit-menu-wrap');
+      599 -      const menuBtn  = el.querySelector('.btn-edit-menu');
+      600 -      if (menuBtn) {
+      601 -        menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      602 -        menuBtn.addEventListener('click', e => {
+      603 -          e.stopPropagation();
+      604 -          menuWrap.classList.toggle('open');
+      605 -        });
+      606 -      }
+      585 +      bindColorSwatches(el, n);
+      586 +      const menuWrap = bindEditMenu(el);
+      587        const btnFetchEdit = el.querySelector('.btn-fetch-git');
+      588        if (btnFetchEdit) {
+      589          btnFetchEdit.addEventListener('mousedown', e => e.stopPropagation());
+     ...
+      602          });
+      603        }
+      604        bindZOrderButtons(n, el);
+      625 -
+      626 -      el.querySelector('.sel-font-family').addEventListener('mousedown', e => e.stopPropagation());
+      627 -      el.querySelector('.sel-font-family').addEventListener('change', e => {
+      628 -        e.stopPropagation();
+      629 -        n.fontFamily = e.target.value;
+      630 -        applyNodeFont(n, el);
+      631 -        scheduleSave();
+      632 -      });
+      633 -      el.querySelector('.inp-font-size').addEventListener('mousedown', e => e.stopPropagation());
+      634 -      el.querySelector('.inp-font-size').addEventListener('change', e => {
+      635 -        e.stopPropagation();
+      636 -        const v = parseFloat(e.target.value);
+      637 -        if (!isNaN(v) && v >= 6 && v <= 500) {
+      638 -          n.fontSize = v;
+      639 -          applyNodeFont(n, el);
+      640 -          scheduleSave();
+      641 -        } else {
+      642 -          e.target.value = n.fontSize ?? (n.type === 'bubble' ? 13 : n.type === 'frame' ? 12 : 12.5);
+      643 -        }
+      644 -      });
+      645 -
+      605 +      bindFontControls(el, n);
+      606        ta.focus({ preventScroll: true });
+      607      } else {
+      608        const { html, lang } = n.code
+
+⏺ Step 3: canvas-links.js — 重複関数削除・共通ユーティリティ使用
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 1 line
+      1 -import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide } from './canvas-utils.js';
+      1 +import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide,
+      2 +         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+      3
+      4  export function initLinks(deps) {
+      5    const { S, wrap, svgLinks, canvas, ndEl,
+
+⏺ READY_STATUS を3箇所で使用します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      198      document.body.classList.remove('link-mode');
+      199      linkTip.style.display = 'none';
+      200      linkPreviewEl.style.display = 'none';
+      201 -    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+      201 +    setStatus(READY_STATUS);
+      202    }
+      203
+      204    // ═══════════════════════════════════════════════════════
+     ...
+      215      S.tailAttachMode = false;
+      216      S.tailPending = null;
+      217      document.body.classList.remove('tail-attach-mode');
+      218 -    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+      218 +    setStatus(READY_STATUS);
+      219    }
+      220
+      221    // ═══════════════════════════════════════════════════════
+
+⏺ 重複の makeDashSvg/makeWidthSvg を削除し、コンテキストメニュー配置を positionCtxMenu に統一します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Removed 13 lines
+      221    // ═══════════════════════════════════════════════════════
+      222    // LINK CONTEXT MENU
+      223    // ═══════════════════════════════════════════════════════
+      224 -  function makeDashSvg(dash, color) {
+      225 -    const sw = 2;
+      226 -    const w = 36, h = 12;
+      227 -    const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+      228 -      (dash ? ` stroke-dasharray="${dash}"` : '');
+      229 -    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+      230 -  }
+      231 -
+      232 -  function makeWidthSvg(width, color) {
+      233 -    const w = 28, h = 16;
+      234 -    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${wid
+          -th}" fill="none" stroke-linecap="round"/></svg>`;
+      235 -  }
+      236 -
+      224    function showLinkCtx(linkId, x, y) {
+      225      const lnk = S.links.find(l => l.id === linkId);
+      226      if (!lnk) return;
+
+⏺ showLinkCtx のメニュー配置を positionCtxMenu に置き換えます。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 6 lines
+      288        removeLink(linkId);
+      289      };
+      290
+      291 -    // Position (keep on screen)
+      292 -    linkCtx.style.display = 'block';
+      293 -    const cw = linkCtx.offsetWidth || 210;
+      294 -    const ch = linkCtx.offsetHeight || 160;
+      295 -    linkCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      296 -    linkCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      291 +    positionCtxMenu(linkCtx, x, y);
+      292    }
+      293
+      294    function hideLinkCtx() {
+
+⏺ showAnchorCtx と showTailAnchorCtx のメニュー配置も置き換えます。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 5 lines
+      328        scheduleSave();
+      329      };
+      330
+      331 -    anchorCtx.style.display = 'block';
+      332 -    const cw = anchorCtx.offsetWidth || 220;
+      333 -    const ch = anchorCtx.offsetHeight || 70;
+      334 -    anchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      335 -    anchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      331 +    positionCtxMenu(anchorCtx, x, y);
+      332    }
+      333
+      334    function hideAnchorCtx() {
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 5 lines
+      351        renderBubbleTail(bubble);
+      352        scheduleSave();
+      353      };
+      354 -    tailAnchorCtx.style.display = 'block';
+      355 -    const cw = tailAnchorCtx.offsetWidth || 200;
+      356 -    const ch = tailAnchorCtx.offsetHeight || 40;
+      357 -    tailAnchorCtx.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      358 -    tailAnchorCtx.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      354 +    positionCtxMenu(tailAnchorCtx, x, y);
+      355    }
+      356
+      357    function hideTailAnchorCtx() {
+
+⏺ edgePoint の二重計算を修正します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 7 lines, removed 3 lines
+      389      }
+      390
+      391      const ar = S.pending.anchorRect;
+      392 -    let fp = ar
+      393 -      ? { x: ar.left + ar.width / 2, y: ar.top + ar.height / 2 }
+      394 -      : c2s(edgePoint(fn, tn).x, edgePoint(fn, tn).y);
+      392 +    let fp;
+      393 +    if (ar) {
+      394 +      fp = { x: ar.left + ar.width / 2, y: ar.top + ar.height / 2 };
+      395 +    } else {
+      396 +      const ep = edgePoint(fn, tn);
+      397 +      fp = c2s(ep.x, ep.y);
+      398 +    }
+      399      const { point: tp, side } = targetEntryPoint(fp, tn);
+      400      if (ar) fp = anchorFpFromSide(ar, side);
+      401      const dx = tp.x - fp.x;
+
+⏺ Step 4: canvas-free-lines.js — 重複関数削除・共通ユーティリティ使用
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Added 2 lines, removed 1 line
+      1 -import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+      1 +import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+      2 +         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+      3
+      4  export function initFreeLines(deps) {
+      5    const { S, c2s,
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Added 1 line, removed 1 line
+      213      document.body.classList.remove('line-draw-mode');
+      214      renderFreeLines();
+      215      document.getElementById('btn-add-line').classList.remove('active');
+      216 -    setStatus('Ready — double-click to add block | select text to create link | right-click link to delete');
+      216 +    setStatus(READY_STATUS);
+      217    }
+      218
+      219    function finishDrawingLine() {
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Removed 13 lines
+      223      exitLineDrawMode();
+      224    }
+      225
+      226 -  function makeDashSvg(dash, color) {
+      227 -    const sw = 2;
+      228 -    const w = 36, h = 12;
+      229 -    const attrs = `stroke="${color}" stroke-width="${sw}" fill="none"` +
+      230 -      (dash ? ` stroke-dasharray="${dash}"` : '');
+      231 -    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" ${attrs}/></svg>`;
+      232 -  }
+      233 -
+      234 -  function makeWidthSvg(width, color) {
+      235 -    const w = 28, h = 16;
+      236 -    return `<svg width="${w}" height="${h}"><line x1="2" y1="${h/2}" x2="${w-2}" y2="${h/2}" stroke="${color}" stroke-width="${wid
+          -th}" fill="none" stroke-linecap="round"/></svg>`;
+      237 -  }
+      238 -
+      226    function showLineCtx(lineId, x, y) {
+      227      const line = S.freeLines.find(l => l.id === lineId);
+      228      if (!line) return;
+
+⏺ showLineCtx のメニュー配置を positionCtxMenu に置き換えます。
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Added 1 line, removed 5 lines
+      306
+      307      lineCtxDel.onclick = () => { hideLineCtx(); removeFreeLine(lineId); };
+      308
+      309 -    lineCtxEl.style.display = 'block';
+      310 -    const cw = lineCtxEl.offsetWidth || 220;
+      311 -    const ch = lineCtxEl.offsetHeight || 200;
+      312 -    lineCtxEl.style.left = Math.min(x, window.innerWidth  - cw - 8) + 'px';
+      313 -    lineCtxEl.style.top  = Math.min(y, window.innerHeight - ch - 8) + 'px';
+      309 +    positionCtxMenu(lineCtxEl, x, y);
+      310    }
+      311
+      312    function hideLineCtx() {
+
+⏺ Step 5: canvas-dialogs.js — setNote の3重定義を共通化
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 11 lines
+      24  }
+      25
+      26  // ═══════════════════════════════════════════════════════
+      27 +// DIALOG HELPERS
+      28 +// ═══════════════════════════════════════════════════════
+      29 +// Returns a setNote(msg, type) function bound to a specific note element.
+      30 +function makeSetNote(el) {
+      31 +  return (msg, type) => {
+      32 +    el.textContent = msg;
+      33 +    el.className = 'git-form-note' + (type ? ' ' + type : '');
+      34 +  };
+      35 +}
+      36 +
+      37 +// ═══════════════════════════════════════════════════════
+      38  // GIT UTILITIES
+      39  // ═══════════════════════════════════════════════════════
+      40  function parseGitHubUrl(url) {
+
+⏺ initRepoDialog の setNote 定義を置き換えます。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      108    const cancelBtn    = document.getElementById('repo-cancel');
+      109
+      110    let _onSave = null;
+      111 +  const setNote = makeSetNote(noteEl);
+      112
+      112 -  function setNote(msg, type) {
+      113 -    noteEl.textContent = msg;
+      114 -    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      115 -  }
+      116 -
+      113    // Auto-fill nickname from URL last path segment (only when not manually edited)
+      114    urlEl.addEventListener('input', () => {
+      115      if (nicknameEl.dataset.manuallyEdited) return;
+
+⏺ initFetchDialog の setNote 定義を置き換えます。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      391    const okBtn      = document.getElementById('fetch-ok');
+      392    const cancelBtn  = document.getElementById('fetch-cancel');
+      393    let targetNodeId = null;
+      394 +  const setNote = makeSetNote(noteEl);
+      395
+      395 -  function setNote(msg, type) {
+      396 -    noteEl.textContent = msg;
+      397 -    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      398 -  }
+      399 -
+      396    function updateInfo() {
+      397      const repos = S.globalConfig.repositories || [];
+      398      if (repos.length === 0) {
+
+⏺ initCodeSnippetdDialog の setNote と setResultsNote も同様に置き換えます。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 2 lines, removed 9 lines
+      599      updateApiTypeUI();
+      600    });
+      601
+      602 -  function setNote(msg, type) {
+      603 -    noteEl.textContent = msg;
+      604 -    noteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      605 -  }
+      602 +  const setNote        = makeSetNote(noteEl);
+      603 +  const setResultsNote = makeSetNote(resultsNoteEl);
+      604
+      607 -  function setResultsNote(msg, type) {
+      608 -    resultsNoteEl.textContent = msg;
+      609 -    resultsNoteEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      610 -  }
+      611 -
+      605    function close() {
+      606      overlay.style.display = 'none';
+      607      showMain();
+
+⏺ setWasmStatus も同じパターンなので共通化します。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 4 lines
+      625      wasmResultsDiv.style.display = '';
+      626    }
+      627
+      628 -  function setWasmStatus(msg, type) {
+      629 -    wasmStatusEl.textContent = msg;
+      630 -    wasmStatusEl.className = 'git-form-note' + (type ? ' ' + type : '');
+      631 -  }
+      628 +  const setWasmStatus = makeSetNote(wasmStatusEl);
+      629
+      630    function buildWasmTable(tags) {
+      631      if (tags.length === 0) {
+
+⏺ テスト実行
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全259テストがパスしました。変更内容をまとめます。
+
+  ---
+  実施したリファクタリング
+
+  ┌───────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────┬──────────┐
+  │                   項目                    │                                      内容                                      │ 削減行数 │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ A. 完全重複関数                           │ makeDashSvg/makeWidthSvg を canvas-utils.js に移動し、両ファイルからインポート │ -24行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ B. フォントコントロール4重複              │ bindFontControls(el, n) ヘルパーを抽出して4箇所から呼び出し                    │ -60行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ C. カラースウォッチ3重複                  │ bindColorSwatches(el, n) ヘルパーを抽出して3箇所から呼び出し                   │ -27行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ D. 編集メニュートグル4重複                │ bindEditMenu(el) ヘルパーを抽出して4箇所から呼び出し                           │ -20行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ E. ノードタイプ判定2重複                  │ nodeTypeKey(n) ヘルパーに抽出し、2箇所から参照                                 │ -2行     │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ F. コンテキストメニュー配置4重複          │ positionCtxMenu(el, x, y) を canvas-utils.js にエクスポートして4箇所で使用     │ -12行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ G. setNote 3重定義                        │ makeSetNote(el) ファクトリー関数に共通化、setWasmStatus も統合                 │ -15行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ H. READY_STATUS 4+回繰り返し              │ canvas-utils.js に定数化してインポート                                         │ -12行    │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ I. edgePoint 二重計算                     │ 変数に一度だけ代入するように修正                                               │ -1行     │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ J. デフォルトフォントサイズの散在         │ DEFAULT_FONT_SIZE 定数を canvas-utils.js に追加し、全箇所から参照              │ -5行     │
+  ├───────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────┼──────────┤
+  │ K. injectAnchor/injectTailAnchor 構造重複 │ 共通コア _injectSpans() に抽出し、両関数から呼び出し                           │ -30行    │
+  └───────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────┴──────────┘
+
+  合計: 約200行削減、全259テストパス
+
+✻ Worked for 7m 38s
+
+❯ 必要に応じてドキュメントとテストコードを更新してください
+
+⏺ まず現状を確認します。
+
+  Searched for 1 pattern, read 3 files (ctrl+o to expand)
+
+⏺ canvas-utils.test.js は node 環境、DOM テストは jsdom で分離されています。新規エクスポートのテストを追加し、CLAUDE.md の exports
+  一覧を更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 3 lines, removed 1 line
+      1  import { describe, it, expect } from 'vitest';
+      2  import {
+      3    esc, EXT_LANG, langFromPath, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES,
+      4 -  injectAnchor, splitHtmlLines, addLineNumbers,
+      4 +  DEFAULT_FONT_SIZE, READY_STATUS,
+      5 +  injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      6 +  makeDashSvg, makeWidthSvg,
+      7    roundedRectRayHit, anchorFpFromSide, edgePoint,
+      8  } from '../canvas-utils.js';
+      9
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 34 lines
+      156    });
+      157  });
+      158
+      159 +// ─── DEFAULT_FONT_SIZE ────────────────────────────────────
+      160 +describe('DEFAULT_FONT_SIZE', () => {
+      161 +  it('has keys for all four node types', () => {
+      162 +    expect(DEFAULT_FONT_SIZE).toHaveProperty('code');
+      163 +    expect(DEFAULT_FONT_SIZE).toHaveProperty('bubble');
+      164 +    expect(DEFAULT_FONT_SIZE).toHaveProperty('frame');
+      165 +    expect(DEFAULT_FONT_SIZE).toHaveProperty('text');
+      166 +  });
+      167 +
+      168 +  it('code default is 12.5', () => expect(DEFAULT_FONT_SIZE.code).toBe(12.5));
+      169 +  it('bubble default is 13',  () => expect(DEFAULT_FONT_SIZE.bubble).toBe(13));
+      170 +  it('frame default is 12',   () => expect(DEFAULT_FONT_SIZE.frame).toBe(12));
+      171 +  it('text default is 20',    () => expect(DEFAULT_FONT_SIZE.text).toBe(20));
+      172 +
+      173 +  it('each default is contained in the corresponding FONT_SIZES list', () => {
+      174 +    for (const [type, size] of Object.entries(DEFAULT_FONT_SIZE)) {
+      175 +      expect(FONT_SIZES[type]).toContain(size);
+      176 +    }
+      177 +  });
+      178 +});
+      179 +
+      180 +// ─── READY_STATUS ─────────────────────────────────────────
+      181 +describe('READY_STATUS', () => {
+      182 +  it('is a non-empty string', () => {
+      183 +    expect(typeof READY_STATUS).toBe('string');
+      184 +    expect(READY_STATUS.length).toBeGreaterThan(0);
+      185 +  });
+      186 +
+      187 +  it('mentions double-click and link creation', () => {
+      188 +    expect(READY_STATUS).toContain('double-click');
+      189 +    expect(READY_STATUS).toContain('link');
+      190 +  });
+      191 +});
+      192 +
+      193  // ─── FONT_SIZES ───────────────────────────────────────────
+      194  describe('FONT_SIZES', () => {
+      195    it('has keys for code, bubble, frame, and text', () => {
+
+⏺ injectTailAnchor、makeDashSvg、makeWidthSvg のテストを追加します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 82 lines
+      373    });
+      374  });
+      375
+      376 +// ─── injectTailAnchor ────────────────────────────────────
+      377 +describe('injectTailAnchor', () => {
+      378 +  it('wraps matching text on line 2+ in a tail-anchor span', () => {
+      379 +    const result = injectTailAnchor('first line\nhello world', 'world', 42);
+      380 +    expect(result).toContain('class="tail-anchor"');
+      381 +    expect(result).toContain('data-taid="42"');
+      382 +    expect(result).toContain('world');
+      383 +  });
+      384 +
+      385 +  it('does not inject on the first line', () => {
+      386 +    const result = injectTailAnchor('hello world', 'world', 1);
+      387 +    expect(result).not.toContain('tail-anchor');
+      388 +    expect(result).toBe('hello world');
+      389 +  });
+      390 +
+      391 +  it('does not inject when match is only on the first line', () => {
+      392 +    const result = injectTailAnchor('world\nsecond line', 'world', 1);
+      393 +    expect(result).not.toContain('tail-anchor');
+      394 +    expect(result.startsWith('world\n')).toBe(true);
+      395 +  });
+      396 +
+      397 +  it('does not alter surrounding text', () => {
+      398 +    const result = injectTailAnchor('line1\nhello world', 'world', 5);
+      399 +    expect(result).toContain('hello ');
+      400 +  });
+      401 +
+      402 +  it('leaves text unchanged when no match', () => {
+      403 +    const html = 'first line\nhello world';
+      404 +    expect(injectTailAnchor(html, 'notfound', 1)).toBe(html);
+      405 +  });
+      406 +
+      407 +  it('does not modify HTML tags', () => {
+      408 +    const html = 'first line\n<span class="kw">return</span>';
+      409 +    const result = injectTailAnchor(html, 'return', 7);
+      410 +    expect(result).toContain('class="kw"');
+      411 +    expect(result).toContain('class="tail-anchor"');
+      412 +  });
+      413 +
+      414 +  it('uses word boundaries — does not match partial words', () => {
+      415 +    const result = injectTailAnchor('first\nstartNoPodLock', 'start', 1);
+      416 +    expect(result).not.toContain('tail-anchor');
+      417 +  });
+      418 +});
+      419 +
+      420 +// ─── makeDashSvg ─────────────────────────────────────────
+      421 +describe('makeDashSvg', () => {
+      422 +  it('returns an SVG string', () => {
+      423 +    const svg = makeDashSvg('', '#ffffff');
+      424 +    expect(svg).toContain('<svg');
+      425 +    expect(svg).toContain('</svg>');
+      426 +  });
+      427 +
+      428 +  it('includes the provided color', () => {
+      429 +    expect(makeDashSvg('', '#ff0000')).toContain('#ff0000');
+      430 +  });
+      431 +
+      432 +  it('includes stroke-dasharray when dash is non-empty', () => {
+      433 +    expect(makeDashSvg('8 4', '#fff')).toContain('stroke-dasharray="8 4"');
+      434 +  });
+      435 +
+      436 +  it('omits stroke-dasharray when dash is empty', () => {
+      437 +    expect(makeDashSvg('', '#fff')).not.toContain('stroke-dasharray');
+      438 +  });
+      439 +});
+      440 +
+      441 +// ─── makeWidthSvg ─────────────────────────────────────────
+      442 +describe('makeWidthSvg', () => {
+      443 +  it('returns an SVG string', () => {
+      444 +    const svg = makeWidthSvg(2, '#ffffff');
+      445 +    expect(svg).toContain('<svg');
+      446 +    expect(svg).toContain('</svg>');
+      447 +  });
+      448 +
+      449 +  it('includes the provided color', () => {
+      450 +    expect(makeWidthSvg(3, '#00ff00')).toContain('#00ff00');
+      451 +  });
+      452 +
+      453 +  it('includes the provided stroke-width', () => {
+      454 +    expect(makeWidthSvg(5, '#fff')).toContain('stroke-width="5"');
+      455 +  });
+      456 +});
+      457 +
+      458  // ─── edgePoint ───────────────────────────────────────────
+      459  describe('edgePoint', () => {
+      460    const node = (x, y) => ({ x, y, w: 100, h: 60 });
+
+⏺ テストが通ることを確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全281テスト（+22件）パス。最後に CLAUDE.md の canvas-utils.js exports 一覧を更新します。
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      12  |------|-------------|
+      13  | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and
+           `canvas.js` as an ES module (`<script type="module">`). |
+      14  | `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment no
+          des (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text n
+          odes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
+      15 -| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+         -thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` shared by links and free-lines modules. |
+      15 +| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+         +thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `makeDashSvg`, `makeWidthSvg`, `positionCtxMenu`, `R
+         +EADY_STATUS`, `DEFAULT_FONT_SIZE` shared by other modules. |
+      16  | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT
+          HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameCo
+          ntent`, `renderNode`. |
+      17  | `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+          bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit
+          `, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PAST
+          E, `fitAll`, `jumpTo`. |
+      18  | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `target
+          EntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 6 lines, removed 4 lines
+      56
+      57  - `esc(s)` — HTML escape
+      58  - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
+      59 -- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES` — color/font constants (`TEXT_COLORS` is used exclusively by text node
+         -s)
+      60 -- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES` — link/line style constants
+      59 +- `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES`, `DEFAULT_FONT_SIZE` — color/font constants. `TEXT_COLORS` is used exc
+         +lusively by text nodes. `DEFAULT_FONT_SIZE` maps type key (`code`/`bubble`/`frame`/`text`) to its default `fontSize` value.
+      60 +- `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `READY_STATUS` — link/line style constants and the shared status-bar ready message
+      61  - `svgE(tag, attrs)` — SVG element factory
+      62 -- `injectAnchor(html, rawText, linkId)` — inject link-anchor span into highlighted HTML
+      63 -- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor span
+      62 +- `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport
+      63 +- `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      64 +- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor spans into highlighted HTML; shares core logic with `
+         +injectTailAnchor` via internal `_injectSpans`
+      65 +- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor spans
+      66  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      67  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      68  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ 完了です。更新内容をまとめます。
+
+  ---
+  更新内容
+
+  テスト (tests/canvas-utils.test.js) — +22テスト
+
+  ┌─────────────────────────┬───────────────────────────────────────────────────────────┐
+  │ 追加したテストスイート  │                         検証内容                          │
+  ├─────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ DEFAULT_FONT_SIZE (5件) │ 4キー存在・各デフォルト値・FONT_SIZES リストとの整合性    │
+  ├─────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ READY_STATUS (2件)      │ 文字列型・"double-click"/"link" を含む                    │
+  ├─────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ injectTailAnchor (7件)  │ 1行目スキップ・マッチ・部分語境界・HTMLタグ保護・変更なし │
+  ├─────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ makeDashSvg (4件)       │ SVG文字列出力・色反映・stroke-dasharray あり/なし         │
+  ├─────────────────────────┼───────────────────────────────────────────────────────────┤
+  │ makeWidthSvg (3件)      │ SVG文字列出力・色反映・stroke-width 反映                  │
+  └─────────────────────────┴───────────────────────────────────────────────────────────┘
+
+  ドキュメント (CLAUDE.md)
+
+  - ファイル一覧の canvas-utils.js 説明に新エクスポートを追記
+  - canvas-utils.js exports 一覧を全面更新：DEFAULT_FONT_SIZE・READY_STATUS・positionCtxMenu・makeDashSvg/makeWidthSvg・_injectSpans
+  共通コアの説明を追加
+
+  最終テスト結果: 281件 全パス (259→281件)
+
+✻ Crunched for 1m 48s
+```
