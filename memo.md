@@ -29015,3 +29015,968 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Crunched for 1m 48s
 ```
+
+```
+❯ 今はDOM管理をpure javascriptでやっています。3rd partyのフレームワークを使うとコードをシンプル化できるかどうか検討してください
+
+⏺ 2 Explore agents finished (ctrl+o to expand)
+   ├─ Explore DOM management patterns in the codebase · 19 tool uses · 84.5k tokens
+   │  ⎿  Done
+   └─ Analyze framework fit for the app architecture · 23 tool uses · 62.0k tokens
+      ⎿  Done
+
+⏺ 非常に詳細な情報が収集できました。計画ファイルを作成します。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ 調査と分析が完了しました。以下が結論です。
+
+  ---
+  現状のDOM管理
+
+  規模: 約5,000行、154個のaddEventListener、44回のinnerHTML代入
+
+  主な問題点:
+  1. renderNode() が呼ばれるたびに el.innerHTML を全差し替えし、全イベントリスナーを再バインド（差分なし）
+  2. コンテキストメニューのcreateElementループが3ファイルにわたって繰り返される（約15-20%がボイラープレート）
+  3. 状態変更→DOM更新が完全に手動（宣言的バインディングなし）
+
+  ---
+  フレームワーク評価
+
+  Option A: フレームワークなし、ユーティリティ抽出のみ
+
+  - buildMenuItems(), bindClick(), applyNodeStyles() など5つのヘルパー関数を追加
+  - 効果: 15-20%削減、リスクゼロ、ビルドステップ不要
+  - 限界: innerHTML全差し替えの根本問題は残る
+
+  Option B: Vue 3 (CDN importmap、ビルドなし)
+
+  - 宣言的テンプレートで innerHTML = viewHTML(n) + リスナー再バインドを置き換え
+  - Pinia で S オブジェクトを適切な状態管理に置き換え
+  - 課題: ドラッグ/リサイズ/パン/ズームのstatemachineは引き続き手動ポインターイベントが必要。マイグレーション規模は大きい
+
+  Option C: Lit (Web Components)
+
+  - ノードタイプごとにカスタムエレメント化
+  - 課題: Shadow DOMがCSSカスタムプロパティ（ノード色）と相性が悪い。リンク（2ノードまたがる）の扱いが煩雑
+
+  Option D: Preact (3KB CDN)
+
+  - 仮想DOM差分で innerHTML 全差し替えを解消
+  - 課題: JSXはビルドステップなしでは使いにくい（htmタグドテンプレートが必要）
+
+  ---
+  推奨
+
+  短期: Option A（ユーティリティ抽出）— アーキテクチャは既に良く設計されており（DI
+  パターン、単一状態オブジェクト）、根本的な設計問題というよりも戦術的な繰り返しが問題。5つのヘルパー関数で即効性あり。
+
+  長期: Vue 3 CDN — innerHTML + 全リスナー再バインドパターンを宣言的テンプレートで置き換えたい場合、ビルドステップなしで使える唯一の実用的な選択肢。
+  段階的なマイグレーション（まず1ノードタイプを試験的にVue化）が現実的。
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Framework Evaluation for Code Canvas DOM Management
+
+ Context
+
+ The app currently uses pure JavaScript for all DOM management. The user wants to evaluate whether adopting a 3rd-party framework would simplify
+ the code. This is an analysis/recommendation — not an implementation task.
+
+ ---
+ Current DOM Management Summary
+
+ Scale
+
+ - 4,959 LOC across 7 core files (no build step, ES modules only)
+ - 154 addEventListener calls, 44 innerHTML assignments, 51 createElement calls
+
+ Key Patterns
+
+ 1. String template HTML — renderNode() regenerates full el.innerHTML on every render, then rebinds all event listeners from scratch
+ 2. Centralized mutable state (S) — single object, mutated in place; renders are triggered manually
+ 3. Dependency injection — all modules use initXxx(deps) pattern, no global state leakage
+ 4. Snapshot-based undo — structuredClone(S.nodes/links/freeLines), brute-force DOM clear + rebuild on undo
+ 5. Hybrid SVG + HTML — node positions are absolutely-positioned <div> elements; links/tails/free-lines are SVG paths in a separate overlay
+
+ Pain Points
+
+ - Full innerHTML replacement + listener rebinding on every render (no diffing)
+ - ~15–20% boilerplate in context menus and event pairs across 3+ files
+ - No declarative binding between state and DOM — every mutation requires explicit render call
+ - Undo clears entire DOM and re-creates all elements from scratch
+
+ ---
+ Framework Evaluation
+
+ Option A: No framework — refactor utilities only (minimal change)
+
+ Extract ~5 helper utilities:
+ - buildMenuItems(container, items, curValue, onSelect) — eliminate repeated createElement loops
+ - bindClick(el, handler) — eliminates 40+ mousedown/stopPropagation + click pairs
+ - applyNodeStyles(el, type, color) — consolidate repeated style.setProperty chains
+ - bindAll(el, selectors) — query multiple selectors at once
+
+ Estimated reduction: 15–20% fewer lines, minimal risk, no architecture change, no build step needed.
+
+ Verdict: Low effort, immediate win, but doesn't address the root issue (full re-render + listener rebind).
+
+ ---
+ Option B: Vue 3 (CDN, Composition API, no build step)
+
+ Vue 3 can be loaded from CDN as an ES module — no bundler required:
+ <script type="importmap">{"imports": {"vue": "https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js"}}</script>
+
+ Would improve:
+ - Declarative templates replace el.innerHTML = viewHTML(n) boilerplate
+ - v-if/v-else handles edit/view mode switches cleanly
+ - Granular reactivity — only changed nodes re-render (no full rebuild on undo)
+ - @click/@mousedown binding eliminates listener rebinding on render
+ - Pinia (also CDN-capable) provides proper state management replacing the mutable S object
+
+ Would remain difficult:
+ - Drag/resize/pan/zoom state machines still need custom pointer event handlers
+ - SVG tail geometry (bubble tail svgE path building) is low-level and benefits little from templating
+ - highlight.js integration: needs onMounted / watchEffect hook to re-run after render
+ - ctags-wasm: needs async loading wrapper
+ - Viewport CSS transform (#canvas pan/zoom) is still imperative and unrelated to Vue
+
+ Estimated complexity:
+ - Migration scope: large — all 5 init modules need to become components/composables
+ - Risk: high (state machine interop, SVG coordinate systems, highlight.js timing)
+ - Net simplification: moderate — templates reduce boilerplate, but framework overhead is non-trivial for a canvas interaction app
+
+ ---
+ Option C: Lit (CDN web components, no build step)
+
+ <script type="module" src="https://cdn.jsdelivr.net/npm/lit@3/index.js"></script>
+
+ Each node type becomes a custom element (<code-node>, <bubble-node>, etc.).
+
+ Would improve:
+ - Each node type is self-contained (shadow DOM encapsulates styles + events)
+ - html tagged templates with reactive properties replace manual innerHTML
+ - Event listeners declared inside elements, not re-attached externally
+
+ Would remain difficult:
+ - Shadow DOM makes canvas-wide CSS custom properties (used for node colors) harder
+ - Cross-element communication (links that reference two nodes) requires non-standard patterns
+ - Drag/resize: pointer capture + document-level mousemove still needs manual coordination
+ - Adds ~20KB runtime for unclear gain over the helper-utility approach
+
+ Verdict: Slightly better fit than Vue for an element-per-node model, but shadow DOM isolation creates friction for this canvas-style app.
+
+ ---
+ Option D: Preact (CDN, JSX-optional, ~3KB)
+
+ Can be loaded as ES module from CDN. Functional components with hooks.
+
+ Would improve:
+ - Virtual DOM diffing — no more full innerHTML replacement
+ - useState/useReducer could replace mutable S cleanly
+ - Small runtime (~3KB vs Vue's ~40KB)
+
+ Would remain difficult:
+ - Same pointer-event state machine issues as Vue
+ - JSX requires either a build step or htm tagged templates (extra cognitive overhead)
+ - React mental model requires lifting state up for drag/resize coordination between components
+
+ Verdict: Best performance/size tradeoff of the framework options, but JSX ergonomics without build step are awkward.
+
+ ---
+ Recommendation
+
+ Short term: Option A (utility extraction, no framework)
+
+ The architecture is already well-structured (DI pattern, clear module boundaries, single state object). The main friction is tactical repetition,
+ not fundamental design problems. Extracting 5 helper utilities eliminates 15–20% of boilerplate with zero migration risk and no build tooling
+ changes.
+
+ Long term: Vue 3 CDN (if simplification of conditional rendering is a priority)
+
+ If the goal is to eliminate the el.innerHTML = viewHTML(n) + listener-rebind pattern, Vue 3 via CDN import map is the most practical framework
+ option:
+ - No build step needed (matches current architecture constraint)
+ - Declarative templates directly replace the string-template + innerHTML pattern
+ - Pinia replaces the mutable S object cleanly
+ - The drag/resize/pan/zoom state machines can stay as composables using raw pointer events
+
+ Migration would be phased:
+ 1. Replace one node type (e.g., text-node) as a Vue component to validate the pattern
+ 2. Migrate context menus (highest boilerplate density) as reusable components
+ 3. Migrate remaining node types and dialogs
+ 4. Replace S with Pinia store + undo plugin
+
+ Not recommended: React (state lifting friction), Angular (overkill), Svelte (requires build step for full benefits).
+
+ ---
+ Files That Would Change (framework migration)
+
+ ┌──────────────────────────┬─────────────────────────────────────────────────────────┐
+ │           File           │                         Change                          │
+ ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+ │ canvas.html              │ Add importmap for Vue/Pinia CDN                         │
+ ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+ │ canvas-node-rendering.js │ Replace with Vue SFC-style components                   │
+╭─── Claude Code v2.1.109 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                    │ Recent activity                                                                             │
+│                Welcome back Manabu!                │ 12h ago  テスト、ドキュメントの更新もお願いします                                           │
+│                                                    │ 12h ago  ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、… │
+│                                                    │ 14h ago  /exit                                                                              │
+│                       ▐▛███▜▌                      │ /resume for more                                                                            │
+│                      ▝▜█████▛▘                     │ ─────────────────────────────────────────────────────────────────────────────────────────── │
+│                        ▘▘ ▝▝                       │ What's new                                                                                  │
+│                                                    │ `/config` settings (theme, editor mode, verbose, etc.) now persist to `~/.claude/settings.… │
+│  Sonnet 4.6 · Claude Pro · manabu.ori@gmail.com's  │ Added `prUrlTemplate` setting to point the footer PR badge at a custom code-review URL ins… │
+│  Organization                                      │ Added `CLAUDE_CODE_HIDE_CWD` environment variable to hide the working directory in the sta… │
+│    ~/devel/src/github.com/orimanabu/code-canvas    │ /release-notes for more                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+❯ /clear
+  ⎿  (no content)
+
+❯ 今はDOM管理をpure javascriptでやっています。3rd partyのフレームワークを使うとコードをシンプル化できるかどうか検討してください
+
+⏺ 2 Explore agents finished (ctrl+o to expand)
+   ├─ Explore DOM management patterns in the codebase · 19 tool uses · 84.5k tokens
+   │  ⎿  Done
+   └─ Analyze framework fit for the app architecture · 23 tool uses · 62.0k tokens
+      ⎿  Done
+
+⏺ 非常に詳細な情報が収集できました。計画ファイルを作成します。
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ 調査と分析が完了しました。以下が結論です。
+
+  ---
+  現状のDOM管理
+
+  規模: 約5,000行、154個のaddEventListener、44回のinnerHTML代入
+
+  主な問題点:
+  1. renderNode() が呼ばれるたびに el.innerHTML を全差し替えし、全イベントリスナーを再バインド（差分なし）
+  2. コンテキストメニューのcreateElementループが3ファイルにわたって繰り返される（約15-20%がボイラープレート）
+  3. 状態変更→DOM更新が完全に手動（宣言的バインディングなし）
+
+  ---
+  フレームワーク評価
+
+  Option A: フレームワークなし、ユーティリティ抽出のみ
+
+  - buildMenuItems(), bindClick(), applyNodeStyles() など5つのヘルパー関数を追加
+  - 効果: 15-20%削減、リスクゼロ、ビルドステップ不要
+  - 限界: innerHTML全差し替えの根本問題は残る
+
+  Option B: Vue 3 (CDN importmap、ビルドなし)
+
+  - 宣言的テンプレートで innerHTML = viewHTML(n) + リスナー再バインドを置き換え
+  - Pinia で S オブジェクトを適切な状態管理に置き換え
+  - 課題: ドラッグ/リサイズ/パン/ズームのstatemachineは引き続き手動ポインターイベントが必要。マイグレーション規模は大きい
+
+  Option C: Lit (Web Components)
+
+  - ノードタイプごとにカスタムエレメント化
+  - 課題: Shadow DOMがCSSカスタムプロパティ（ノード色）と相性が悪い。リンク（2ノードまたがる）の扱いが煩雑
+
+  Option D: Preact (3KB CDN)
+
+  - 仮想DOM差分で innerHTML 全差し替えを解消
+  - 課題: JSXはビルドステップなしでは使いにくい（htmタグドテンプレートが必要）
+
+  ---
+  推奨
+
+  短期: Option A（ユーティリティ抽出）— アーキテクチャは既に良く設計されており（DI
+  パターン、単一状態オブジェクト）、根本的な設計問題というよりも戦術的な繰り返しが問題。5つのヘルパー関数で即効性あり。
+
+  長期: Vue 3 CDN — innerHTML + 全リスナー再バインドパターンを宣言的テンプレートで置き換えたい場合、ビルドステップなしで使える唯一の実用的な選択肢。
+  段階的なマイグレーション（まず1ノードタイプを試験的にVue化）が現実的。
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/recursive-zooming-trinket.md · /plan to edit
+     Framework Evaluation for Code Canvas DOM Management
+
+     Context
+
+     The app currently uses pure JavaScript for all DOM management. The user wants to evaluate whether adopting a 3rd-party framework would simplify
+      the code. This is an analysis/recommendation — not an implementation task.
+
+     ---
+     Current DOM Management Summary
+
+     Scale
+
+     - 4,959 LOC across 7 core files (no build step, ES modules only)
+     - 154 addEventListener calls, 44 innerHTML assignments, 51 createElement calls
+
+     Key Patterns
+
+     1. String template HTML — renderNode() regenerates full el.innerHTML on every render, then rebinds all event listeners from scratch
+     2. Centralized mutable state (S) — single object, mutated in place; renders are triggered manually
+     3. Dependency injection — all modules use initXxx(deps) pattern, no global state leakage
+     4. Snapshot-based undo — structuredClone(S.nodes/links/freeLines), brute-force DOM clear + rebuild on undo
+     5. Hybrid SVG + HTML — node positions are absolutely-positioned <div> elements; links/tails/free-lines are SVG paths in a separate overlay
+
+     Pain Points
+
+     - Full innerHTML replacement + listener rebinding on every render (no diffing)
+     - ~15–20% boilerplate in context menus and event pairs across 3+ files
+     - No declarative binding between state and DOM — every mutation requires explicit render call
+     - Undo clears entire DOM and re-creates all elements from scratch
+
+     ---
+     Framework Evaluation
+
+     Option A: No framework — refactor utilities only (minimal change)
+
+     Extract ~5 helper utilities:
+     - buildMenuItems(container, items, curValue, onSelect) — eliminate repeated createElement loops
+     - bindClick(el, handler) — eliminates 40+ mousedown/stopPropagation + click pairs
+     - applyNodeStyles(el, type, color) — consolidate repeated style.setProperty chains
+     - bindAll(el, selectors) — query multiple selectors at once
+
+     Estimated reduction: 15–20% fewer lines, minimal risk, no architecture change, no build step needed.
+
+     Verdict: Low effort, immediate win, but doesn't address the root issue (full re-render + listener rebind).
+
+     ---
+     Option B: Vue 3 (CDN, Composition API, no build step)
+
+     Vue 3 can be loaded from CDN as an ES module — no bundler required:
+     <script type="importmap">{"imports": {"vue": "https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js"}}</script>
+
+     Would improve:
+     - Declarative templates replace el.innerHTML = viewHTML(n) boilerplate
+     - v-if/v-else handles edit/view mode switches cleanly
+     - Granular reactivity — only changed nodes re-render (no full rebuild on undo)
+     - @click/@mousedown binding eliminates listener rebinding on render
+     - Pinia (also CDN-capable) provides proper state management replacing the mutable S object
+
+     Would remain difficult:
+     - Drag/resize/pan/zoom state machines still need custom pointer event handlers
+     - SVG tail geometry (bubble tail svgE path building) is low-level and benefits little from templating
+     - highlight.js integration: needs onMounted / watchEffect hook to re-run after render
+     - ctags-wasm: needs async loading wrapper
+     - Viewport CSS transform (#canvas pan/zoom) is still imperative and unrelated to Vue
+
+     Estimated complexity:
+     - Migration scope: large — all 5 init modules need to become components/composables
+     - Risk: high (state machine interop, SVG coordinate systems, highlight.js timing)
+     - Net simplification: moderate — templates reduce boilerplate, but framework overhead is non-trivial for a canvas interaction app
+
+     ---
+     Option C: Lit (CDN web components, no build step)
+
+     <script type="module" src="https://cdn.jsdelivr.net/npm/lit@3/index.js"></script>
+
+     Each node type becomes a custom element (<code-node>, <bubble-node>, etc.).
+
+     Would improve:
+     - Each node type is self-contained (shadow DOM encapsulates styles + events)
+     - html tagged templates with reactive properties replace manual innerHTML
+     - Event listeners declared inside elements, not re-attached externally
+
+     Would remain difficult:
+     - Shadow DOM makes canvas-wide CSS custom properties (used for node colors) harder
+     - Cross-element communication (links that reference two nodes) requires non-standard patterns
+     - Drag/resize: pointer capture + document-level mousemove still needs manual coordination
+     - Adds ~20KB runtime for unclear gain over the helper-utility approach
+
+     Verdict: Slightly better fit than Vue for an element-per-node model, but shadow DOM isolation creates friction for this canvas-style app.
+
+     ---
+     Option D: Preact (CDN, JSX-optional, ~3KB)
+
+     Can be loaded as ES module from CDN. Functional components with hooks.
+
+     Would improve:
+     - Virtual DOM diffing — no more full innerHTML replacement
+     - useState/useReducer could replace mutable S cleanly
+     - Small runtime (~3KB vs Vue's ~40KB)
+
+     Would remain difficult:
+     - Same pointer-event state machine issues as Vue
+     - JSX requires either a build step or htm tagged templates (extra cognitive overhead)
+     - React mental model requires lifting state up for drag/resize coordination between components
+
+     Verdict: Best performance/size tradeoff of the framework options, but JSX ergonomics without build step are awkward.
+
+     ---
+     Recommendation
+
+     Short term: Option A (utility extraction, no framework)
+
+     The architecture is already well-structured (DI pattern, clear module boundaries, single state object). The main friction is tactical
+     repetition, not fundamental design problems. Extracting 5 helper utilities eliminates 15–20% of boilerplate with zero migration risk and no
+     build tooling changes.
+
+     Long term: Vue 3 CDN (if simplification of conditional rendering is a priority)
+
+     If the goal is to eliminate the el.innerHTML = viewHTML(n) + listener-rebind pattern, Vue 3 via CDN import map is the most practical framework
+     option:
+     - No build step needed (matches current architecture constraint)
+     - Declarative templates directly replace the string-template + innerHTML pattern
+     - Pinia replaces the mutable S object cleanly
+     - The drag/resize/pan/zoom state machines can stay as composables using raw pointer events
+
+     Migration would be phased:
+     1. Replace one node type (e.g., text-node) as a Vue component to validate the pattern
+     2. Migrate context menus (highest boilerplate density) as reusable components
+     3. Migrate remaining node types and dialogs
+     4. Replace S with Pinia store + undo plugin
+
+     Not recommended: React (state lifting friction), Angular (overkill), Svelte (requires build step for full benefits).
+
+     ---
+     Files That Would Change (framework migration)
+
+     ┌──────────────────────────┬─────────────────────────────────────────────────────────┐
+     │           File           │                         Change                          │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas.html              │ Add importmap for Vue/Pinia CDN                         │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-node-rendering.js │ Replace with Vue SFC-style components                   │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-nodes.js          │ Replace lifecycle methods with composables              │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-dialogs.js        │ Replace with Vue dialog components                      │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-links.js          │ Context menu → Vue component; SVG paths stay imperative │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas.js                │ S → Pinia store; wiring → app.provide()                 │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-utils.js          │ No change (pure functions)                              │
+     ├──────────────────────────┼─────────────────────────────────────────────────────────┤
+     │ canvas-free-lines.js     │ Context menu → Vue; SVG paths stay imperative           │
+     └──────────────────────────┴─────────────────────────────────────────────────────────┘
+
+     ---
+     Verification
+
+     For Option A (utility extraction):
+     - npm test should pass (unit tests in canvas-utils)
+     - Manual: open canvas, create nodes of each type, verify context menus, undo, copy/paste still work
+
+     For Option B (Vue migration):
+     - Load canvas.html in browser, confirm no console errors
+     - Test: add/edit/delete each node type, drag, resize, undo (10 steps), copy/paste cross-tab, link creation, free-line drawing
+     - Playwright E2E tests would cover regressions
+
+⏺ これは分析・評価タスクなので、実装は行いません。上記の調査結果をまとめた評価レポートがプランファイルに保存されています。
+
+✻ Sautéed for 2m 45s
+```
+
+```
+❯ 上の評価結果をもとに、Option Aを実装してください
+
+⏺ まず関連ファイルを読んで、現在のパターンを正確に把握します。
+
+  Read 5 files (ctrl+o to expand)
+
+⏺ 十分に把握できました。実装します。まず canvas-utils.js に2つのヘルパーを追加し、次に各ファイルで使用します。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 34 lines
+      304  }
+      305
+      306  // ═══════════════════════════════════════════════════════
+      307 +// DOM HELPERS
+      308 +// ═══════════════════════════════════════════════════════
+      309 +
+      310 +// Populate `container` with one element per item.
+      311 +// Marks the element whose item.value === curValue with class 'active'.
+      312 +// On click: toggles 'active' within the container, then calls onSelect(item.value).
+      313 +// Options:
+      314 +//   tag        — element tag to create (default 'button')
+      315 +//   baseClass  — CSS class applied to every item element
+      316 +//   setContent — (el, item) => void  set innerHTML/style/title etc.
+      317 +//   onSelect   — (value) => void  called after active-class toggle
+      318 +export function buildMenuItems(container, items, curValue, { tag = 'button', baseClass, setContent, onSelect }) {
+      319 +  container.innerHTML = '';
+      320 +  for (const item of items) {
+      321 +    const el = document.createElement(tag);
+      322 +    el.className = baseClass + (item.value === curValue ? ' active' : '');
+      323 +    setContent(el, item);
+      324 +    el.addEventListener('click', () => {
+      325 +      container.querySelectorAll('.' + baseClass).forEach(e => e.classList.remove('active'));
+      326 +      el.classList.add('active');
+      327 +      onSelect(item.value);
+      328 +    });
+      329 +    container.appendChild(el);
+      330 +  }
+      331 +}
+      332 +
+      333 +// Attach mousedown (stopPropagation) and click (stopPropagation + handler) to el.
+      334 +// Prevents canvas drag/selection from starting when the user clicks a button inside a node.
+      335 +export function onClickStop(el, handler) {
+      336 +  el.addEventListener('mousedown', e => e.stopPropagation());
+      337 +  el.addEventListener('click', e => { e.stopPropagation(); handler(e); });
+      338 +}
+      339 +
+      340 +// ═══════════════════════════════════════════════════════
+      341  // CONTEXT MENU HELPER
+      342  // ═══════════════════════════════════════════════════════
+      343  // Show `el` at (x,y), clamped to stay inside the viewport.
+
+⏺ 次に canvas-links.js の imports に buildMenuItems を追加し、showLinkCtx をリファクタリングします。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide,
+      2 -         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+      2 +         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems } from './canvas-utils.js';
+      3
+      4  export function initLinks(deps) {
+      5    const { S, wrap, svgLinks, canvas, ndEl,
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 17 lines, removed 56 lines
+      229      const curWidth  = lnk.strokeWidth || 1.5;
+      230      const curDash   = lnk.dash || '';
+      231
+      232 -    // Color swatches
+      233 -    linkCtxColors.innerHTML = '';
+      234 -    for (const c of LINK_COLORS) {
+      235 -      const sw = document.createElement('div');
+      236 -      sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
+      237 -      sw.style.background = c.value;
+      238 -      sw.title = c.label;
+      239 -      sw.addEventListener('click', () => {
+      240 -        lnk.stroke = c.value;
+      241 -        renderLinks();
+      242 -        scheduleSave();
+      243 -        linkCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
+      244 -        sw.classList.add('active');
+      245 -        // Refresh width/dash svgs with new color
+      246 -        showLinkCtx(linkId, x, y);
+      247 -      });
+      248 -      linkCtxColors.appendChild(sw);
+      249 -    }
+      232 +    buildMenuItems(linkCtxColors, LINK_COLORS, curStroke, {
+      233 +      tag: 'div', baseClass: 'lk-color-swatch',
+      234 +      setContent: (sw, c) => { sw.style.background = c.value; sw.title = c.label; },
+      235 +      // Rebuild the whole menu after a color change so width/dash SVGs update to the new color.
+      236 +      onSelect: value => { lnk.stroke = value; renderLinks(); scheduleSave(); showLinkCtx(linkId, x, y); },
+      237 +    });
+      238
+      251 -    // Width buttons
+      252 -    linkCtxWidths.innerHTML = '';
+      253 -    for (const w of LINK_WIDTHS) {
+      254 -      const btn = document.createElement('button');
+      255 -      btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
+      256 -      btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
+      257 -      btn.title = `${w.value}px`;
+      258 -      btn.addEventListener('click', () => {
+      259 -        lnk.strokeWidth = w.value;
+      260 -        renderLinks();
+      261 -        scheduleSave();
+      262 -        linkCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
+      263 -        btn.classList.add('active');
+      264 -      });
+      265 -      linkCtxWidths.appendChild(btn);
+      266 -    }
+      239 +    buildMenuItems(linkCtxWidths, LINK_WIDTHS, curWidth, {
+      240 +      tag: 'button', baseClass: 'lk-width-btn',
+      241 +      setContent: (btn, w) => { btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke); btn.title = `${w.value}px`; },
+      242 +      onSelect: value => { lnk.strokeWidth = value; renderLinks(); scheduleSave(); },
+      243 +    });
+      244
+      268 -    // Dash buttons
+      269 -    linkCtxDashes.innerHTML = '';
+      270 -    for (const d of LINK_DASHES) {
+      271 -      const btn = document.createElement('button');
+      272 -      btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
+      273 -      btn.innerHTML = makeDashSvg(d.value, curStroke);
+      274 -      btn.title = d.title;
+      275 -      btn.addEventListener('click', () => {
+      276 -        lnk.dash = d.value;
+      277 -        renderLinks();
+      278 -        scheduleSave();
+      279 -        linkCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
+      280 -        btn.classList.add('active');
+      281 -      });
+      282 -      linkCtxDashes.appendChild(btn);
+      283 -    }
+      245 +    buildMenuItems(linkCtxDashes, LINK_DASHES, curDash, {
+      246 +      tag: 'button', baseClass: 'lk-dash-btn',
+      247 +      setContent: (btn, d) => { btn.innerHTML = makeDashSvg(d.value, curStroke); btn.title = d.title; },
+      248 +      onSelect: value => { lnk.dash = value; renderLinks(); scheduleSave(); },
+      249 +    });
+      250
+      285 -    // Delete
+      286 -    linkCtxDel.onclick = () => {
+      287 -      hideLinkCtx();
+      288 -      removeLink(linkId);
+      289 -    };
+      290 -
+      251 +    linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
+      252      positionCtxMenu(linkCtx, x, y);
+      253    }
+      254
+
+⏺ 次に canvas-free-lines.js をリファクタリングします。
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+      2 -         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+      2 +         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems } from './canvas-utils.js';
+      3
+      4  export function initFreeLines(deps) {
+      5    const { S, c2s,
+
+⏺ Update(canvas-free-lines.js)
+  ⎿  Added 27 lines, removed 62 lines
+      223      exitLineDrawMode();
+      224    }
+      225
+      226 +  const SHAPES = [
+      227 +    { label: 'Straight', value: 'straight' },
+      228 +    { label: 'Polyline', value: 'polyline' },
+      229 +    { label: 'Curve',    value: 'curve'    },
+      230 +  ];
+      231 +
+      232    function showLineCtx(lineId, x, y) {
+      233      const line = S.freeLines.find(l => l.id === lineId);
+      234      if (!line) return;
+     ...
+      245      const curDash   = line.dash || '';
+      246      const curShape  = line.lineStyle || 'polyline';
+      247
+      242 -    lineCtxColors.innerHTML = '';
+      243 -    for (const c of LINK_COLORS) {
+      244 -      const sw = document.createElement('div');
+      245 -      sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
+      246 -      sw.style.background = c.value;
+      247 -      sw.title = c.label;
+      248 -      sw.addEventListener('click', () => {
+      249 -        line.stroke = c.value;
+      250 -        renderFreeLines(); scheduleSave();
+      251 -        lineCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
+      252 -        sw.classList.add('active');
+      253 -        showLineCtx(lineId, x, y);
+      254 -      });
+      255 -      lineCtxColors.appendChild(sw);
+      256 -    }
+      248 +    buildMenuItems(lineCtxColors, LINK_COLORS, curStroke, {
+      249 +      tag: 'div', baseClass: 'lk-color-swatch',
+      250 +      setContent: (sw, c) => { sw.style.background = c.value; sw.title = c.label; },
+      251 +      // Rebuild the whole menu after a color change so width/dash SVGs update to the new color.
+      252 +      onSelect: value => { line.stroke = value; renderFreeLines(); scheduleSave(); showLineCtx(lineId, x, y); },
+      253 +    });
+      254
+      258 -    lineCtxWidths.innerHTML = '';
+      259 -    for (const w of LINK_WIDTHS) {
+      260 -      const btn = document.createElement('button');
+      261 -      btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
+      262 -      btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
+      263 -      btn.title = `${w.value}px`;
+      264 -      btn.addEventListener('click', () => {
+      265 -        line.strokeWidth = w.value;
+      266 -        renderFreeLines(); scheduleSave();
+      267 -        lineCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
+      268 -        btn.classList.add('active');
+      269 -      });
+      270 -      lineCtxWidths.appendChild(btn);
+      271 -    }
+      255 +    buildMenuItems(lineCtxWidths, LINK_WIDTHS, curWidth, {
+      256 +      tag: 'button', baseClass: 'lk-width-btn',
+      257 +      setContent: (btn, w) => { btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke); btn.title = `${w.value}px`; },
+      258 +      onSelect: value => { line.strokeWidth = value; renderFreeLines(); scheduleSave(); },
+      259 +    });
+      260
+      273 -    lineCtxDashes.innerHTML = '';
+      274 -    for (const d of LINK_DASHES) {
+      275 -      const btn = document.createElement('button');
+      276 -      btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
+      277 -      btn.innerHTML = makeDashSvg(d.value, curStroke);
+      278 -      btn.title = d.title;
+      279 -      btn.addEventListener('click', () => {
+      280 -        line.dash = d.value;
+      281 -        renderFreeLines(); scheduleSave();
+      282 -        lineCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
+      283 -        btn.classList.add('active');
+      284 -      });
+      285 -      lineCtxDashes.appendChild(btn);
+      286 -    }
+      261 +    buildMenuItems(lineCtxDashes, LINK_DASHES, curDash, {
+      262 +      tag: 'button', baseClass: 'lk-dash-btn',
+      263 +      setContent: (btn, d) => { btn.innerHTML = makeDashSvg(d.value, curStroke); btn.title = d.title; },
+      264 +      onSelect: value => { line.dash = value; renderFreeLines(); scheduleSave(); },
+      265 +    });
+      266
+      288 -    lineCtxShapes.innerHTML = '';
+      289 -    const SHAPES = [
+      290 -      { label: 'Straight', value: 'straight' },
+      291 -      { label: 'Polyline', value: 'polyline' },
+      292 -      { label: 'Curve',    value: 'curve'    },
+      293 -    ];
+      294 -    for (const sh of SHAPES) {
+      295 -      const btn = document.createElement('button');
+      296 -      btn.className = 'fl-shape-btn' + (curShape === sh.value ? ' active' : '');
+      297 -      btn.textContent = sh.label;
+      298 -      btn.addEventListener('click', () => {
+      299 -        line.lineStyle = sh.value;
+      300 -        renderFreeLines(); scheduleSave();
+      301 -        lineCtxShapes.querySelectorAll('.fl-shape-btn').forEach(el => el.classList.remove('active'));
+      302 -        btn.classList.add('active');
+      303 -      });
+      304 -      lineCtxShapes.appendChild(btn);
+      305 -    }
+      267 +    buildMenuItems(lineCtxShapes, SHAPES, curShape, {
+      268 +      tag: 'button', baseClass: 'fl-shape-btn',
+      269 +      setContent: (btn, sh) => { btn.textContent = sh.label; },
+      270 +      onSelect: value => { line.lineStyle = value; renderFreeLines(); scheduleSave(); },
+      271 +    });
+      272
+      273      lineCtxDel.onclick = () => { hideLineCtx(); removeFreeLine(lineId); };
+      308 -
+      274      positionCtxMenu(lineCtxEl, x, y);
+      275    }
+      276
+
+⏺ 次に canvas-node-rendering.js で onClickStop を使います。まず imports を更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, DEFAULT_FONT_SIZE, langFromPath,
+      2 -         injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
+      2 +         injectAnchor, injectTailAnchor, addLineNumbers, onClickStop } from './canvas-utils.js';
+      3
+      4  // hljs is a browser global (loaded from CDN script tag in canvas.html)
+      5
+
+⏺ 次に bindColorSwatches, bindEditMenu, bindZOrderButtons を onClickStop で簡略化します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines, removed 7 lines
+      184    // Bind color swatches (data-color) inside `el` to node property `n.color`.
+      185    function bindColorSwatches(el, n) {
+      186      el.querySelectorAll('.color-swatch').forEach(sw => {
+      187 -      sw.addEventListener('mousedown', e => e.stopPropagation());
+      188 -      sw.addEventListener('click', e => {
+      189 -        e.stopPropagation();
+      187 +      onClickStop(sw, () => {
+      188          n.color = sw.dataset.color;
+      189          applyNodeColor(n, el);
+      190          el.querySelectorAll('.color-swatch').forEach(s =>
+     ...
+      199    function bindEditMenu(el) {
+      200      const menuWrap = el.querySelector('.edit-menu-wrap');
+      201      const menuBtn  = el.querySelector('.btn-edit-menu');
+      204 -    if (menuBtn) {
+      205 -      menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+      206 -      menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
+      207 -    }
+      202 +    if (menuBtn) onClickStop(menuBtn, () => menuWrap.classList.toggle('open'));
+      203      return menuWrap;
+      204    }
+      205
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 3 lines
+      242
+      243    function bindZOrderButtons(n, el) {
+      244      el.querySelectorAll('.btn-zorder').forEach(btn => {
+      245 -      btn.addEventListener('mousedown', e => e.stopPropagation());
+      246 -      btn.addEventListener('click', e => {
+      247 -        e.stopPropagation();
+      245 +      onClickStop(btn, () => {
+      246          el.querySelector('.edit-menu-wrap')?.classList.remove('open');
+      247          reorderNode(n.id, btn.dataset.dir);
+      248        });
+
+⏺ 次に renderBubbleContent, renderTextContent, renderFrameContent の btn ハンドラを簡略化します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 4 lines, removed 4 lines
+      356        const ta = el.querySelector('textarea');
+      357        ta.style.height = (n.h - 24) + 'px';
+      358        ta.addEventListener('input', () => { n.text = ta.value; });
+      359 -      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      360 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      359 +      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      360 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      361        bindColorSwatches(el, n);
+      362        bindEditMenu(el);
+      363        bindZOrderButtons(n, el);
+     ...
+      365        ta.focus({ preventScroll: true });
+      366      } else {
+      367        el.innerHTML = bubbleViewHTML(n);
+      368 -      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+      369 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      368 +      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      369 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      370        el.querySelector('.bubble-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+      371        const chk = el.querySelector('.chk-show-tail');
+      372        chk.addEventListener('mousedown', e => e.stopPropagation());
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 5 lines, removed 7 lines
+      436        const ta = el.querySelector('textarea');
+      437        ta.style.height = '100%';
+      438        ta.addEventListener('input', () => { n.text = ta.value; });
+      439 -      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      440 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      439 +      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      440 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      441        // Text nodes use data-textcolor swatches instead of data-color.
+      442        el.querySelectorAll('[data-textcolor]').forEach(sw => {
+      443 -        sw.addEventListener('mousedown', e => e.stopPropagation());
+      444 -        sw.addEventListener('click', e => {
+      445 -          e.stopPropagation();
+      443 +        onClickStop(sw, () => {
+      444            n.textColor = sw.dataset.textcolor;
+      445            applyNodeColor(n, el);
+      446            el.querySelectorAll('[data-textcolor]').forEach(s =>
+     ...
+      454        ta.focus({ preventScroll: true });
+      455      } else {
+      456        el.innerHTML = textViewHTML(n);
+      459 -      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+      460 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      457 +      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      458 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      459        el.querySelector('.text-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+      460      }
+      461    }
+
+⏺ 次に renderFrameContent の edit/view 両モードを更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 4 lines, removed 4 lines
+      485        const inp = el.querySelector('.inp-title');
+      486        inp.addEventListener('input', e => { n.label = e.target.value; });
+      487        inp.addEventListener('mousedown', e => e.stopPropagation());
+      488 -      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
+      489 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      488 +      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      489 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      490        bindColorSwatches(el, n);
+      491        bindEditMenu(el);
+      492        bindZOrderButtons(n, el);
+     ...
+      505          </div>
+      506        </div>
+      507        <div class="resize-handle"></div>`;
+      508 -      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
+      509 -      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      508 +      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      509 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      510      }
+      511    }
+      512
+
+⏺ 最後に renderNode のコードブロック部分 (edit/view 両モード) を更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 9 lines, removed 21 lines
+      567        ta.addEventListener('input', () => { n.code = ta.value; updateLangBadge(); });
+      568        el.querySelector('.inp-title').addEventListener('input', e => { n.title = e.target.value; });
+      569        el.querySelector('.inp-filepath').addEventListener('input', e => { n.filePath = e.target.value; updateLangBadge(); });
+      570 -      el.querySelector('.btn-done').addEventListener('click', e => {
+      571 -        e.stopPropagation(); stopEdit();
+      572 -      });
+      573 -      el.querySelector('.btn-del').addEventListener('click', e => {
+      574 -        e.stopPropagation(); removeNode(n.id);
+      575 -      });
+      570 +      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      571 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      572        bindColorSwatches(el, n);
+      573        const menuWrap = bindEditMenu(el);
+      574        const btnFetchEdit = el.querySelector('.btn-fetch-git');
+      579 -      if (btnFetchEdit) {
+      580 -        btnFetchEdit.addEventListener('mousedown', e => e.stopPropagation());
+      581 -        btnFetchEdit.addEventListener('click', e => {
+      582 -          e.stopPropagation(); menuWrap.classList.remove('open'); openFetchDialog(n.id);
+      583 -        });
+      584 -      }
+      575 +      if (btnFetchEdit) onClickStop(btnFetchEdit, () => { menuWrap.classList.remove('open'); openFetchDialog(n.id); });
+      576        const btnCsdEdit = el.querySelector('.btn-codesnippetd');
+      586 -      if (btnCsdEdit) {
+      587 -        btnCsdEdit.addEventListener('mousedown', e => e.stopPropagation());
+      588 -        btnCsdEdit.addEventListener('click', e => {
+      589 -          e.stopPropagation(); menuWrap.classList.remove('open');
+      590 -          const kw = n.pendingKeyword;
+      591 -          n.pendingKeyword = undefined;
+      592 -          openCodeSnippetdDialog(n.id, kw);
+      593 -        });
+      594 -      }
+      577 +      if (btnCsdEdit) onClickStop(btnCsdEdit, () => {
+      578 +        menuWrap.classList.remove('open');
+      579 +        const kw = n.pendingKeyword;
+      580 +        n.pendingKeyword = undefined;
+      581 +        openCodeSnippetdDialog(n.id, kw);
+      582 +      });
+      583        bindZOrderButtons(n, el);
+      584        bindFontControls(el, n);
+      585        ta.focus({ preventScroll: true });
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines, removed 6 lines
+      589          : highlight(defaultCode(), n.filePath);
+      590        n.lang = lang;
+      591        el.innerHTML = viewHTML(n, html);
+      592 -      el.querySelector('.btn-edit').addEventListener('click', e => {
+      593 -        e.stopPropagation(); startEdit(n.id);
+      594 -      });
+      595 -      el.querySelector('.btn-del').addEventListener('click', e => {
+      596 -        e.stopPropagation(); removeNode(n.id);
+      597 -      });
+      592 +      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      593 +      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      594        el.querySelectorAll('.tail-anchor').forEach(a => {
+      595          a.addEventListener('contextmenu', e => {
+      596            e.preventDefault();
+
+⏺ テストを実行して問題ないか確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更量を確認します。
+
+⏺ Bash(git diff --stat)
+  ⎿   canvas-free-lines.js     | 91 +++++++++++++++---------------------------------
+      canvas-links.js          | 75 ++++++++++-----------------------------
+      canvas-node-rendering.js | 81 +++++++++++++++---------------------------
+     … +2 lines (ctrl+o to expand)
+
+⏺ 全281テスト通過。変更の概要：
+
+  ┌──────────────────────────┬────────────────────────────────────────────────────────────────┐
+  │         ファイル         │                              変更                              │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ canvas-utils.js          │ +34行（buildMenuItems + onClickStop の2関数追加）              │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js          │ -44行（showLinkCtx：3ループ → buildMenuItems 3呼び出し）       │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ canvas-free-lines.js     │ -58行（showLineCtx：4ループ → buildMenuItems 4呼び出し）       │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js │ -39行（bindColorSwatches, bindEditMenu, bindZOrderButtons 他） │
+  ├──────────────────────────┼────────────────────────────────────────────────────────────────┤
+  │ 合計                     │ -65行正味削減                                                  │
+  └──────────────────────────┴────────────────────────────────────────────────────────────────┘
+
+  ---
+  追加した2つのユーティリティの役割：
+
+  - buildMenuItems(container, items, curValue, opts) —
+  コンテキストメニューのセクション（色/幅/破線/形状）を生成する繰り返しパターンを抽象化。innerHTML = '' → createElement ループ → addEventListener
+  の定型をなくした
+  - onClickStop(el, handler) — mousedown: stopPropagation + click: stopPropagation + handler
+  の2行ペアを1行に集約。ノード内ボタンがキャンバスドラッグを誤起動しないよう mousedown のストップも統一
+
+✻ Baked for 6m 1s
+```

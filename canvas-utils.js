@@ -304,6 +304,40 @@ export function svgE(tag, attrs = {}) {
 }
 
 // ═══════════════════════════════════════════════════════
+// DOM HELPERS
+// ═══════════════════════════════════════════════════════
+
+// Populate `container` with one element per item.
+// Marks the element whose item.value === curValue with class 'active'.
+// On click: toggles 'active' within the container, then calls onSelect(item.value).
+// Options:
+//   tag        — element tag to create (default 'button')
+//   baseClass  — CSS class applied to every item element
+//   setContent — (el, item) => void  set innerHTML/style/title etc.
+//   onSelect   — (value) => void  called after active-class toggle
+export function buildMenuItems(container, items, curValue, { tag = 'button', baseClass, setContent, onSelect }) {
+  container.innerHTML = '';
+  for (const item of items) {
+    const el = document.createElement(tag);
+    el.className = baseClass + (item.value === curValue ? ' active' : '');
+    setContent(el, item);
+    el.addEventListener('click', () => {
+      container.querySelectorAll('.' + baseClass).forEach(e => e.classList.remove('active'));
+      el.classList.add('active');
+      onSelect(item.value);
+    });
+    container.appendChild(el);
+  }
+}
+
+// Attach mousedown (stopPropagation) and click (stopPropagation + handler) to el.
+// Prevents canvas drag/selection from starting when the user clicks a button inside a node.
+export function onClickStop(el, handler) {
+  el.addEventListener('mousedown', e => e.stopPropagation());
+  el.addEventListener('click', e => { e.stopPropagation(); handler(e); });
+}
+
+// ═══════════════════════════════════════════════════════
 // CONTEXT MENU HELPER
 // ═══════════════════════════════════════════════════════
 // Show `el` at (x,y), clamped to stay inside the viewport.

@@ -1,5 +1,5 @@
 import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide,
-         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems } from './canvas-utils.js';
 
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
@@ -229,65 +229,26 @@ export function initLinks(deps) {
     const curWidth  = lnk.strokeWidth || 1.5;
     const curDash   = lnk.dash || '';
 
-    // Color swatches
-    linkCtxColors.innerHTML = '';
-    for (const c of LINK_COLORS) {
-      const sw = document.createElement('div');
-      sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
-      sw.style.background = c.value;
-      sw.title = c.label;
-      sw.addEventListener('click', () => {
-        lnk.stroke = c.value;
-        renderLinks();
-        scheduleSave();
-        linkCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
-        sw.classList.add('active');
-        // Refresh width/dash svgs with new color
-        showLinkCtx(linkId, x, y);
-      });
-      linkCtxColors.appendChild(sw);
-    }
+    buildMenuItems(linkCtxColors, LINK_COLORS, curStroke, {
+      tag: 'div', baseClass: 'lk-color-swatch',
+      setContent: (sw, c) => { sw.style.background = c.value; sw.title = c.label; },
+      // Rebuild the whole menu after a color change so width/dash SVGs update to the new color.
+      onSelect: value => { lnk.stroke = value; renderLinks(); scheduleSave(); showLinkCtx(linkId, x, y); },
+    });
 
-    // Width buttons
-    linkCtxWidths.innerHTML = '';
-    for (const w of LINK_WIDTHS) {
-      const btn = document.createElement('button');
-      btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
-      btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
-      btn.title = `${w.value}px`;
-      btn.addEventListener('click', () => {
-        lnk.strokeWidth = w.value;
-        renderLinks();
-        scheduleSave();
-        linkCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      linkCtxWidths.appendChild(btn);
-    }
+    buildMenuItems(linkCtxWidths, LINK_WIDTHS, curWidth, {
+      tag: 'button', baseClass: 'lk-width-btn',
+      setContent: (btn, w) => { btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke); btn.title = `${w.value}px`; },
+      onSelect: value => { lnk.strokeWidth = value; renderLinks(); scheduleSave(); },
+    });
 
-    // Dash buttons
-    linkCtxDashes.innerHTML = '';
-    for (const d of LINK_DASHES) {
-      const btn = document.createElement('button');
-      btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
-      btn.innerHTML = makeDashSvg(d.value, curStroke);
-      btn.title = d.title;
-      btn.addEventListener('click', () => {
-        lnk.dash = d.value;
-        renderLinks();
-        scheduleSave();
-        linkCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      linkCtxDashes.appendChild(btn);
-    }
+    buildMenuItems(linkCtxDashes, LINK_DASHES, curDash, {
+      tag: 'button', baseClass: 'lk-dash-btn',
+      setContent: (btn, d) => { btn.innerHTML = makeDashSvg(d.value, curStroke); btn.title = d.title; },
+      onSelect: value => { lnk.dash = value; renderLinks(); scheduleSave(); },
+    });
 
-    // Delete
-    linkCtxDel.onclick = () => {
-      hideLinkCtx();
-      removeLink(linkId);
-    };
-
+    linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
     positionCtxMenu(linkCtx, x, y);
   }
 

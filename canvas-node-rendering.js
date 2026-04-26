@@ -1,5 +1,5 @@
 import { esc, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES, DEFAULT_FONT_SIZE, langFromPath,
-         injectAnchor, injectTailAnchor, addLineNumbers } from './canvas-utils.js';
+         injectAnchor, injectTailAnchor, addLineNumbers, onClickStop } from './canvas-utils.js';
 
 // hljs is a browser global (loaded from CDN script tag in canvas.html)
 
@@ -184,9 +184,7 @@ export function initNodeRendering(deps) {
   // Bind color swatches (data-color) inside `el` to node property `n.color`.
   function bindColorSwatches(el, n) {
     el.querySelectorAll('.color-swatch').forEach(sw => {
-      sw.addEventListener('mousedown', e => e.stopPropagation());
-      sw.addEventListener('click', e => {
-        e.stopPropagation();
+      onClickStop(sw, () => {
         n.color = sw.dataset.color;
         applyNodeColor(n, el);
         el.querySelectorAll('.color-swatch').forEach(s =>
@@ -201,10 +199,7 @@ export function initNodeRendering(deps) {
   function bindEditMenu(el) {
     const menuWrap = el.querySelector('.edit-menu-wrap');
     const menuBtn  = el.querySelector('.btn-edit-menu');
-    if (menuBtn) {
-      menuBtn.addEventListener('mousedown', e => e.stopPropagation());
-      menuBtn.addEventListener('click', e => { e.stopPropagation(); menuWrap.classList.toggle('open'); });
-    }
+    if (menuBtn) onClickStop(menuBtn, () => menuWrap.classList.toggle('open'));
     return menuWrap;
   }
 
@@ -247,9 +242,7 @@ export function initNodeRendering(deps) {
 
   function bindZOrderButtons(n, el) {
     el.querySelectorAll('.btn-zorder').forEach(btn => {
-      btn.addEventListener('mousedown', e => e.stopPropagation());
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
+      onClickStop(btn, () => {
         el.querySelector('.edit-menu-wrap')?.classList.remove('open');
         reorderNode(n.id, btn.dataset.dir);
       });
@@ -363,8 +356,8 @@ export function initNodeRendering(deps) {
       const ta = el.querySelector('textarea');
       ta.style.height = (n.h - 24) + 'px';
       ta.addEventListener('input', () => { n.text = ta.value; });
-      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       bindColorSwatches(el, n);
       bindEditMenu(el);
       bindZOrderButtons(n, el);
@@ -372,8 +365,8 @@ export function initNodeRendering(deps) {
       ta.focus({ preventScroll: true });
     } else {
       el.innerHTML = bubbleViewHTML(n);
-      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       el.querySelector('.bubble-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
       const chk = el.querySelector('.chk-show-tail');
       chk.addEventListener('mousedown', e => e.stopPropagation());
@@ -443,13 +436,11 @@ export function initNodeRendering(deps) {
       const ta = el.querySelector('textarea');
       ta.style.height = '100%';
       ta.addEventListener('input', () => { n.text = ta.value; });
-      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       // Text nodes use data-textcolor swatches instead of data-color.
       el.querySelectorAll('[data-textcolor]').forEach(sw => {
-        sw.addEventListener('mousedown', e => e.stopPropagation());
-        sw.addEventListener('click', e => {
-          e.stopPropagation();
+        onClickStop(sw, () => {
           n.textColor = sw.dataset.textcolor;
           applyNodeColor(n, el);
           el.querySelectorAll('[data-textcolor]').forEach(s =>
@@ -463,8 +454,8 @@ export function initNodeRendering(deps) {
       ta.focus({ preventScroll: true });
     } else {
       el.innerHTML = textViewHTML(n);
-      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       el.querySelector('.text-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
     }
   }
@@ -494,8 +485,8 @@ export function initNodeRendering(deps) {
       const inp = el.querySelector('.inp-title');
       inp.addEventListener('input', e => { n.label = e.target.value; });
       inp.addEventListener('mousedown', e => e.stopPropagation());
-      el.querySelector('.btn-done').addEventListener('click', e => { e.stopPropagation(); stopEdit(); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       bindColorSwatches(el, n);
       bindEditMenu(el);
       bindZOrderButtons(n, el);
@@ -514,8 +505,8 @@ export function initNodeRendering(deps) {
         </div>
       </div>
       <div class="resize-handle"></div>`;
-      el.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); startEdit(n.id); });
-      el.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); removeNode(n.id); });
+      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
     }
   }
 
@@ -576,31 +567,19 @@ export function initNodeRendering(deps) {
       ta.addEventListener('input', () => { n.code = ta.value; updateLangBadge(); });
       el.querySelector('.inp-title').addEventListener('input', e => { n.title = e.target.value; });
       el.querySelector('.inp-filepath').addEventListener('input', e => { n.filePath = e.target.value; updateLangBadge(); });
-      el.querySelector('.btn-done').addEventListener('click', e => {
-        e.stopPropagation(); stopEdit();
-      });
-      el.querySelector('.btn-del').addEventListener('click', e => {
-        e.stopPropagation(); removeNode(n.id);
-      });
+      onClickStop(el.querySelector('.btn-done'), () => stopEdit());
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       bindColorSwatches(el, n);
       const menuWrap = bindEditMenu(el);
       const btnFetchEdit = el.querySelector('.btn-fetch-git');
-      if (btnFetchEdit) {
-        btnFetchEdit.addEventListener('mousedown', e => e.stopPropagation());
-        btnFetchEdit.addEventListener('click', e => {
-          e.stopPropagation(); menuWrap.classList.remove('open'); openFetchDialog(n.id);
-        });
-      }
+      if (btnFetchEdit) onClickStop(btnFetchEdit, () => { menuWrap.classList.remove('open'); openFetchDialog(n.id); });
       const btnCsdEdit = el.querySelector('.btn-codesnippetd');
-      if (btnCsdEdit) {
-        btnCsdEdit.addEventListener('mousedown', e => e.stopPropagation());
-        btnCsdEdit.addEventListener('click', e => {
-          e.stopPropagation(); menuWrap.classList.remove('open');
-          const kw = n.pendingKeyword;
-          n.pendingKeyword = undefined;
-          openCodeSnippetdDialog(n.id, kw);
-        });
-      }
+      if (btnCsdEdit) onClickStop(btnCsdEdit, () => {
+        menuWrap.classList.remove('open');
+        const kw = n.pendingKeyword;
+        n.pendingKeyword = undefined;
+        openCodeSnippetdDialog(n.id, kw);
+      });
       bindZOrderButtons(n, el);
       bindFontControls(el, n);
       ta.focus({ preventScroll: true });
@@ -610,12 +589,8 @@ export function initNodeRendering(deps) {
         : highlight(defaultCode(), n.filePath);
       n.lang = lang;
       el.innerHTML = viewHTML(n, html);
-      el.querySelector('.btn-edit').addEventListener('click', e => {
-        e.stopPropagation(); startEdit(n.id);
-      });
-      el.querySelector('.btn-del').addEventListener('click', e => {
-        e.stopPropagation(); removeNode(n.id);
-      });
+      onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
       el.querySelectorAll('.tail-anchor').forEach(a => {
         a.addEventListener('contextmenu', e => {
           e.preventDefault();

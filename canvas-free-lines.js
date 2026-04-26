@@ -1,5 +1,5 @@
 import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
-         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS } from './canvas-utils.js';
+         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems } from './canvas-utils.js';
 
 export function initFreeLines(deps) {
   const { S, c2s,
@@ -223,6 +223,12 @@ export function initFreeLines(deps) {
     exitLineDrawMode();
   }
 
+  const SHAPES = [
+    { label: 'Straight', value: 'straight' },
+    { label: 'Polyline', value: 'polyline' },
+    { label: 'Curve',    value: 'curve'    },
+  ];
+
   function showLineCtx(lineId, x, y) {
     const line = S.freeLines.find(l => l.id === lineId);
     if (!line) return;
@@ -239,73 +245,32 @@ export function initFreeLines(deps) {
     const curDash   = line.dash || '';
     const curShape  = line.lineStyle || 'polyline';
 
-    lineCtxColors.innerHTML = '';
-    for (const c of LINK_COLORS) {
-      const sw = document.createElement('div');
-      sw.className = 'lk-color-swatch' + (curStroke === c.value ? ' active' : '');
-      sw.style.background = c.value;
-      sw.title = c.label;
-      sw.addEventListener('click', () => {
-        line.stroke = c.value;
-        renderFreeLines(); scheduleSave();
-        lineCtxColors.querySelectorAll('.lk-color-swatch').forEach(el => el.classList.remove('active'));
-        sw.classList.add('active');
-        showLineCtx(lineId, x, y);
-      });
-      lineCtxColors.appendChild(sw);
-    }
+    buildMenuItems(lineCtxColors, LINK_COLORS, curStroke, {
+      tag: 'div', baseClass: 'lk-color-swatch',
+      setContent: (sw, c) => { sw.style.background = c.value; sw.title = c.label; },
+      // Rebuild the whole menu after a color change so width/dash SVGs update to the new color.
+      onSelect: value => { line.stroke = value; renderFreeLines(); scheduleSave(); showLineCtx(lineId, x, y); },
+    });
 
-    lineCtxWidths.innerHTML = '';
-    for (const w of LINK_WIDTHS) {
-      const btn = document.createElement('button');
-      btn.className = 'lk-width-btn' + (curWidth === w.value ? ' active' : '');
-      btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke);
-      btn.title = `${w.value}px`;
-      btn.addEventListener('click', () => {
-        line.strokeWidth = w.value;
-        renderFreeLines(); scheduleSave();
-        lineCtxWidths.querySelectorAll('.lk-width-btn').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      lineCtxWidths.appendChild(btn);
-    }
+    buildMenuItems(lineCtxWidths, LINK_WIDTHS, curWidth, {
+      tag: 'button', baseClass: 'lk-width-btn',
+      setContent: (btn, w) => { btn.innerHTML = makeWidthSvg(Math.min(w.value, 5), curStroke); btn.title = `${w.value}px`; },
+      onSelect: value => { line.strokeWidth = value; renderFreeLines(); scheduleSave(); },
+    });
 
-    lineCtxDashes.innerHTML = '';
-    for (const d of LINK_DASHES) {
-      const btn = document.createElement('button');
-      btn.className = 'lk-dash-btn' + (curDash === d.value ? ' active' : '');
-      btn.innerHTML = makeDashSvg(d.value, curStroke);
-      btn.title = d.title;
-      btn.addEventListener('click', () => {
-        line.dash = d.value;
-        renderFreeLines(); scheduleSave();
-        lineCtxDashes.querySelectorAll('.lk-dash-btn').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      lineCtxDashes.appendChild(btn);
-    }
+    buildMenuItems(lineCtxDashes, LINK_DASHES, curDash, {
+      tag: 'button', baseClass: 'lk-dash-btn',
+      setContent: (btn, d) => { btn.innerHTML = makeDashSvg(d.value, curStroke); btn.title = d.title; },
+      onSelect: value => { line.dash = value; renderFreeLines(); scheduleSave(); },
+    });
 
-    lineCtxShapes.innerHTML = '';
-    const SHAPES = [
-      { label: 'Straight', value: 'straight' },
-      { label: 'Polyline', value: 'polyline' },
-      { label: 'Curve',    value: 'curve'    },
-    ];
-    for (const sh of SHAPES) {
-      const btn = document.createElement('button');
-      btn.className = 'fl-shape-btn' + (curShape === sh.value ? ' active' : '');
-      btn.textContent = sh.label;
-      btn.addEventListener('click', () => {
-        line.lineStyle = sh.value;
-        renderFreeLines(); scheduleSave();
-        lineCtxShapes.querySelectorAll('.fl-shape-btn').forEach(el => el.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      lineCtxShapes.appendChild(btn);
-    }
+    buildMenuItems(lineCtxShapes, SHAPES, curShape, {
+      tag: 'button', baseClass: 'fl-shape-btn',
+      setContent: (btn, sh) => { btn.textContent = sh.label; },
+      onSelect: value => { line.lineStyle = value; renderFreeLines(); scheduleSave(); },
+    });
 
     lineCtxDel.onclick = () => { hideLineCtx(); removeFreeLine(lineId); };
-
     positionCtxMenu(lineCtxEl, x, y);
   }
 
