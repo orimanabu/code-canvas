@@ -29980,3 +29980,269 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 6m 1s
 ```
+
+```
+❯ テスト、ドキュメントの更新をお願いします
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | tail -60)
+  ⎿  > test
+     > vitest run
+     … +13 lines (ctrl+o to expand)
+
+⏺ Bash(git log --oneline -10)
+  ⎿  32a7407 refactor: extract buildMenuItems and onClickStop utilities to reduce DOM boilerplate
+     df098a4 refactor: extract shared utilities and eliminate code duplication
+     5b34b42 feat: raise font size limit to 500px across all node types
+     … +7 lines (ctrl+o to expand)
+
+⏺ すべてのテストが通っています。最近の変更内容を確認して、テストとドキュメントのギャップを調べます。
+
+⏺ Bash(git diff ff0736a..HEAD --name-only)
+  ⎿  CLAUDE.md
+     canvas-dialogs.js
+     canvas-free-lines.js
+     … +11 lines (ctrl+o to expand)
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ 最近の変更を確認して、テストのカバレッジギャップを特定します。
+
+⏺ Bash(git show 1593617 --stat && echo "---" && git show 32a7407 --stat && echo "---" && git show df098a4 --stat)
+  ⎿  commit 1593617194d4d9ce9d96d5130b5fa86380f31e7a
+     Author: Manabu Ori <manabu.ori@gmail.com>
+     Date:   Sat Apr 25 23:50:52 2026 +0900
+     … +32 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 最新の refactor で追加された buildMenuItems と onClickStop を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ canvas-utils.test.js でテストされていない export を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ テストが不足している箇所が明確になりました。canvas-utils.js のエクスポートのうち以下がテストされていません：
+  - LINK_COLORS, LINK_WIDTHS, LINK_DASHES (純粋な定数)
+  - buildMenuItems, onClickStop, positionCtxMenu, svgE (DOM関数)
+
+  CLAUDE.md の現状も確認します。
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 状況が明確になりました。対応すべき内容：
+
+  テスト:
+  1. canvas-utils.test.js に LINK_COLORS, LINK_WIDTHS, LINK_DASHES のテストを追加
+  2. 新規ファイル tests/canvas-utils-dom.test.js に svgE, buildMenuItems, onClickStop, positionCtxMenu のテストを追加
+
+  CLAUDE.md:
+  1. buildMenuItems と onClickStop をエクスポート一覧に追加
+  2. "no DOM" という説明を実態に合わせて修正
+
+  では実装します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 1 line
+      2  import {
+      3    esc, EXT_LANG, langFromPath, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES,
+      4    DEFAULT_FONT_SIZE, READY_STATUS,
+      5 +  LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+      6    injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      7    makeDashSvg, makeWidthSvg,
+      8    roundedRectRayHit, anchorFpFromSide, edgePoint,
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 81 lines
+      418    });
+      419  });
+      420
+      421 +// ─── LINK_COLORS ─────────────────────────────────────────
+      422 +describe('LINK_COLORS', () => {
+      423 +  it('is a non-empty array', () => {
+      424 +    expect(Array.isArray(LINK_COLORS)).toBe(true);
+      425 +    expect(LINK_COLORS.length).toBeGreaterThan(0);
+      426 +  });
+      427 +
+      428 +  it('each entry has label and value fields', () => {
+      429 +    for (const c of LINK_COLORS) {
+      430 +      expect(typeof c.label).toBe('string');
+      431 +      expect(typeof c.value).toBe('string');
+      432 +    }
+      433 +  });
+      434 +
+      435 +  it('each value is a hex color', () => {
+      436 +    for (const c of LINK_COLORS) {
+      437 +      expect(c.value).toMatch(/^#[0-9a-f]{6}$/i);
+      438 +    }
+      439 +  });
+      440 +
+      441 +  it('contains blue and red entries', () => {
+      442 +    const values = LINK_COLORS.map(c => c.value.toLowerCase());
+      443 +    expect(values.some(v => v === '#388bfd')).toBe(true); // blue
+      444 +    expect(values.some(v => v === '#f85149')).toBe(true); // red
+      445 +  });
+      446 +});
+      447 +
+      448 +// ─── LINK_WIDTHS ─────────────────────────────────────────
+      449 +describe('LINK_WIDTHS', () => {
+      450 +  it('is a non-empty array', () => {
+      451 +    expect(Array.isArray(LINK_WIDTHS)).toBe(true);
+      452 +    expect(LINK_WIDTHS.length).toBeGreaterThan(0);
+      453 +  });
+      454 +
+      455 +  it('each entry has label and value fields', () => {
+      456 +    for (const w of LINK_WIDTHS) {
+      457 +      expect(typeof w.label).toBe('string');
+      458 +      expect(typeof w.value).toBe('number');
+      459 +    }
+      460 +  });
+      461 +
+      462 +  it('all values are positive numbers', () => {
+      463 +    for (const w of LINK_WIDTHS) {
+      464 +      expect(w.value).toBeGreaterThan(0);
+      465 +    }
+      466 +  });
+      467 +
+      468 +  it('includes width 1 as the thinnest option', () => {
+      469 +    expect(LINK_WIDTHS.some(w => w.value === 1)).toBe(true);
+      470 +  });
+      471 +});
+      472 +
+      473 +// ─── LINK_DASHES ─────────────────────────────────────────
+      474 +describe('LINK_DASHES', () => {
+      475 +  it('is a non-empty array', () => {
+      476 +    expect(Array.isArray(LINK_DASHES)).toBe(true);
+      477 +    expect(LINK_DASHES.length).toBeGreaterThan(0);
+      478 +  });
+      479 +
+      480 +  it('each entry has label, value, and title fields', () => {
+      481 +    for (const d of LINK_DASHES) {
+      482 +      expect(typeof d.label).toBe('string');
+      483 +      expect(typeof d.value).toBe('string');
+      484 +      expect(typeof d.title).toBe('string');
+      485 +    }
+      486 +  });
+      487 +
+      488 +  it('includes a solid (empty value) entry', () => {
+      489 +    expect(LINK_DASHES.some(d => d.value === '')).toBe(true);
+      490 +  });
+      491 +
+      492 +  it('includes a dashed entry', () => {
+      493 +    expect(LINK_DASHES.some(d => d.value !== '')).toBe(true);
+      494 +  });
+      495 +
+      496 +  it('all labels are unique', () => {
+      497 +    const labels = LINK_DASHES.map(d => d.label);
+      498 +    expect(new Set(labels).size).toBe(labels.length);
+      499 +  });
+      500 +});
+      501 +
+      502  // ─── makeDashSvg ─────────────────────────────────────────
+      503  describe('makeDashSvg', () => {
+      504    it('returns an SVG string', () => {
+
+⏺ 次に DOM を使う関数のテストファイルを作成します。
+
+⏺ Write(tests/canvas-utils-dom.test.js)
+  ⎿  Wrote 219 lines to tests/canvas-utils-dom.test.js
+       1 // @vitest-environment jsdom
+       2 // Tests for canvas-utils.js exports that require a DOM environment:
+       3 //   svgE, buildMenuItems, onClickStop, positionCtxMenu
+       4 import { describe, it, expect, vi } from 'vitest';
+       5 import { svgE, buildMenuItems, onClickStop, positionCtxMenu } from '../canvas-utils.js';
+       6
+       7 // ─── svgE ────────────────────────────────────────────────
+       8 describe('svgE', () => {
+       9   it('creates an SVG element with the given tag', () => {
+      10     const el = svgE('circle');
+     … +209 lines (ctrl+o to expand)
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1 | tail -30)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全315テストがパスしました。次に CLAUDE.md を更新します。
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      12  |------|-------------|
+      13  | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and
+           `canvas.js` as an ES module (`<script type="module">`). |
+      14  | `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment no
+          des (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text n
+          odes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
+      15 -| `canvas-utils.js` | Pure utility functions and constants — no DOM, no state. ES module with named exports. Fully unit-testable wi
+         -thout jsdom. Also exports `svgE`, `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `makeDashSvg`, `makeWidthSvg`, `positionCtxMenu`, `R
+         -EADY_STATUS`, `DEFAULT_FONT_SIZE` shared by other modules. |
+      15 +| `canvas-utils.js` | Utility functions and constants. ES module with named exports. Pure functions (no DOM) are unit-testable with
+         +out jsdom; DOM helpers (`svgE`, `buildMenuItems`, `onClickStop`, `positionCtxMenu`) require jsdom and are tested in `tests/canvas-u
+         +tils-dom.test.js`. Also exports `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `makeDashSvg`, `makeWidthSvg`, `READY_STATUS`, `DEFAUL
+         +T_FONT_SIZE` shared by other modules. |
+      16  | `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT
+          HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameCo
+          ntent`, `renderNode`. |
+      17  | `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBub
+          bleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit
+          `, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PAST
+          E, `fitAll`, `jumpTo`. |
+      18  | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `target
+          EntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 4 lines, removed 2 lines
+      58  - `EXT_LANG`, `langFromPath(filePath)` — file extension → highlight.js language name
+      59  - `NODE_COLORS`, `TEXT_COLORS`, `FONT_PRESETS`, `FONT_SIZES`, `DEFAULT_FONT_SIZE` — color/font constants. `TEXT_COLORS` is used exc
+          lusively by text nodes. `DEFAULT_FONT_SIZE` maps type key (`code`/`bubble`/`frame`/`text`) to its default `fontSize` value.
+      60  - `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `READY_STATUS` — link/line style constants and the shared status-bar ready message
+      61 -- `svgE(tag, attrs)` — SVG element factory
+      62 -- `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport
+      61 +- `svgE(tag, attrs)` — SVG element factory (requires DOM)
+      62 +- `buildMenuItems(container, items, curValue, opts)` — populate a context-menu container with one element per item; marks the match
+         +ing item active and calls `opts.onSelect(value)` on click (requires DOM)
+      63 +- `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from start
+         +ing when a button inside a node is clicked (requires DOM)
+      64 +- `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
+      65  - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      66  - `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor spans into highlighted HTML; shares core logic with `
+          injectTailAnchor` via internal `_injectSpans`
+      67  - `injectTailAnchor(html, rawText, taid)` — inject tail-anchor spans
+
+⏺ 最終確認として全テストを再実行します。
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (126 tests) 56ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 完了しました。変更内容をまとめます。
+
+  ---
+  テスト (281 → 315, +34テスト)
+
+  tests/canvas-utils.test.js に追加 (+13テスト):
+  - LINK_COLORS — 構造・内容の検証 (4テスト)
+  - LINK_WIDTHS — 構造・正値の検証 (4テスト)
+  - LINK_DASHES — 構造・solid エントリ・一意性の検証 (5テスト)
+
+  新規ファイル tests/canvas-utils-dom.test.js (+21テスト, jsdom環境):
+  - svgE — 正しい SVG 名前空間・属性設定 (4テスト)
+  - buildMenuItems — アイテム生成・active クラス・クリックイベント・setContent コール (7テスト)
+  - onClickStop — ハンドラ呼び出し・mousedown/click の伝播阻止 (4テスト)
+  - positionCtxMenu — display 設定・ビューポートクランプ (5テスト)
+
+  CLAUDE.md
+
+  - canvas-utils.js の説明を「no DOM」から実態に合った説明に修正
+  - buildMenuItems, onClickStop をエクスポート一覧に追加 (用途と "(requires DOM)" 注釈付き)
+  - svgE と positionCtxMenu にも "(requires DOM)" 注釈を追加
+
+✻ Worked for 3m 14s
+```

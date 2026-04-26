@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   esc, EXT_LANG, langFromPath, NODE_COLORS, TEXT_COLORS, FONT_PRESETS, FONT_SIZES,
   DEFAULT_FONT_SIZE, READY_STATUS,
+  LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
   injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
   makeDashSvg, makeWidthSvg,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
@@ -414,6 +415,87 @@ describe('injectTailAnchor', () => {
   it('uses word boundaries — does not match partial words', () => {
     const result = injectTailAnchor('first\nstartNoPodLock', 'start', 1);
     expect(result).not.toContain('tail-anchor');
+  });
+});
+
+// ─── LINK_COLORS ─────────────────────────────────────────
+describe('LINK_COLORS', () => {
+  it('is a non-empty array', () => {
+    expect(Array.isArray(LINK_COLORS)).toBe(true);
+    expect(LINK_COLORS.length).toBeGreaterThan(0);
+  });
+
+  it('each entry has label and value fields', () => {
+    for (const c of LINK_COLORS) {
+      expect(typeof c.label).toBe('string');
+      expect(typeof c.value).toBe('string');
+    }
+  });
+
+  it('each value is a hex color', () => {
+    for (const c of LINK_COLORS) {
+      expect(c.value).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it('contains blue and red entries', () => {
+    const values = LINK_COLORS.map(c => c.value.toLowerCase());
+    expect(values.some(v => v === '#388bfd')).toBe(true); // blue
+    expect(values.some(v => v === '#f85149')).toBe(true); // red
+  });
+});
+
+// ─── LINK_WIDTHS ─────────────────────────────────────────
+describe('LINK_WIDTHS', () => {
+  it('is a non-empty array', () => {
+    expect(Array.isArray(LINK_WIDTHS)).toBe(true);
+    expect(LINK_WIDTHS.length).toBeGreaterThan(0);
+  });
+
+  it('each entry has label and value fields', () => {
+    for (const w of LINK_WIDTHS) {
+      expect(typeof w.label).toBe('string');
+      expect(typeof w.value).toBe('number');
+    }
+  });
+
+  it('all values are positive numbers', () => {
+    for (const w of LINK_WIDTHS) {
+      expect(w.value).toBeGreaterThan(0);
+    }
+  });
+
+  it('includes width 1 as the thinnest option', () => {
+    expect(LINK_WIDTHS.some(w => w.value === 1)).toBe(true);
+  });
+});
+
+// ─── LINK_DASHES ─────────────────────────────────────────
+describe('LINK_DASHES', () => {
+  it('is a non-empty array', () => {
+    expect(Array.isArray(LINK_DASHES)).toBe(true);
+    expect(LINK_DASHES.length).toBeGreaterThan(0);
+  });
+
+  it('each entry has label, value, and title fields', () => {
+    for (const d of LINK_DASHES) {
+      expect(typeof d.label).toBe('string');
+      expect(typeof d.value).toBe('string');
+      expect(typeof d.title).toBe('string');
+    }
+  });
+
+  it('includes a solid (empty value) entry', () => {
+    expect(LINK_DASHES.some(d => d.value === '')).toBe(true);
+  });
+
+  it('includes a dashed entry', () => {
+    expect(LINK_DASHES.some(d => d.value !== '')).toBe(true);
+  });
+
+  it('all labels are unique', () => {
+    const labels = LINK_DASHES.map(d => d.label);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });
 
