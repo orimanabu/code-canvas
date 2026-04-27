@@ -6,6 +6,10 @@ A browser-based tool for reading and understanding source code. Visually organiz
 
 ![screenshot2](images/screenshot-2.png)
 
+# Quickstart
+
+Access [https://orimanabu.github.io/code-canvas/canvas.html](https://orimanabu.github.io/code-canvas/canvas.html) for latest by github pages!
+
 # Features
 
 - **Code blocks**: Place code inside resizable rectangles. Each block can have a title and file path. Font family and size can be changed per block via the edit menu (`•••`).

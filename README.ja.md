@@ -6,6 +6,10 @@
 
 ![screenshot2](images/screenshot-2.png)
 
+# クイックスタート
+
+github pagesの[https://orimanabu.github.io/code-canvas/canvas.html](https://orimanabu.github.io/code-canvas/canvas.html)からアクセス可能です。
+
 # 機能
 
 - **コードブロック**: リサイズ可能な矩形の中にコードを配置できます。各ブロックにタイトルとファイルパスを設定できます。編集メニュー（`•••`）からフォントファミリーとサイズを個別に変更できます。
