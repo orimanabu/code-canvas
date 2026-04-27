@@ -70,6 +70,7 @@ if (typeof document === 'undefined') {
     <div id="anchor-ctx">
       <button id="anchor-ctx-link"></button>
       <button id="anchor-ctx-newblock"></button>
+      <button id="anchor-ctx-attach-tail"></button>
       <button id="anchor-ctx-del-all"></button>
     </div>
     <div id="tail-anchor-ctx">

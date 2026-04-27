@@ -59,10 +59,11 @@ const linkTipNewBlock = document.getElementById('link-tip-newblock');
 const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
-const anchorCtx         = document.getElementById('anchor-ctx');
-const anchorCtxLink     = document.getElementById('anchor-ctx-link');
-const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
-const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
+const anchorCtx            = document.getElementById('anchor-ctx');
+const anchorCtxLink        = document.getElementById('anchor-ctx-link');
+const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
+const anchorCtxAttachTail  = document.getElementById('anchor-ctx-attach-tail');
+const anchorCtxDelAll      = document.getElementById('anchor-ctx-del-all');
 const tailAnchorCtx        = document.getElementById('tail-anchor-ctx');
 const tailAnchorCtxDetach  = document.getElementById('tail-anchor-ctx-detach');
 const linkCtxColors  = document.getElementById('link-ctx-colors');
@@ -272,7 +273,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
   S, wrap, svgLinks, canvas, ndEl,
   linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
   linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
-  anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+  anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
   tailAnchorCtx, tailAnchorCtxDetach,
   linkPreviewEl,
   renderNode: (n, el) => renderNode(n, el),

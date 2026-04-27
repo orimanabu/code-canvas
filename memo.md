@@ -30485,3 +30485,211 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Sautéed for 8m 24s
 ```
+
+```
+❯ 同じ選択テキストから、blockへのリンクとbubbleの尻尾への紐づけの両方を作成できますか
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 現在の実装を確認しました。
+
+  現状: 同じ選択から1回の操作で両方を作成することはできません。"Link to..." または "Attach tail"
+  のどちらかのボタンをクリックすると選択が解除され、Tipが閉じます。
+
+  ただし、2回の操作で両立は可能です:
+  1. テキストを選択 → "Link to..." でリンクを作成
+  2. 同じテキストを再度選択 → "Attach tail" で尻尾を紐づけ
+
+  技術的には、injectAnchor（link-anchor スパン）と injectTailAnchor（tail-anchor
+  スパン）は互いにスキップしないので、同じテキストに両方を注入できます。
+
+  ---
+  1回の選択から両方を作れるようにしたいですか？ 実装方法としては：
+
+  - A案: Tipのボタンをクリックしても選択を維持し、両方のボタンを押せるようにする（シンプルだがUXが若干複雑）
+  - B案: "Link to... + Tail" のような複合ボタンを追加する
+  - C案: リンク作成完了後、同じテキストに対してTipを再表示する
+
+  現状のまま（2回操作）で十分でしょうか、それとも1回の選択で完結できるように変更しますか？
+
+✻ Worked for 41s
+
+❯ リンク作成済みの選択文字列を右クリックした際にも、"Attach bubble tail here"のメニューを出してください
+
+  Searched for 2 patterns, read 3 files (ctrl+o to expand)
+
+⏺ 必要な変更箇所がすべて把握できました。3ファイルを修正します。
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      312  <div id="anchor-ctx">
+      313    <button id="anchor-ctx-link">🔗 Create link from here</button>
+      314    <button id="anchor-ctx-newblock">📄 Create new block and link</button>
+      315 +  <button id="anchor-ctx-attach-tail">📌 Attach bubble tail here</button>
+      316    <div class="link-ctx-sep"></div>
+      317    <button id="anchor-ctx-del-all">🗑 Delete all links from this text</button>
+      318  </div>
+
+⏺ Update(canvas.js)
+  ⎿  Added 5 lines, removed 4 lines
+      59  const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
+      60  const linkCtx        = document.getElementById('link-ctx');
+      61  const linkCtxDel     = document.getElementById('link-ctx-del');
+      62 -const anchorCtx         = document.getElementById('anchor-ctx');
+      63 -const anchorCtxLink     = document.getElementById('anchor-ctx-link');
+      64 -const anchorCtxNewBlock = document.getElementById('anchor-ctx-newblock');
+      65 -const anchorCtxDelAll   = document.getElementById('anchor-ctx-del-all');
+      62 +const anchorCtx            = document.getElementById('anchor-ctx');
+      63 +const anchorCtxLink        = document.getElementById('anchor-ctx-link');
+      64 +const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
+      65 +const anchorCtxAttachTail  = document.getElementById('anchor-ctx-attach-tail');
+      66 +const anchorCtxDelAll      = document.getElementById('anchor-ctx-del-all');
+      67  const tailAnchorCtx        = document.getElementById('tail-anchor-ctx');
+      68  const tailAnchorCtxDetach  = document.getElementById('tail-anchor-ctx-detach');
+      69  const linkCtxColors  = document.getElementById('link-ctx-colors');
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      273    S, wrap, svgLinks, canvas, ndEl,
+      274    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+      275    linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      276 -  anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+      276 +  anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+      277    tailAnchorCtx, tailAnchorCtxDetach,
+      278    linkPreviewEl,
+      279    renderNode: (n, el) => renderNode(n, el),
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+       5    const { S, wrap, svgLinks, canvas, ndEl,
+       6      linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+       7      linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       8 -    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+       8 +    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+       9      tailAnchorCtx, tailAnchorCtxDetach,
+      10      linkPreviewEl,
+      11      renderNode, addNode, selectNode, startEdit,
+
+⏺ 次に showAnchorCtx に anchorCtxAttachTail の onclick を追加します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 4 lines
+      277        selectNode(newNode.id);
+      278        startEdit(newNode.id);
+      279      };
+      280 +    anchorCtxAttachTail.onclick = () => {
+      281 +      hideAnchorCtx();
+      282 +      enterTailAttachMode(fromId, text);
+      283 +    };
+      284      anchorCtxDelAll.onclick = () => {
+      285        hideAnchorCtx();
+      286        const toRemove = S.links.filter(l => l.fromId === fromId && l.text === text).map(l => l.id);
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (126 tests) 25ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 38ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 460ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容は以下の通りです：
+
+  - canvas.html: #anchor-ctx メニューに 📌 Attach bubble tail here ボタンを追加（Delete all links の上に配置）
+  - canvas.js: DOM ref anchorCtxAttachTail を追加し、initLinks に渡す
+  - canvas-links.js: deps に anchorCtxAttachTail を追加、showAnchorCtx 内でクリック時に enterTailAttachMode(fromId, text) を呼び出す
+
+  これで、既存のリンクアンカー（リンク作成済みのテキスト）を右クリックすると "📌 Attach bubble tail here"
+  が表示され、同じテキストにリンクとバブルの尻尾の両方を紐づけられます。
+
+✻ Cooked for 1m 43s
+```
+
+```
+❯ 既存のリンクアンカーを右クリックして"📌 Attach bubble tail
+  here"をクリックし、バブルを選択しても、そのバブルの尻尾がリンクアンカーに接続しません。修正をお願いします
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Referenced file canvas-links.js
+  ⎿  Referenced file canvas.js
+  ⎿  Referenced file canvas.html
+  ⎿  Referenced file tests/canvas-utils.test.js
+  ⎿  Referenced file canvas-node-rendering.js
+  ⎿  Plan file referenced (~/.claude/plans/crispy-cooking-rossum.md)
+  ⎿  Skills restored (commit-message)
+  ⎿  You've hit your limit · resets 8:10pm (Asia/Tokyo)
+     /upgrade or /extra-usage to finish what you’re working on.
+
+✻ Brewed for 26m 16s
+
+❯ /rate-limit-options
+  ⎿  Login successful
+
+❯ /exit
+  ⎿  Catch you later!
+
+❯ 続きをお願いします
+
+  Read 4 files (ctrl+o to expand)
+
+⏺ Root cause identified. In injectTailAnchor, the insidePattern is:
+
+  /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/
+
+  This blocks injection inside both link-anchor and tail-anchor spans. When the "Attach bubble tail here" flow is triggered from the anchor context
+  menu, the text (e.g. foo) is already wrapped in a link-anchor span after injectAnchor runs. Then injectTailAnchor sees insideAnchor = true and
+  skips injection entirely — so no tail-anchor span is ever created, and renderBubbleTail finds nothing.
+
+  Fix: allow injectTailAnchor to inject inside link-anchor spans. Only block inside existing tail-anchor spans (to prevent double-wrapping).
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 1 line
+      212    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      213    const re = new RegExp(prefix + pat + suffix, 'g');
+      214    return _injectSpans(html, re,
+      215 -    /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/,
+      215 +    /^<span[^>]+class="[^"]*\btail-anchor\b/,
+      216      () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+      217      false,
+      218    );
+
+⏺ Now update tests/setup-dom.js to add the missing button:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/setup-dom.js)
+  ⎿  Added 1 line
+      70      <div id="anchor-ctx">
+      71        <button id="anchor-ctx-link"></button>
+      72        <button id="anchor-ctx-newblock"></button>
+      73 +      <button id="anchor-ctx-attach-tail"></button>
+      74        <button id="anchor-ctx-del-all"></button>
+      75      </div>
+      76      <div id="tail-anchor-ctx">
+
+⏺ Now run tests to verify nothing broke:
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (126 tests) 138ms
+     … +16 lines (ctrl+o to expand)
+
+⏺ 315 tests pass.
+
+  Summary of what was fixed and why:
+
+  Root cause: injectTailAnchor used insidePattern = /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/ — this prevented injection inside both
+  link-anchor and tail-anchor spans.
+
+  When the "Attach bubble tail here" anchor context menu is used, attachTailToText sets bubble.tailAnchorText = text where text is the same text as
+  the link anchor. In buildCodeHTML, injectAnchor runs first and wraps that text in <span class="link-anchor" ...>. Then injectTailAnchor sees the
+  text is inside a link-anchor span and skips it — producing no tail-anchor span at all. renderBubbleTail's
+  querySelector('.tail-anchor[data-taid="X"]') found nothing.
+
+  Fix: Changed insidePattern in injectTailAnchor to /^<span[^>]+class="[^"]*\btail-anchor\b/ — only blocks injection inside existing tail-anchor
+  spans. Now tail-anchor is injected inside link-anchor spans, producing the valid nested structure:
+  <span class="link-anchor" data-lid="1"><span class="tail-anchor" data-taid="2">foo</span></span>
+  renderBubbleTail finds the tail-anchor and correctly positions the bubble tail.
+
+✻ Baked for 2m 8s
+```

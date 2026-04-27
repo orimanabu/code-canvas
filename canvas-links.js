@@ -5,7 +5,7 @@ export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
     linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
     linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
-    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxDelAll,
+    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
     tailAnchorCtx, tailAnchorCtxDetach,
     linkPreviewEl,
     renderNode, addNode, selectNode, startEdit,
@@ -276,6 +276,10 @@ export function initLinks(deps) {
       renderLinks();
       selectNode(newNode.id);
       startEdit(newNode.id);
+    };
+    anchorCtxAttachTail.onclick = () => {
+      hideAnchorCtx();
+      enterTailAttachMode(fromId, text);
     };
     anchorCtxDelAll.onclick = () => {
       hideAnchorCtx();

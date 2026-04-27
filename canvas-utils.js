@@ -212,7 +212,7 @@ export function injectTailAnchor(html, rawText, taid) {
   const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
   const re = new RegExp(prefix + pat + suffix, 'g');
   return _injectSpans(html, re,
-    /^<span[^>]+class="[^"]*\b(?:link-anchor|tail-anchor)\b/,
+    /^<span[^>]+class="[^"]*\btail-anchor\b/,
     () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
     false,
   );
