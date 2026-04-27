@@ -60,6 +60,8 @@ const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
 const linkTipNewBubble  = document.getElementById('link-tip-new-bubble');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
+const linkCtxGotoFrom = document.getElementById('link-ctx-goto-from');
+const linkCtxGotoTo   = document.getElementById('link-ctx-goto-to');
 const anchorCtx            = document.getElementById('anchor-ctx');
 const anchorCtxLink        = document.getElementById('anchor-ctx-link');
 const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
@@ -273,7 +275,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
 } = initLinks({
   S, wrap, svgLinks, canvas, ndEl,
   linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
-  linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
   anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
   tailAnchorCtx, tailAnchorCtxDetach,
   linkPreviewEl,
@@ -289,6 +291,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
   setStatus,
   s2c, c2s,
   enterTailAttachMode: (...a) => enterTailAttachMode(...a),
+  jumpTo: (id) => jumpTo(id),
 }));
 
 // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)

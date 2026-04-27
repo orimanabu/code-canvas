@@ -4,7 +4,7 @@ import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSid
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
     linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
-    linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
     tailAnchorCtx, tailAnchorCtxDetach,
     linkPreviewEl,
@@ -13,6 +13,7 @@ export function initLinks(deps) {
     pushUndo, scheduleSave, setStatus,
     s2c, c2s,
     enterTailAttachMode,
+    jumpTo,
   } = deps;
 
   // ═══════════════════════════════════════════════════════
@@ -248,6 +249,8 @@ export function initLinks(deps) {
       onSelect: value => { lnk.dash = value; renderLinks(); scheduleSave(); },
     });
 
+    linkCtxGotoFrom.onclick = () => { hideLinkCtx(); jumpTo(lnk.fromId); };
+    linkCtxGotoTo.onclick   = () => { hideLinkCtx(); jumpTo(lnk.toId); };
     linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
     positionCtxMenu(linkCtx, x, y);
   }

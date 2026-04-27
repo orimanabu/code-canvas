@@ -31789,3 +31789,120 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Sautéed for 38s
 ```
+
+```
+❯ リンクを右クリックしたときのコンテキストメニューに、「リンク元に移動」「リンク先に移動」を追加して。それぞれ、リンクの接続元もしくは接続先にスク
+  リーンを移動します
+
+  Searched for 4 patterns, read 2 files (ctrl+o to expand)
+
+⏺ 全体の流れを把握しました。3つのファイルを変更します。
+
+  1. canvas.html — ボタン追加
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 3 lines
+      354      <div id="link-ctx-dashes"></div>
+      355    </div>
+      356    <div class="link-ctx-sep"></div>
+      357 +  <button id="link-ctx-goto-from">⤴ Go to source</button>
+      358 +  <button id="link-ctx-goto-to">⤵ Go to destination</button>
+      359 +  <div class="link-ctx-sep"></div>
+      360    <button id="link-ctx-del">🗑 Delete link</button>
+      361  </div>
+      362  <!-- Alert / Notification Dialog -->
+
+⏺ 2. canvas.js — DOM参照とdeps追加
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      60  const linkTipNewBubble  = document.getElementById('link-tip-new-bubble');
+      61  const linkCtx        = document.getElementById('link-ctx');
+      62  const linkCtxDel     = document.getElementById('link-ctx-del');
+      63 +const linkCtxGotoFrom = document.getElementById('link-ctx-goto-from');
+      64 +const linkCtxGotoTo   = document.getElementById('link-ctx-goto-to');
+      65  const anchorCtx            = document.getElementById('anchor-ctx');
+      66  const anchorCtxLink        = document.getElementById('anchor-ctx-link');
+      67  const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
+
+⏺ 次に、initLinks に渡す deps に追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      275  } = initLinks({
+      276    S, wrap, svgLinks, canvas, ndEl,
+      277    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+      278 -  linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      278 +  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      279    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+      280    tailAnchorCtx, tailAnchorCtxDetach,
+      281    linkPreviewEl,
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      291    setStatus,
+      292    s2c, c2s,
+      293    enterTailAttachMode: (...a) => enterTailAttachMode(...a),
+      294 +  jumpTo: (id) => jumpTo(id),
+      295  }));
+      296
+      297  // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)
+
+⏺ 3. canvas-links.js — deps受け取りとonclick設定
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+       4  export function initLinks(deps) {
+       5    const { S, wrap, svgLinks, canvas, ndEl,
+       6      linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+       7 -    linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       7 +    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       8      anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+       9      tailAnchorCtx, tailAnchorCtxDetach,
+      10      linkPreviewEl,
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line
+      13      pushUndo, scheduleSave, setStatus,
+      14      s2c, c2s,
+      15      enterTailAttachMode,
+      16 +    jumpTo,
+      17    } = deps;
+      18
+      19    // ═══════════════════════════════════════════════════════
+
+⏺ 最後に showLinkCtx で onclick を設定します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines
+      249        onSelect: value => { lnk.dash = value; renderLinks(); scheduleSave(); },
+      250      });
+      251
+      252 +    linkCtxGotoFrom.onclick = () => { hideLinkCtx(); jumpTo(lnk.fromId); };
+      253 +    linkCtxGotoTo.onclick   = () => { hideLinkCtx(); jumpTo(lnk.toId); };
+      254      linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
+      255      positionCtxMenu(linkCtx, x, y);
+      256    }
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (134 tests) 27ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 25ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 348ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更箇所のまとめ:
+
+  - canvas.html — #link-ctx に ⤴ Go to source / ⤵ Go to destination ボタンを追加（削除ボタンの上に区切り線付きで配置）
+  - canvas.js — linkCtxGotoFrom / linkCtxGotoTo の DOM 参照を追加し、initLinks の deps に jumpTo を渡すよう追加
+  - canvas-links.js — deps から受け取り、showLinkCtx 内でそれぞれ jumpTo(lnk.fromId) / jumpTo(lnk.toId) を呼ぶ onclick を設定
+
+✻ Sautéed for 1m 23s
+```
