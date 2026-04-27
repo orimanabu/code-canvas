@@ -401,6 +401,11 @@ export function initLinks(deps) {
 
   // Returns the 0-based occurrence index of text in code at charOffset,
   // using the same word-boundary matching as injectAnchor.
+  // charOffset is the character position in `code` of the selection start.
+  // We count how many occurrences end before charOffset; the next one is the
+  // selected occurrence. This tolerates charOffset landing just before the
+  // match (e.g. when the user's selection began with a leading space that was
+  // trimmed from `text`).
   function getOccurrenceIdx(code, text, charOffset) {
     const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const prefix = /\w/.test(text[0])                  ? '\\b' : '';
@@ -409,10 +414,14 @@ export function initLinks(deps) {
     let idx = 0;
     let m;
     while ((m = re.exec(code)) !== null) {
-      if (charOffset >= m.index && charOffset < m.index + text.length) return idx;
+      // Return this occurrence if charOffset falls within it (normal case) or
+      // lies before it (charOffset was trimmed from the start of the selection).
+      if (charOffset < m.index + text.length) return idx;
       idx++;
     }
-    return 0;
+    // charOffset is past all occurrences — trailing whitespace in selection;
+    // return the last occurrence, or -1 if none matched at all.
+    return idx > 0 ? idx - 1 : -1;
   }
 
   // Text selection → link tip popup

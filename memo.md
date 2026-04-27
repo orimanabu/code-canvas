@@ -30887,3 +30887,98 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Sautéed for 2m 47s
 ```
+
+```
+❯ ExportしたデータのanchorMatchIdxが全て0になってしまいます。実際に選択した範囲をMatch Indexに反映するようにしてください
+
+⏺ getCodeTextOffset の実装を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ノードのレンダリングコードを確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ addLineNumbers の実装を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 統合テストも確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ アンカーコンテキストメニューの処理を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題を特定しました。getOccurrenceIdx の条件 charOffset >= m.index && charOffset < m.index + text.length
+  は、ユーザーが単語の直前（例：先頭の空白）からドラッグ選択した場合に charOffset < m.index となり、どのマッチも条件を満たさずにフォールバックの
+  return 0 が返ります。
+
+  修正は2点です:
+  1. 条件を charOffset < m.index + text.length に緩和（charOffset がマッチの範囲内またはその直前でも対応）
+  2. フォールバックを return 0 から最後のマッチのインデックス（または -1）に変更
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 11 lines, removed 2 lines
+      401
+      402    // Returns the 0-based occurrence index of text in code at charOffset,
+      403    // using the same word-boundary matching as injectAnchor.
+      404 +  // charOffset is the character position in `code` of the selection start.
+      405 +  // We count how many occurrences end before charOffset; the next one is the
+      406 +  // selected occurrence. This tolerates charOffset landing just before the
+      407 +  // match (e.g. when the user's selection began with a leading space that was
+      408 +  // trimmed from `text`).
+      409    function getOccurrenceIdx(code, text, charOffset) {
+      410      const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      411      const prefix = /\w/.test(text[0])                  ? '\\b' : '';
+     ...
+      414      let idx = 0;
+      415      let m;
+      416      while ((m = re.exec(code)) !== null) {
+      412 -      if (charOffset >= m.index && charOffset < m.index + text.length) return idx;
+      417 +      // Return this occurrence if charOffset falls within it (normal case) or
+      418 +      // lies before it (charOffset was trimmed from the start of the selection).
+      419 +      if (charOffset < m.index + text.length) return idx;
+      420        idx++;
+      421      }
+      415 -    return 0;
+      422 +    // charOffset is past all occurrences — trailing whitespace in selection;
+      423 +    // return the last occurrence, or -1 if none matched at all.
+      424 +    return idx > 0 ? idx - 1 : -1;
+      425    }
+      426
+      427    // Text selection → link tip popup
+
+⏺ 次に、テストを実行して既存のテストが通ることを確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +24 lines (ctrl+o to expand)
+
+⏺ 全テスト通過しました。変更内容を説明します。
+
+  バグの原因
+
+  getOccurrenceIdx の判定条件：
+  charOffset >= m.index && charOffset < m.index + text.length
+
+  ユーザーが単語の直前（先頭の空白など）から選択を始めると、sel.toString().trim() でテキストは正規化されるが、range.startOffset
+  は空白の位置を指したまま。そのため charOffset < m.index となり、どのマッチも charOffset >= m.index を満たせず、フォールバックの return 0
+  が返っていた。
+
+  修正内容
+
+  canvas-links.js:404の getOccurrenceIdx:
+
+  - 条件を緩和: charOffset < m.index + text.length — マッチの範囲内だけでなく、直前から来ても正しいインデックスを返す（先頭空白のトリム対応）
+  - フォールバックを修正: return 0 → return idx > 0 ? idx - 1 : -1 — charOffset
+  が全マッチの末尾を超えた場合（末尾空白のトリム）は最後のマッチのインデックスを返す。マッチが一つも無い場合は -1
+
+  これにより、選択の開始位置が単語の直前や直後にわずかにずれても、正しい出現インデックスが anchorMatchIdx に保存されます。
+
+✻ Baked for 13m 5s
+```
