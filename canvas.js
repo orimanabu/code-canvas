@@ -1134,18 +1134,20 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     const frames = S.nodes.filter(n => n.type === 'frame')
       .sort((a, b) => cmp(a.label || '', b.label || ''));
 
-    function makeItem(n, icon, label, sub) {
+    function makeItem(n, icon, label, path, sub) {
       const div = document.createElement('div');
-      div.className = 'nav-item';
+      const hasPath = path !== undefined;
+      div.className = 'nav-item' + (hasPath ? ' nav-has-path' : '');
       div.innerHTML =
         `<span class="nav-icon">${icon}</span>` +
-        `<span class="nav-label">${label}</span>` +
-        (sub ? `<span class="nav-sub">${sub}</span>` : '');
+        `<span class="nav-label">${esc(label)}</span>` +
+        (hasPath ? `<span class="nav-path">${esc(path)}</span>` : '') +
+        (sub !== undefined ? `<span class="nav-sub">${esc(sub)}</span>` : '');
       div.addEventListener('click', () => { closeNavigator(); jumpTo(n.id); });
       return div;
     }
 
-    function addSection(title, nodes, icon, labelFn, subFn) {
+    function addSection(title, nodes, icon, labelFn, pathFn, subFn) {
       const sec = document.createElement('div');
       sec.className = 'nav-section';
       sec.textContent = title;
@@ -1156,12 +1158,13 @@ document.getElementById('btn-clear').addEventListener('click', () => {
         empty.textContent = 'None';
         panel.appendChild(empty);
       } else {
-        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), subFn?.(n))));
+        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
       }
     }
 
     addSection('Blocks', blocks, '▣',
-      n => n.title || n.filePath || '(Untitled)',
+      n => n.title || '(Untitled)',
+      n => n.filePath || '',
       n => n.lang || '');
     const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
     addSection('Bubbles', bubbles, '💬',

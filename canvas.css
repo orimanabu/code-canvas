@@ -471,14 +471,19 @@ kbd {
   text-transform: uppercase; letter-spacing: 0.6px;
 }
 .nav-item {
-  display: flex; align-items: center; gap: 8px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 2fr) 52px;
+  align-items: center; column-gap: 8px;
   padding: 5px 14px; font-size: 12px; color: #c9d1d9;
-  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; white-space: nowrap;
 }
+/* Items without a path column: label spans across path and sub columns */
+.nav-item:not(.nav-has-path) .nav-label { grid-column: 2 / 5; }
 .nav-item:hover { background: #21262d; color: #e6edf3; }
-.nav-item .nav-icon { font-size: 11px; flex-shrink: 0; }
+.nav-item .nav-icon { font-size: 11px; }
 .nav-item .nav-label { overflow: hidden; text-overflow: ellipsis; }
-.nav-item .nav-sub { color: #484f58; font-size: 11px; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
+.nav-item .nav-path { overflow: hidden; text-overflow: ellipsis; color: #484f58; font-size: 11px; }
+.nav-item .nav-sub { color: #484f58; font-size: 11px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
 .nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
 .nav-divider { height: 1px; background: #21262d; margin: 4px 0; }
 

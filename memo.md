@@ -31906,3 +31906,115 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Sautéed for 1m 23s
 ```
+
+```
+❯ ツールバーのJumpボタンを押したときのリストで、シンボル名と言語の間に「パス名」を挿入して、表のように表示してください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me check the current CSS for the navigator:
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ esc は利用可能です。では実装します。
+
+  canvas.js — makeItem と addSection を更新
+
+⏺ Update(canvas.js)
+  ⎿  Added 10 lines, removed 7 lines
+      1134      const frames = S.nodes.filter(n => n.type === 'frame')
+      1135        .sort((a, b) => cmp(a.label || '', b.label || ''));
+      1136
+      1137 -    function makeItem(n, icon, label, sub) {
+      1137 +    function makeItem(n, icon, label, path, sub) {
+      1138        const div = document.createElement('div');
+      1139 -      div.className = 'nav-item';
+      1139 +      const hasPath = path !== undefined;
+      1140 +      div.className = 'nav-item' + (hasPath ? ' nav-has-path' : '');
+      1141        div.innerHTML =
+      1142          `<span class="nav-icon">${icon}</span>` +
+      1142 -        `<span class="nav-label">${label}</span>` +
+      1143 -        (sub ? `<span class="nav-sub">${sub}</span>` : '');
+      1143 +        `<span class="nav-label">${esc(label)}</span>` +
+      1144 +        (hasPath ? `<span class="nav-path">${esc(path)}</span>` : '') +
+      1145 +        (sub !== undefined ? `<span class="nav-sub">${esc(sub)}</span>` : '');
+      1146        div.addEventListener('click', () => { closeNavigator(); jumpTo(n.id); });
+      1147        return div;
+      1148      }
+      1149
+      1148 -    function addSection(title, nodes, icon, labelFn, subFn) {
+      1150 +    function addSection(title, nodes, icon, labelFn, pathFn, subFn) {
+      1151        const sec = document.createElement('div');
+      1152        sec.className = 'nav-section';
+      1153        sec.textContent = title;
+     ...
+      1158          empty.textContent = 'None';
+      1159          panel.appendChild(empty);
+      1160        } else {
+      1159 -        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), subFn?.(n))));
+      1161 +        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
+      1162        }
+      1163      }
+      1164
+      1165      addSection('Blocks', blocks, '▣',
+      1164 -      n => n.title || n.filePath || '(Untitled)',
+      1166 +      n => n.title || '(Untitled)',
+      1167 +      n => n.filePath || '',
+      1168        n => n.lang || '');
+      1169      const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
+      1170      addSection('Bubbles', bubbles, '💬',
+
+⏺ Bubbles と Frames の呼び出しも pathFn なし（undefined）で揃えます:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bubbles と Frames の addSection 呼び出しでは pathFn を省略（undefined のまま）なので変更不要。次に CSS を更新します。
+
+  canvas.css — グリッドレイアウトへ変更
+
+⏺ Update(canvas.css)
+  ⎿  Added 9 lines, removed 4 lines
+      471    text-transform: uppercase; letter-spacing: 0.6px;
+      472  }
+      473  .nav-item {
+      474 -  display: flex; align-items: center; gap: 8px;
+      474 +  display: grid;
+      475 +  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 2fr) 52px;
+      476 +  align-items: center; column-gap: 8px;
+      477    padding: 5px 14px; font-size: 12px; color: #c9d1d9;
+      476 -  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      478 +  cursor: pointer; white-space: nowrap;
+      479  }
+      480 +/* Items without a path column: label spans across path and sub columns */
+      481 +.nav-item:not(.nav-has-path) .nav-label { grid-column: 2 / 5; }
+      482  .nav-item:hover { background: #21262d; color: #e6edf3; }
+      479 -.nav-item .nav-icon { font-size: 11px; flex-shrink: 0; }
+      483 +.nav-item .nav-icon { font-size: 11px; }
+      484  .nav-item .nav-label { overflow: hidden; text-overflow: ellipsis; }
+      481 -.nav-item .nav-sub { color: #484f58; font-size: 11px; margin-left: auto; flex-shrink: 0; padding-left: 8px; }
+      485 +.nav-item .nav-path { overflow: hidden; text-overflow: ellipsis; color: #484f58; font-size: 11px; }
+      486 +.nav-item .nav-sub { color: #484f58; font-size: 11px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+      487  .nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
+      488  .nav-divider { height: 1px; background: #21262d; margin: 4px 0; }
+      489
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (134 tests) 22ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 34ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 351ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容:
+
+  canvas.js
+  - makeItem(n, icon, label, path, sub) に path 引数を追加。nav-has-path クラスを付与してブロック用と区別
+  - addSection に pathFn 引数を追加
+  - Blocks の呼び出し: labelFn = n.title || '(Untitled)'、pathFn = n.filePath || ''、subFn = n.lang || '' に分離
+
+  canvas.css
+  - .nav-item を display: grid; grid-template-columns: 18px 1fr 2fr 52px に変更。4列が全行で揃い、表のように見える
+  - nav-has-path がない行（Bubble・Frame）は .nav-label が grid-column: 2 / 5 で残り全列を占有
+  - .nav-path を追加（グレー、11px、省略付き）
+
+✻ Baked for 2m 8s
+```
