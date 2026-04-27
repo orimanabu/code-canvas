@@ -44,7 +44,7 @@ export function initNodeRendering(deps) {
       .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
       .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
     for (const tb of tailBubbles) {
-      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId);
+      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
     }
     return { html, lang };
   }

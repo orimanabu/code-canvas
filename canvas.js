@@ -361,9 +361,9 @@ function saveState() {
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {
         const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
-                tailAnchorId, tailAnchorText, tailAnchorFromId } = n;
+                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
         return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
-                 tailAnchorId, tailAnchorText, tailAnchorFromId };
+                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
       }
       if (n.type === 'frame') {
         const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
@@ -460,7 +460,8 @@ function loadState(data) {
             color: nd.color ?? 'green', fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 13,
             showTail: nd.showTail ?? true,
             tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
-            tailAnchorFromId: nd.tailAnchorFromId ?? null };
+            tailAnchorFromId: nd.tailAnchorFromId ?? null,
+            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
     } else if (nd.type === 'frame') {
       n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             label: nd.label ?? '', color: nd.color ?? 'blue',

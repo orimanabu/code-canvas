@@ -122,7 +122,7 @@ export function initNodes(deps) {
           n.tailX = cp.x; n.tailY = cp.y;
         }
         const oldFromId = n.tailAnchorFromId;
-        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
         if (oldFromId != null) {
           const cn = S.nodes.find(c => c.id === oldFromId);
           if (cn) renderNode(cn);
@@ -146,7 +146,7 @@ export function initNodes(deps) {
       color: 'green',
       fontFamily: 'default', fontSize: 13,
       showTail: true,
-      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
+      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorMatchIdx: -1,
     };
     S.nodes.push(n);
     const el = document.createElement('div');
@@ -171,12 +171,13 @@ export function initNodes(deps) {
     }
   }
 
-  function attachTailToText(bubbleNode, fromId, text) {
+  function attachTailToText(bubbleNode, fromId, text, tailMatchIdx = -1) {
     pushUndo();
     const oldFromId = bubbleNode.tailAnchorFromId;
-    bubbleNode.tailAnchorId     = S.taid++;
-    bubbleNode.tailAnchorText   = text;
-    bubbleNode.tailAnchorFromId = fromId;
+    bubbleNode.tailAnchorId       = S.taid++;
+    bubbleNode.tailAnchorText     = text;
+    bubbleNode.tailAnchorFromId   = fromId;
+    bubbleNode.tailAnchorMatchIdx = tailMatchIdx;
     const codeNode = S.nodes.find(n => n.id === fromId);
     if (codeNode) renderNode(codeNode);
     if (oldFromId != null && oldFromId !== fromId) {
@@ -343,7 +344,7 @@ export function initNodes(deps) {
       // Tail-attach-mode: clicking a bubble attaches its tail
       if (S.tailAttachMode) {
         if (S.tailPending && n.type === 'bubble') {
-          attachTailToText(n, S.tailPending.fromId, S.tailPending.text);
+          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailMatchIdx ?? -1);
           exitTailAttachMode();
         }
         e.stopPropagation();
@@ -530,7 +531,7 @@ export function initNodes(deps) {
     if (!removed?.type || removed.type === 'code') {
       S.nodes.forEach(n => {
         if (n.type === 'bubble' && n.tailAnchorFromId === id) {
-          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
         }
       });
     }
@@ -699,7 +700,7 @@ export function initNodes(deps) {
           n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
           n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
           // Pasted bubbles start with a free tail — no anchor collision risk
-          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
         }
         S.nodes.push(n);
         const el = document.createElement('div');

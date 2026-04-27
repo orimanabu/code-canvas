@@ -135,7 +135,9 @@ export const TEXT_COLORS = [
 // Shared core for injectAnchor and injectTailAnchor.
 // Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
 // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
-function _injectSpans(html, re, insidePattern, buildSpan) {
+// When `targetIdx >= 0`, only the occurrence at that index is wrapped; all
+// others are emitted as plain text. Pass -1 to wrap every occurrence.
+function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
   const parts = html.split(/(<[^>]*>)/);
   let insideAnchor = false;
   let matchCount = 0;
@@ -145,7 +147,12 @@ function _injectSpans(html, re, insidePattern, buildSpan) {
     let out = '', last = 0, m;
     while ((m = cre.exec(str)) !== null) {
       out += str.slice(last, m.index);
-      out += buildSpan(matchCount++);
+      if (targetIdx < 0 || matchCount === targetIdx) {
+        out += buildSpan(matchCount);
+      } else {
+        out += m[0]; // emit original text unchanged
+      }
+      matchCount++;
       last = m.index + m[0].length;
     }
     return out + str.slice(last);
@@ -179,9 +186,10 @@ export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
   );
 }
 
-// Inject tail-anchor spans around all occurrences of rawText in highlighted HTML.
-// Structurally identical to injectAnchor but uses class="tail-anchor" / data-taid.
-export function injectTailAnchor(html, rawText, taid) {
+// Inject a tail-anchor span for the occurrence of rawText at tailMatchIdx.
+// When tailMatchIdx < 0, all occurrences are wrapped (backward compat).
+// Uses class="tail-anchor" / data-taid.
+export function injectTailAnchor(html, rawText, taid, tailMatchIdx = -1) {
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
@@ -190,6 +198,7 @@ export function injectTailAnchor(html, rawText, taid) {
   return _injectSpans(html, re,
     /^<span[^>]+class="[^"]*\btail-anchor\b/,
     () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+    tailMatchIdx,
   );
 }
 

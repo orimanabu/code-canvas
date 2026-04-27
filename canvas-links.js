@@ -204,9 +204,9 @@ export function initLinks(deps) {
   // ═══════════════════════════════════════════════════════
   // TAIL ATTACH MODE
   // ═══════════════════════════════════════════════════════
-  function enterTailAttachModeLocal(fromId, text) {
+  function enterTailAttachModeLocal(fromId, text, tailMatchIdx = -1) {
     S.tailAttachMode = true;
-    S.tailPending = { fromId, text };
+    S.tailPending = { fromId, text, tailMatchIdx };
     document.body.classList.add('tail-attach-mode');
     setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
   }
@@ -487,7 +487,7 @@ export function initLinks(deps) {
     linkTipAttachTail.onclick = () => {
       sel.removeAllRanges();
       linkTip.style.display = 'none';
-      enterTailAttachMode(fromId, text);
+      enterTailAttachMode(fromId, text, anchorMatchIdx);
     };
 
     linkTipNewBubble.onclick = () => {
@@ -498,7 +498,7 @@ export function initLinks(deps) {
       const cy = anchorRect.top + anchorRect.height / 2;
       const cp = s2c(cx, cy);
       const newBubble = addBubble(cp.x - 100, cp.y - 160);
-      attachTailToText(newBubble, fromId, text);
+      attachTailToText(newBubble, fromId, text, anchorMatchIdx);
     };
   });
 

@@ -31150,3 +31150,276 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Cogitated for 2m 44s
 ```
+
+```
+❯ 2点直してください。1つめ、ブロック内の選択テキスト(その選択テキストにマッチする文字列はそのブロック内に複数存在する)から"Create bubble from
+  here"でbubbleを作成すると、そのbubbleの接続先が選択した部分ではなく、ブロック内でマッチする同じ文字列の一番最初のものになっていまいます。2つめ、
+  同じブロック内で選択文字列と別の同じ文字列を選択してCreate bubble from hereすると、接続先が少し上にずれるように見えます。
+
+⏺ 2つのバグの構造を把握するため、関連コードを確認します。
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ enterTailAttachMode と tail-attach モードのクリック処理も確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ initLinks の return を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ これで原因と修正箇所が確定しました。
+
+  バグ1の原因: injectTailAnchor が同じ taid でテキストの全出現箇所にスパンを注入し、tail レンダラーが querySelector で最初の要素を取るため。
+
+  バグ2の原因: 同じテキストで2つ目のバブルを作ると、全出現箇所が1つ目のバブルのスパンで既に覆われているため2つ目の injectTailAnchor
+  が何も注入できず、tail が DOM アンカーではなく tailX/tailY の初期値（少しずれた位置）を使う。
+
+  修正方針: injectTailAnchor に tailMatchIdx を追加し、指定した出現インデックスの箇所だけにスパンを注入する（リンクアンカーと同じ考え方）。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ 全部で5ファイルを修正します。順番に実施します。
+
+  1. canvas-utils.js: _injectSpans に targetIdx 追加、injectTailAnchor に tailMatchIdx 追加
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 9 lines, removed 2 lines
+      135  // Shared core for injectAnchor and injectTailAnchor.
+      136  // Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
+      137  // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
+      138 -function _injectSpans(html, re, insidePattern, buildSpan) {
+      138 +// When `targetIdx >= 0`, only the occurrence at that index is wrapped; all
+      139 +// others are emitted as plain text. Pass -1 to wrap every occurrence.
+      140 +function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
+      141    const parts = html.split(/(<[^>]*>)/);
+      142    let insideAnchor = false;
+      143    let matchCount = 0;
+     ...
+      147      let out = '', last = 0, m;
+      148      while ((m = cre.exec(str)) !== null) {
+      149        out += str.slice(last, m.index);
+      148 -      out += buildSpan(matchCount++);
+      150 +      if (targetIdx < 0 || matchCount === targetIdx) {
+      151 +        out += buildSpan(matchCount);
+      152 +      } else {
+      153 +        out += m[0]; // emit original text unchanged
+      154 +      }
+      155 +      matchCount++;
+      156        last = m.index + m[0].length;
+      157      }
+      158      return out + str.slice(last);
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 5 lines, removed 3 lines
+      186    );
+      187  }
+      188
+      189 -// Inject tail-anchor spans around all occurrences of rawText in highlighted HTML.
+      190 -// Structurally identical to injectAnchor but uses class="tail-anchor" / data-taid.
+      191 -export function injectTailAnchor(html, rawText, taid) {
+      189 +// Inject a tail-anchor span for the occurrence of rawText at tailMatchIdx.
+      190 +// When tailMatchIdx < 0, all occurrences are wrapped (backward compat).
+      191 +// Uses class="tail-anchor" / data-taid.
+      192 +export function injectTailAnchor(html, rawText, taid, tailMatchIdx = -1) {
+      193    const escapedText = esc(rawText);
+      194    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      195    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+     ...
+      198    return _injectSpans(html, re,
+      199      /^<span[^>]+class="[^"]*\btail-anchor\b/,
+      200      () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+      201 +    tailMatchIdx,
+      202    );
+      203  }
+      204
+
+⏺ 2. canvas-node-rendering.js: tailAnchorMatchIdx を injectTailAnchor に渡す
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line, removed 1 line
+      44        .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+      45        .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+      46      for (const tb of tailBubbles) {
+      47 -      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId);
+      47 +      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
+      48      }
+      49      return { html, lang };
+      50    }
+
+⏺ 3. canvas-nodes.js: addBubble 初期化、attachTailToText シグネチャ、tail 解除箇所、tail-attach クリック処理
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      146        color: 'green',
+      147        fontFamily: 'default', fontSize: 13,
+      148        showTail: true,
+      149 -      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null,
+      149 +      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorMatchIdx: -1,
+      150      };
+      151      S.nodes.push(n);
+      152      const el = document.createElement('div');
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 5 lines, removed 4 lines
+      171      }
+      172    }
+      173
+      174 -  function attachTailToText(bubbleNode, fromId, text) {
+      174 +  function attachTailToText(bubbleNode, fromId, text, tailMatchIdx = -1) {
+      175      pushUndo();
+      176      const oldFromId = bubbleNode.tailAnchorFromId;
+      177 -    bubbleNode.tailAnchorId     = S.taid++;
+      178 -    bubbleNode.tailAnchorText   = text;
+      179 -    bubbleNode.tailAnchorFromId = fromId;
+      177 +    bubbleNode.tailAnchorId       = S.taid++;
+      178 +    bubbleNode.tailAnchorText     = text;
+      179 +    bubbleNode.tailAnchorFromId   = fromId;
+      180 +    bubbleNode.tailAnchorMatchIdx = tailMatchIdx;
+      181      const codeNode = S.nodes.find(n => n.id === fromId);
+      182      if (codeNode) renderNode(codeNode);
+      183      if (oldFromId != null && oldFromId !== fromId) {
+
+⏺ tail を解除する箇所（ドラッグ開始・ノード削除）も更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      122            n.tailX = cp.x; n.tailY = cp.y;
+      123          }
+      124          const oldFromId = n.tailAnchorFromId;
+      125 -        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      125 +        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      126          if (oldFromId != null) {
+      127            const cn = S.nodes.find(c => c.id === oldFromId);
+      128            if (cn) renderNode(cn);
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      531      if (!removed?.type || removed.type === 'code') {
+      532        S.nodes.forEach(n => {
+      533          if (n.type === 'bubble' && n.tailAnchorFromId === id) {
+      534 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      534 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      535          }
+      536        });
+      537      }
+
+⏺ paste 時のリセットも更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      700            n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+      701            n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+      702            // Pasted bubbles start with a free tail — no anchor collision risk
+      703 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null;
+      703 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      704          }
+      705          S.nodes.push(n);
+      706          const el = document.createElement('div');
+
+⏺ tail-attach モードのクリック処理で tailMatchIdx を渡します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      344        // Tail-attach-mode: clicking a bubble attaches its tail
+      345        if (S.tailAttachMode) {
+      346          if (S.tailPending && n.type === 'bubble') {
+      347 -          attachTailToText(n, S.tailPending.fromId, S.tailPending.text);
+      347 +          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailMatchIdx ?? -1);
+      348            exitTailAttachMode();
+      349          }
+      350          e.stopPropagation();
+
+⏺ 4. canvas-links.js: enterTailAttachModeLocal と各ボタンのクリックハンドラを更新
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      204    // ═══════════════════════════════════════════════════════
+      205    // TAIL ATTACH MODE
+      206    // ═══════════════════════════════════════════════════════
+      207 -  function enterTailAttachModeLocal(fromId, text) {
+      207 +  function enterTailAttachModeLocal(fromId, text, tailMatchIdx = -1) {
+      208      S.tailAttachMode = true;
+      209 -    S.tailPending = { fromId, text };
+      209 +    S.tailPending = { fromId, text, tailMatchIdx };
+      210      document.body.classList.add('tail-attach-mode');
+      211      setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
+      212    }
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      487      linkTipAttachTail.onclick = () => {
+      488        sel.removeAllRanges();
+      489        linkTip.style.display = 'none';
+      490 -      enterTailAttachMode(fromId, text);
+      490 +      enterTailAttachMode(fromId, text, anchorMatchIdx);
+      491      };
+      492
+      493      linkTipNewBubble.onclick = () => {
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      498        const cy = anchorRect.top + anchorRect.height / 2;
+      499        const cp = s2c(cx, cy);
+      500        const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      501 -      attachTailToText(newBubble, fromId, text);
+      501 +      attachTailToText(newBubble, fromId, text, anchorMatchIdx);
+      502      };
+      503    });
+      504
+
+⏺ 5. canvas.js: バブルノードの保存・読み込みに tailAnchorMatchIdx を追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      361      nodes: S.nodes.map(n => {
+      362        if (n.type === 'bubble') {
+      363          const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      364 -                tailAnchorId, tailAnchorText, tailAnchorFromId } = n;
+      364 +                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
+      365          return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      366 -                 tailAnchorId, tailAnchorText, tailAnchorFromId };
+      366 +                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
+      367        }
+      368        if (n.type === 'frame') {
+      369          const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 1 line
+      460              color: nd.color ?? 'green', fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 13,
+      461              showTail: nd.showTail ?? true,
+      462              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      463 -            tailAnchorFromId: nd.tailAnchorFromId ?? null };
+      463 +            tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      464 +            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
+      465      } else if (nd.type === 'frame') {
+      466        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      467              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ テストを実行します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更の詳細を説明します。
+
+  バグ1の修正: _injectSpans に targetIdx パラメータを追加。injectTailAnchor は tailMatchIdx
+  を受け取り、その出現インデックスの箇所にだけスパンを注入（他の出現はそのままのテキストを出力）。これにより
+  querySelector('.tail-anchor[data-taid="X"]') が必ず正しい1つの要素を返す。
+
+  バグ2の修正: 同じテキストに対して複数のバブルが別々の出現箇所に接続できるようになった。各バブルは自分の tailAnchorMatchIdx
+  に対応する出現箇所だけにスパンを注入するため、互いに干渉しない。
+
+  あわせて修正: Attach bubble tail here ボタンも anchorMatchIdx を enterTailAttachMode に渡すよう修正。これで既存の「テキスト選択 → tail attach
+  モード → バブルクリック」のフローも同じ出現インデックスが正しく使われる。
+
+✻ Brewed for 5m 25s
+```
