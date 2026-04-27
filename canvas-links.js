@@ -3,13 +3,13 @@ import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSid
 
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
-    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
     linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
     tailAnchorCtx, tailAnchorCtxDetach,
     linkPreviewEl,
-    renderNode, addNode, selectNode, startEdit,
-    renderBubbleTail,
+    renderNode, addNode, addBubble, selectNode, startEdit,
+    renderBubbleTail, attachTailToText,
     pushUndo, scheduleSave, setStatus,
     s2c, c2s,
     enterTailAttachMode,
@@ -456,7 +456,7 @@ export function initLinks(deps) {
       }
     }
 
-    const tipHeight = 80; // approximate height of two-button tip
+    const tipHeight = 104; // approximate height of four-button tip
     linkTip.style.display = 'block';
     linkTip.style.left    = (rect.left + rect.width / 2) + 'px';
     linkTip.style.top     = Math.max(8, rect.top - tipHeight - 8) + 'px';
@@ -488,6 +488,17 @@ export function initLinks(deps) {
       sel.removeAllRanges();
       linkTip.style.display = 'none';
       enterTailAttachMode(fromId, text);
+    };
+
+    linkTipNewBubble.onclick = () => {
+      sel.removeAllRanges();
+      linkTip.style.display = 'none';
+      // Position the bubble above the selected text in canvas coordinates.
+      const cx = anchorRect.left + anchorRect.width / 2;
+      const cy = anchorRect.top + anchorRect.height / 2;
+      const cp = s2c(cx, cy);
+      const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      attachTailToText(newBubble, fromId, text);
     };
   });
 

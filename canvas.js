@@ -57,6 +57,7 @@ const linkTip        = document.getElementById('link-tip');
 const linkTipLink    = document.getElementById('link-tip-link');
 const linkTipNewBlock = document.getElementById('link-tip-newblock');
 const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
+const linkTipNewBubble  = document.getElementById('link-tip-new-bubble');
 const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
 const anchorCtx            = document.getElementById('anchor-ctx');
@@ -271,16 +272,18 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
    showTailAnchorCtx, hideTailAnchorCtx,
 } = initLinks({
   S, wrap, svgLinks, canvas, ndEl,
-  linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+  linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
   linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
   anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
   tailAnchorCtx, tailAnchorCtxDetach,
   linkPreviewEl,
   renderNode: (n, el) => renderNode(n, el),
   addNode: (...a) => addNode(...a),
+  addBubble: (...a) => addBubble(...a),
   selectNode: (id) => selectNode(id),
   startEdit: (id) => startEdit(id),
   renderBubbleTail: (n) => renderBubbleTail(n),
+  attachTailToText: (...a) => attachTailToText(...a),
   pushUndo,
   scheduleSave: () => scheduleSave(),
   setStatus,

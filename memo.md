@@ -30982,3 +30982,171 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 13m 5s
 ```
+
+```
+❯ ブロック内のテキストを選択した際、コンテキストメニューに「Create bubble from
+  here」を追加してください。これをクリックすると、新規にBubbleを作成し、そのtailを選択テキストに接続します
+
+⏺ 関連コードを把握するため、テキスト選択フローとバブル作成・tail接続の実装を確認します。
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ initLinks の deps と canvas.js の wiring を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ initLinks の deps 受け取り部分を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ addBubble の詳細を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ wiring の順序を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全体像を把握しました。以下の変更が必要です:
+
+  1. canvas.html — ボタン追加
+  2. canvas.js — DOM 参照と forwarding closure 追加
+  3. canvas-links.js — deps 受け取りとクリックハンドラ実装
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ 3ファイルを同時に編集します。
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+      308    <button id="link-tip-link">🔗 Create link from here</button>
+      309    <button id="link-tip-newblock">📄 Create new block and link</button>
+      310    <button id="link-tip-attach-tail">📌 Attach bubble tail here</button>
+      311 +  <button id="link-tip-new-bubble">💬 Create bubble from here</button>
+      312  </div>
+      313  <div id="anchor-ctx">
+      314    <button id="anchor-ctx-link">🔗 Create link from here</button>
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      57  const linkTipLink    = document.getElementById('link-tip-link');
+      58  const linkTipNewBlock = document.getElementById('link-tip-newblock');
+      59  const linkTipAttachTail = document.getElementById('link-tip-attach-tail');
+      60 +const linkTipNewBubble  = document.getElementById('link-tip-new-bubble');
+      61  const linkCtx        = document.getElementById('link-ctx');
+      62  const linkCtxDel     = document.getElementById('link-ctx-del');
+      63  const anchorCtx            = document.getElementById('anchor-ctx');
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      272     showTailAnchorCtx, hideTailAnchorCtx,
+      273  } = initLinks({
+      274    S, wrap, svgLinks, canvas, ndEl,
+      275 -  linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+      275 +  linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+      276    linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      277    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+      278    tailAnchorCtx, tailAnchorCtxDetach,
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines
+      279    linkPreviewEl,
+      280    renderNode: (n, el) => renderNode(n, el),
+      281    addNode: (...a) => addNode(...a),
+      282 +  addBubble: (...a) => addBubble(...a),
+      283    selectNode: (id) => selectNode(id),
+      284    startEdit: (id) => startEdit(id),
+      285    renderBubbleTail: (n) => renderBubbleTail(n),
+      286 +  attachTailToText: (...a) => attachTailToText(...a),
+      287    pushUndo,
+      288    scheduleSave: () => scheduleSave(),
+      289    setStatus,
+
+⏺ 次に canvas-links.js の deps とクリックハンドラを実装します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 3 lines, removed 3 lines
+       3
+       4  export function initLinks(deps) {
+       5    const { S, wrap, svgLinks, canvas, ndEl,
+       6 -    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail,
+       6 +    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+       7      linkCtx, linkCtxDel, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       8      anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+       9      tailAnchorCtx, tailAnchorCtxDetach,
+      10      linkPreviewEl,
+      11 -    renderNode, addNode, selectNode, startEdit,
+      12 -    renderBubbleTail,
+      11 +    renderNode, addNode, addBubble, selectNode, startEdit,
+      12 +    renderBubbleTail, attachTailToText,
+      13      pushUndo, scheduleSave, setStatus,
+      14      s2c, c2s,
+      15      enterTailAttachMode,
+
+⏺ 次にクリックハンドラを追加します。mouseup ハンドラの末尾部分を確認して正確な挿入位置を把握します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      456        }
+      457      }
+      458
+      459 -    const tipHeight = 80; // approximate height of two-button tip
+      459 +    const tipHeight = 104; // approximate height of four-button tip
+      460      linkTip.style.display = 'block';
+      461      linkTip.style.left    = (rect.left + rect.width / 2) + 'px';
+      462      linkTip.style.top     = Math.max(8, rect.top - tipHeight - 8) + 'px';
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 11 lines
+      489        linkTip.style.display = 'none';
+      490        enterTailAttachMode(fromId, text);
+      491      };
+      492 +
+      493 +    linkTipNewBubble.onclick = () => {
+      494 +      sel.removeAllRanges();
+      495 +      linkTip.style.display = 'none';
+      496 +      // Position the bubble above the selected text in canvas coordinates.
+      497 +      const cx = anchorRect.left + anchorRect.width / 2;
+      498 +      const cy = anchorRect.top + anchorRect.height / 2;
+      499 +      const cp = s2c(cx, cy);
+      500 +      const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      493 +    linkTipNewBubble.onclick = () => {
+      494 +      sel.removeAllRanges();
+      495 +      linkTip.style.display = 'none';
+      496 +      // Position the bubble above the selected text in canvas coordinates.
+      497 +      const cx = anchorRect.left + anchorRect.width / 2;
+      498 +      const cy = anchorRect.top + anchorRect.height / 2;
+      499 +      const cp = s2c(cx, cy);
+      500 +      const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      501 +      attachTailToText(newBubble, fromId, text);
+      502 +    };
+      503    });
+      504
+      505    // Hide tooltip on outside click (but not when starting a text selection in code)
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。変更内容のまとめ:
+
+  canvas.html
+  - #link-tip に 💬 Create bubble from here ボタン（#link-tip-new-bubble）を追加
+
+  canvas.js
+  - linkTipNewBubble の DOM 参照を追加
+  - initLinks へ linkTipNewBubble、addBubble（forwarding closure）、attachTailToText（forwarding closure）を追加
+
+  canvas-links.js
+  - deps に linkTipNewBubble、addBubble、attachTailToText を追加
+  - linkTipNewBubble.onclick: 選択テキストの中心をキャンバス座標に変換し、その 160px 上にバブルを作成（addBubble）、即座に tail
+  を選択テキストへ接続（attachTailToText）
+  - tipHeight を 80 → 104 に更新（ボタン4個分の高さに合わせて tip の表示位置を調整）
+
+✻ Cogitated for 2m 44s
+```
