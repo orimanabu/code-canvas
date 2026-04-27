@@ -1,6 +1,6 @@
 {
   "dataVersion": "3.1",
-  "savedAt": 1777277680686,
+  "savedAt": 1777278097683,
   "canvasTitle": "podman run",
   "nodes": [
     {
@@ -758,20 +758,20 @@
     {
       "id": 158,
       "type": "bubble",
-      "x": 16884.473620720244,
-      "y": 9707.54439447606,
+      "x": 14800.21950114199,
+      "y": 9967.823950551176,
       "w": 734.1448564626512,
       "h": 100,
       "text": "ここでcrunをexecv(2)している",
-      "tailX": 17169.032948312608,
-      "tailY": 9980.501352640673,
+      "tailX": 15862.190223865728,
+      "tailY": 10207.139194103916,
       "color": "green",
       "fontFamily": "default",
       "fontSize": 50,
       "showTail": true,
-      "tailAnchorId": 8,
-      "tailAnchorText": "execv",
-      "tailAnchorFromId": 143
+      "tailAnchorId": null,
+      "tailAnchorText": null,
+      "tailAnchorFromId": null
     },
     {
       "id": 162,
@@ -1897,6 +1897,16 @@
       "strokeWidth": 1.5,
       "dash": "",
       "anchorMatchIdx": 0
+    },
+    {
+      "id": 153,
+      "fromId": 143,
+      "text": "execv",
+      "toId": 192,
+      "stroke": "#388bfd",
+      "strokeWidth": 1.5,
+      "dash": "",
+      "anchorMatchIdx": 0
     }
   ],
   "freeLines": [
@@ -1987,13 +1997,13 @@
     }
   ],
   "nid": 199,
-  "lid": 153,
+  "lid": 154,
   "flid": 6,
   "taid": 21,
   "vp": {
-    "x": -34554.004349693496,
-    "y": -13920.908790535583,
-    "scale": 1.3261990660607537
+    "x": 193.85739937921494,
+    "y": -275.5339778999444,
+    "scale": 0.09901315022383857
   },
   "globalConfig": {
     "description": "Deep Dive: podman run execution flow",
