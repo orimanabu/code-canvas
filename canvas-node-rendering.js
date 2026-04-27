@@ -38,13 +38,13 @@ export function initNodeRendering(deps) {
     const nodeLinks = S.links.filter(l => l.fromId === nodeId)
                               .sort((a, b) => b.text.length - a.text.length);
     for (const lnk of nodeLinks) {
-      html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
+      html = injectAnchor(html, lnk.text, lnk.id, n?.code ?? null, lnk.anchorLine ?? -1, lnk.anchorCol ?? -1);
     }
     const tailBubbles = S.nodes
       .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
       .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
     for (const tb of tailBubbles) {
-      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
+      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, n?.code ?? null, tb.tailAnchorLine ?? -1, tb.tailAnchorCol ?? -1);
     }
     return { html, lang };
   }

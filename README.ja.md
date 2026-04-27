@@ -66,7 +66,7 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 
 | フィールド | 型 | 説明 |
 |---|---|---|
-| `dataVersion` | string | フォーマットバージョン（現在 `"1.0"`） |
+| `dataVersion` | string | フォーマットバージョン（現在 `"3.2"`） |
 | `canvasTitle` | string | キャンバス全体のタイトル |
 | `nodes` | Node[] | コードブロック・吹き出し・フレームの配列 |
 | `links` | Link[] | リンクの配列 |
@@ -117,6 +117,11 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
 | `fontFamily` | string | フォントファミリーID。コードブロックと同じ選択肢。省略時は `"default"` |
 | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
+| `tailAnchorId` | number \| null | テールアンカーバインディングのID（テール先端をコードブロック内の特定テキスト出現にリンク）。アンカーなしの場合は `null` |
+| `tailAnchorFromId` | number \| null | テールが固定されているコードブロックのノードID。アンカーなしの場合は `null` |
+| `tailAnchorText` | string \| null | テール先端が固定されている選択テキスト。アンカーなしの場合は `null` |
+| `tailAnchorLine` | number | アンカー位置を示す接続元コードブロックの生テキスト内の行番号（1始まり）。未設定時は `-1`（全出現をハイライト） |
+| `tailAnchorCol` | number | `tailAnchorLine` 内でアンカー位置を示す列番号（0始まり）。未設定時は `-1` |
 
 ## Nodeオブジェクト（フレーム）
 
@@ -146,6 +151,8 @@ JSONファイルを指定した場合、その内容は起動時にキャンバ�
 | `stroke` | string | 矢印の色（CSSカラー文字列、デフォルト：`"#388bfd"`） |
 | `strokeWidth` | number | 矢印の太さ（ピクセル、デフォルト：`1.5`） |
 | `dash` | string | SVGのstroke-dasharray値（`""` = 実線、`"8 4"` = 破線、`"16 6"` = 長破線） |
+| `anchorLine` | number | 矢印の起点となる出現箇所を示す接続元ブロックの生テキスト内の行番号（1始まり）。`-1` は未設定 |
+| `anchorCol` | number | `anchorLine` 内で矢印の起点を示す列番号（0始まり）。`-1` は未設定 |
 
 ## FreeLineオブジェクト
 
@@ -186,7 +193,7 @@ GitHub URLを指定すると、GitHub APIを通じてブランチ名またはタ
 
 ```json
 {
-  "dataVersion": "1.0",
+  "dataVersion": "3.2",
   "canvasTitle": "crun_code_reading",
   "nodes": [
     {
@@ -235,7 +242,9 @@ GitHub URLを指定すると、GitHub APIを通じてブランチ名またはタ
       "toId": 3,
       "stroke": "#388bfd",
       "strokeWidth": 1.5,
-      "dash": ""
+      "dash": "",
+      "anchorLine": 1,
+      "anchorCol": 0
     }
   ],
   "freeLines": [
@@ -251,16 +260,23 @@ GitHub URLを指定すると、GitHub APIを通じてブランチ名またはタ
   "nid": 7,
   "lid": 6,
   "flid": 2,
+  "taid": 1,
   "vp": {
     "x": 76.9,
     "y": -6.8,
     "scale": 0.7
   },
-  "gitConfig": {
-    "url": "https://github.com/containers/crun",
-    "branch": "main",
-    "tag": "",
-    "commitHash": "a1b2c3d4e5f6..."
+  "globalConfig": {
+    "description": "",
+    "repositories": [
+      {
+        "nickname": "crun",
+        "url": "https://github.com/containers/crun",
+        "branch": "main",
+        "tag": "",
+        "commitHash": "a1b2c3d4e5f6..."
+      }
+    ]
   }
 }
 ```

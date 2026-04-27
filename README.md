@@ -75,7 +75,7 @@ When a JSON file is specified, its contents are loaded into the canvas on startu
 
 | Field | Type | Description |
 |---|---|---|
-| `dataVersion` | string | Format version (currently `"3.1"`) |
+| `dataVersion` | string | Format version (currently `"3.2"`) |
 | `canvasTitle` | string | Title of the entire canvas |
 | `nodes` | Node[] | Array of code blocks, bubbles, and frames |
 | `links` | Link[] | Array of links |
@@ -130,6 +130,8 @@ A node is a bubble when `type` is `"bubble"`.
 | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code block). `null` when not anchored. |
 | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
 | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
+| `tailAnchorLine` | number | 1-based line number in the source code block's raw text that identifies the anchor occurrence. `-1` when not set (all occurrences are highlighted). |
+| `tailAnchorCol` | number | 0-based column number within `tailAnchorLine` that identifies the anchor occurrence. `-1` when not set. |
 
 ## Node object (frame)
 
@@ -159,7 +161,8 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
 | `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
 | `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
-| `anchorMatchIdx` | number | 0-based index of which occurrence of `text` in the source block is the arrow origin. `-1` means unset (first occurrence is used). |
+| `anchorLine` | number | 1-based line number in the source block's raw text that identifies the arrow origin occurrence. `-1` means unset (no specific occurrence highlighted as primary). |
+| `anchorCol` | number | 0-based column number within `anchorLine` that identifies the arrow origin occurrence. `-1` means unset. |
 
 ## FreeLine object
 
@@ -209,7 +212,7 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
 
 ```json
 {
-  "dataVersion": "3.1",
+  "dataVersion": "3.2",
   "canvasTitle": "crun_code_reading",
   "nodes": [
     {
@@ -262,7 +265,8 @@ Specify either `branch` or `tag`, but not both. If both are omitted, `commitHash
       "stroke": "#388bfd",
       "strokeWidth": 1.5,
       "dash": "",
-      "anchorMatchIdx": 0
+      "anchorLine": 1,
+      "anchorCol": 0
     }
   ],
   "freeLines": [

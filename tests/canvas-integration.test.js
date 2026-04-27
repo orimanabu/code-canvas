@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import '../canvas.js';
 const {
-  S,
+  S, STORAGE_KEY,
   addNode, removeNode, selectNode, addBubble,
   loadState, saveState, restoreFromStorage,
   createLink, removeLink,
@@ -11,11 +11,9 @@ const {
   pushUndo, undo,
 } = globalThis.__canvasApp;
 
-const STORAGE_KEY = 'code-canvas-v1';
-
 function resetState() {
   loadState({ nodes: [], links: [], nid: 1, lid: 1, vp: { x: 0, y: 0, scale: 1 } });
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY); // STORAGE_KEY includes TAB_ID suffix
 }
 
 beforeEach(() => {
@@ -27,6 +25,26 @@ beforeEach(() => {
 // Scenario: the user builds a canvas with code nodes, bubbles, and links,
 // closes the tab, and reopens it — expecting everything to be restored.
 describe('Save/Restore round-trip', () => {
+  it('saves dataVersion 3.2 to localStorage', () => {
+    saveState();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(saved?.dataVersion).toBe('3.2');
+  });
+
+  it('saves and restores links with anchorLine/anchorCol', () => {
+    const a = addNode(0,   0, 'foo foo foo');
+    const b = addNode(500, 0, '');
+    createLink(a.id, 'foo', b.id, 1, 4); // second 'foo' at line 1, col 4
+
+    saveState();
+    loadState({ nodes: [], links: [] });
+    restoreFromStorage();
+
+    const lnk = S.links[0];
+    expect(lnk.anchorLine).toBe(1);
+    expect(lnk.anchorCol).toBe(4);
+  });
+
   it('restores code nodes with all fields intact', () => {
     const n = addNode(100, 200, 'const x = 42;');
     n.title    = 'My Node';
@@ -78,15 +96,68 @@ describe('Save/Restore round-trip', () => {
     expect(S.nodes[0].showTail).toBe(false);
   });
 
-  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+  it('restores tailAnchorLine/tailAnchorCol for bubble nodes', () => {
     const b = addBubble(50, 60);
-    b.tailAnchorMatchIdx = 2;
+    b.tailAnchorLine = 3;
+    b.tailAnchorCol  = 7;
 
     saveState();
     loadState({ nodes: [], links: [] });
     restoreFromStorage();
 
-    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+    expect(S.nodes[0].tailAnchorLine).toBe(3);
+    expect(S.nodes[0].tailAnchorCol).toBe(7);
+  });
+
+  it('migrates legacy tailAnchorMatchIdx to tailAnchorLine/tailAnchorCol on load', () => {
+    // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+    // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+    const oldData = {
+      dataVersion: '3.1', nid: 3, lid: 1, taid: 1, flid: 1,
+      nodes: [
+        { id: 1, x: 0, y: 0, w: 300, h: 200,
+          code: 'hello world hello', lang: 'text', title: '', filePath: '',
+          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+        { id: 2, type: 'bubble', x: 10, y: 10, w: 200, h: 100,
+          text: 'note', tailX: 50, tailY: 50, color: 'green',
+          showTail: true,
+          tailAnchorId: 0, tailAnchorText: 'hello', tailAnchorFromId: 1,
+          tailAnchorMatchIdx: 1 },  // old format: second occurrence
+      ],
+      links: [],
+    };
+    loadState(oldData);
+    const bubble = S.nodes.find(n => n.type === 'bubble');
+    // second 'hello' starts at line 1, col 12
+    expect(bubble.tailAnchorLine).toBe(1);
+    expect(bubble.tailAnchorCol).toBe(12);
+    expect(bubble._legacyTailMatchIdx).toBeUndefined();
+  });
+
+  it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+    // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+    const oldData = {
+      dataVersion: '3.1', nid: 3, lid: 2, taid: 1, flid: 1,
+      nodes: [
+        { id: 1, x: 0, y: 0, w: 300, h: 200,
+          code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+        { id: 2, x: 400, y: 0, w: 300, h: 200,
+          code: '', lang: 'text', title: '', filePath: '',
+          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      ],
+      links: [
+        { id: 1, fromId: 1, text: 'foo', toId: 2,
+          stroke: '#388bfd', strokeWidth: 1.5, dash: '',
+          anchorMatchIdx: 1 },  // old format: second occurrence
+      ],
+    };
+    loadState(oldData);
+    const lnk = S.links[0];
+    // second 'foo' starts at line 1, col 4
+    expect(lnk.anchorLine).toBe(1);
+    expect(lnk.anchorCol).toBe(4);
+    expect(lnk._pendingMatchIdx).toBeUndefined();
   });
 
   it('restores links connecting nodes', () => {

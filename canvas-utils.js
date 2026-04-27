@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════
-export const DATA_VERSION = '3.1';
+export const DATA_VERSION = '3.2';
 
 // ═══════════════════════════════════════════════════════
 // UTILS
@@ -169,8 +169,60 @@ function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
   }).join('');
 }
 
+// Converts a 0-based occurrence index of rawText in code to {line, col}.
+// Uses the same word-boundary rules as injectAnchor/injectTailAnchor.
+// Returns {line: -1, col: -1} if matchIdx is out of range.
+export function matchIdxToLineCol(code, rawText, matchIdx) {
+  if (matchIdx < 0 || !code || !rawText) return { line: -1, col: -1 };
+  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+  const re = new RegExp(prefix + pat + suffix, 'g');
+  let idx = 0, m;
+  while ((m = re.exec(code)) !== null) {
+    if (idx === matchIdx) return _charToLineCol(code, m.index);
+    idx++;
+  }
+  return { line: -1, col: -1 };
+}
+
+// Returns {line, col} (1-based line, 0-based col within the line) for
+// the character at charIdx in code.
+function _charToLineCol(code, charIdx) {
+  let line = 1, col = 0;
+  for (let i = 0; i < charIdx; i++) {
+    if (code[i] === '\n') { line++; col = 0; }
+    else { col++; }
+  }
+  return { line, col };
+}
+
+// Converts (1-based line, 0-based col) in raw code to the 0-based occurrence
+// index of rawText starting at exactly that position. Uses the same
+// word-boundary rules as injectAnchor/injectTailAnchor. Returns -1 if not found.
+function _lineColToMatchIdx(code, rawText, targetLine, targetCol) {
+  if (targetLine < 0) return -1;
+  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+  const re = new RegExp(prefix + pat + suffix, 'g');
+  let idx = 0, m;
+  while ((m = re.exec(code)) !== null) {
+    const { line, col } = _charToLineCol(code, m.index);
+    if (line === targetLine && col === targetCol) return idx;
+    idx++;
+  }
+  return -1;
+}
+
 // Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
-export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+// code is the raw (un-highlighted) source; anchorLine/anchorCol (1-based line,
+// 0-based col) identify the primary occurrence to mark with data-lid-primary.
+// Pass code=null or anchorLine=-1 to skip primary marking.
+export function injectAnchor(html, rawText, linkId, code = null, anchorLine = -1, anchorCol = -1) {
+  const anchorMatchIdx = (code != null && anchorLine >= 0)
+    ? _lineColToMatchIdx(code, rawText, anchorLine, anchorCol)
+    : -1;
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // Word-boundary assertions prevent "start" from matching inside "startNoPodLock".
@@ -186,10 +238,14 @@ export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
   );
 }
 
-// Inject a tail-anchor span for the occurrence of rawText at tailMatchIdx.
-// When tailMatchIdx < 0, all occurrences are wrapped (backward compat).
+// Inject a tail-anchor span for the occurrence of rawText at (tailLine, tailCol).
+// code is the raw source used to locate the target occurrence.
+// When code=null or tailLine=-1, all occurrences are wrapped (backward compat).
 // Uses class="tail-anchor" / data-taid.
-export function injectTailAnchor(html, rawText, taid, tailMatchIdx = -1) {
+export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1, tailCol = -1) {
+  const tailMatchIdx = (code != null && tailLine >= 0)
+    ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+    : -1;
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';

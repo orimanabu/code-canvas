@@ -63,19 +63,20 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from starting when a button inside a node is clicked (requires DOM)
 - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
 - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
-- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in highlighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
-- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx >= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
+- `injectAnchor(html, rawText, linkId, code?, anchorLine?, anchorCol?)` — inject link-anchor `<span>` around every occurrence of `rawText` in highlighted HTML; when `code` is provided and `anchorLine >= 0`, the occurrence at that 1-based line / 0-based column position in the raw source gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+- `injectTailAnchor(html, rawText, taid, code?, tailLine?, tailCol?)` — inject a tail-anchor `<span>` into highlighted HTML. When `code` is provided and `tailLine >= 0`, only the occurrence at that line/col position is wrapped; otherwise all occurrences are wrapped (backward-compat).
 - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+- `matchIdxToLineCol(code, rawText, matchIdx)` — converts a 0-based occurrence index of `rawText` in `code` to `{line, col}` (1-based line, 0-based col). Uses the same word-boundary rules as `injectAnchor`. Returns `{line: -1, col: -1}` when `matchIdx` is out of range. Used during migration of pre-3.2 save data.
 - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
 - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
 - `edgePoint(from, to)` — exit point on a node's edge toward another node (arrow geometry)
 
 ## Key patterns
 
-- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anchored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-based column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wrap all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
 - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
 - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
-- **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in `S.links[]`; rendered as SVG paths on every viewport change.
+- **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash, anchorLine, anchorCol }` in `S.links[]`; rendered as SVG paths on every viewport change. `anchorLine` (1-based) and `anchorCol` (0-based) identify the specific occurrence of `text` in the source node that serves as the arrow origin (−1 = not set).
 - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free-lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
 - **Undo**: `pushUndo()` snapshots `S.nodes`, `S.links`, `S.freeLines` (shallow copy), capped at 10. `undo()` pops the top snapshot, clears DOM, and re-renders all nodes and lines.
 - **Persistence**: Auto-saved to a per-tab `localStorage` key `code-canvas-v1-{TAB_ID}` on every change (stale entries from closed tabs purged after 30 days). Import/export uses JSON with the full state schema.
@@ -87,7 +88,7 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 | Type | Created by | Key fields |
 |------|-----------|------------|
 | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNumberStart`, `color` |
-| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
+| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `tailAnchorText`, `tailAnchorFromId`, `tailAnchorLine`, `tailAnchorCol` |
 | `frame` | "⬜ Group" button | `label`, `color` |
 | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
 

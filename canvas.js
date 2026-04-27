@@ -1,6 +1,6 @@
 import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
          injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
-         roundedRectRayHit, anchorFpFromSide, edgePoint,
+         roundedRectRayHit, anchorFpFromSide, edgePoint, matchIdxToLineCol,
          svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
 import { initDialogs, showAlert } from './canvas-dialogs.js';
 import { initNodeRendering } from './canvas-node-rendering.js';
@@ -364,9 +364,9 @@ function saveState() {
     nodes: S.nodes.map(n => {
       if (n.type === 'bubble') {
         const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
-                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
+                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol } = n;
         return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
-                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
+                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol };
       }
       if (n.type === 'frame') {
         const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
@@ -379,7 +379,7 @@ function saveState() {
       const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
       return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
     }),
-    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx })),
+    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorLine, anchorCol }) => ({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorLine, anchorCol })),
     freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
       id, points: points.map(p => ({ x: p.x, y: p.y })), lineStyle, stroke, strokeWidth, dash,
     })),
@@ -443,6 +443,14 @@ function loadState(data) {
       }
     }
     showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+  } else if (data.dataVersion < '3.2') {
+    // migrate 3.0/3.1: link/bubble anchor storage changed from anchorMatchIdx
+    // (0-based occurrence index) to anchorLine/anchorCol (1-based line, 0-based col).
+    // Field-level migration is handled automatically in Phase 1/2 below.
+    if (data.globalConfig) {
+      S.globalConfig.description = data.globalConfig.description || '';
+      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+    }
   } else {
     if (data.globalConfig) {
       S.globalConfig.description = data.globalConfig.description || '';
@@ -455,6 +463,21 @@ function loadState(data) {
 
   S.links = data.links ?? [];
 
+  // Phase 1: migrate link anchors from anchorMatchIdx → anchorLine/anchorCol.
+  // Done before the node render loop so injectAnchor sees correct values.
+  let _anchorMigrated = false;
+  for (const lnk of S.links) {
+    if (lnk.anchorLine == null) {
+      if (lnk.anchorMatchIdx != null && lnk.anchorMatchIdx >= 0) {
+        // defer conversion until source node is loaded — mark with sentinel
+        lnk._pendingMatchIdx = lnk.anchorMatchIdx;
+        _anchorMigrated = true;
+      }
+      lnk.anchorLine = -1;
+      lnk.anchorCol  = -1;
+    }
+  }
+
   for (const nd of (data.nodes ?? [])) {
     let n;
     if (nd.type === 'bubble') {
@@ -464,7 +487,10 @@ function loadState(data) {
             showTail: nd.showTail ?? true,
             tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
             tailAnchorFromId: nd.tailAnchorFromId ?? null,
-            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
+            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1,
+            // carry legacy field for migration if old format (removed after phase 2)
+            ...(nd.tailAnchorMatchIdx != null && nd.tailAnchorLine == null
+              ? { _legacyTailMatchIdx: nd.tailAnchorMatchIdx } : {}) };
     } else if (nd.type === 'frame') {
       n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             label: nd.label ?? '', color: nd.color ?? 'blue',
@@ -504,14 +530,46 @@ function loadState(data) {
   }));
   renderLinks();
   renderFreeLines();
-  // Re-render code nodes that need tail-anchor spans injected.
+
+  // Phase 2: resolve _pendingMatchIdx sentinels now that all nodes are loaded.
+  const _migratedFromIds = new Set();
+  for (const lnk of S.links) {
+    if (lnk._pendingMatchIdx != null) {
+      const srcNode = S.nodes.find(n => n.id === lnk.fromId);
+      if (srcNode?.code) {
+        const lc = matchIdxToLineCol(srcNode.code, lnk.text, lnk._pendingMatchIdx);
+        lnk.anchorLine = lc.line;
+        lnk.anchorCol  = lc.col;
+        _migratedFromIds.add(lnk.fromId);
+      }
+      delete lnk._pendingMatchIdx;
+    }
+  }
+  for (const n of S.nodes) {
+    if (n.type === 'bubble' && n._legacyTailMatchIdx != null && n._legacyTailMatchIdx >= 0) {
+      const srcNode = S.nodes.find(s => s.id === n.tailAnchorFromId);
+      if (srcNode?.code && n.tailAnchorText) {
+        const lc = matchIdxToLineCol(srcNode.code, n.tailAnchorText, n._legacyTailMatchIdx);
+        n.tailAnchorLine = lc.line;
+        n.tailAnchorCol  = lc.col;
+        _migratedFromIds.add(n.tailAnchorFromId);
+      }
+      delete n._legacyTailMatchIdx;
+      _anchorMigrated = true;
+    }
+  }
+  if (_anchorMigrated) scheduleSave();
+
+  // Re-render code nodes that need tail-anchor spans injected, and any that
+  // were just migrated so the correct primary anchor is shown.
   // Bubble nodes may appear after their target code node in the saved array,
   // so buildCodeHTML above found no bubbles yet and skipped injection.
-  const anchoredFromIds = new Set(
-    S.nodes
+  const anchoredFromIds = new Set([
+    ...S.nodes
       .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
-      .map(n => n.tailAnchorFromId)
-  );
+      .map(n => n.tailAnchorFromId),
+    ..._migratedFromIds,
+  ]);
   for (const fromId of anchoredFromIds) {
     const cn = S.nodes.find(n => n.id === fromId);
     if (cn) renderNode(cn);

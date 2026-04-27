@@ -5,6 +5,7 @@ import {
   LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
   injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
   makeDashSvg, makeWidthSvg,
+  matchIdxToLineCol,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
 } from '../canvas-utils.js';
 
@@ -330,6 +331,58 @@ describe('addLineNumbers', () => {
   });
 });
 
+// ─── matchIdxToLineCol ───────────────────────────────────
+describe('matchIdxToLineCol', () => {
+  it('returns line 1 col 0 for occurrence 0 on a single line', () => {
+    expect(matchIdxToLineCol('foo bar foo', 'foo', 0)).toEqual({ line: 1, col: 0 });
+  });
+
+  it('returns correct col for occurrence 1 on a single line', () => {
+    // 'foo bar foo': second 'foo' starts at col 8
+    expect(matchIdxToLineCol('foo bar foo', 'foo', 1)).toEqual({ line: 1, col: 8 });
+  });
+
+  it('returns correct line/col for an occurrence on line 2', () => {
+    // 'hello\nworld\nhello': second 'hello' starts at line 3 col 0
+    expect(matchIdxToLineCol('hello\nworld\nhello', 'hello', 1)).toEqual({ line: 3, col: 0 });
+  });
+
+  it('returns correct col within a multi-line string', () => {
+    // 'line1\nfoo bar foo': second 'foo' at line 2 col 8
+    expect(matchIdxToLineCol('line1\nfoo bar foo', 'foo', 1)).toEqual({ line: 2, col: 8 });
+  });
+
+  it('returns {line: -1, col: -1} when matchIdx exceeds occurrence count', () => {
+    expect(matchIdxToLineCol('foo', 'foo', 1)).toEqual({ line: -1, col: -1 });
+  });
+
+  it('returns {line: -1, col: -1} for negative matchIdx', () => {
+    expect(matchIdxToLineCol('foo foo', 'foo', -1)).toEqual({ line: -1, col: -1 });
+  });
+
+  it('returns {line: -1, col: -1} for empty code', () => {
+    expect(matchIdxToLineCol('', 'foo', 0)).toEqual({ line: -1, col: -1 });
+  });
+
+  it('respects word boundaries — does not match partial words', () => {
+    // 'startNoPodLock' should not match 'start'
+    expect(matchIdxToLineCol('startNoPodLock', 'start', 0)).toEqual({ line: -1, col: -1 });
+  });
+
+  it('matches occurrence 0 when word is standalone', () => {
+    expect(matchIdxToLineCol('start stop start', 'start', 0)).toEqual({ line: 1, col: 0 });
+  });
+
+  it('roundtrips with _lineColToMatchIdx — all occurrences', () => {
+    const code = 'foo bar\nfoo baz\nfoo';
+    for (let i = 0; i < 3; i++) {
+      const lc = matchIdxToLineCol(code, 'foo', i);
+      expect(lc.line).toBeGreaterThan(0);
+      expect(lc.col).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
 // ─── injectAnchor ────────────────────────────────────────
 describe('injectAnchor', () => {
   it('wraps matching text in a link-anchor span', () => {
@@ -372,31 +425,35 @@ describe('injectAnchor', () => {
     expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
   });
 
-  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+  it('wraps all occurrences when no anchor position given', () => {
     const result = injectAnchor('foo foo foo', 'foo', 'L1');
     const count = (result.match(/class="link-anchor"/g) || []).length;
     expect(count).toBe(3);
   });
 
-  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
-    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+  it('marks the occurrence at (line, col) with data-lid-primary', () => {
+    // 'foo foo foo': second 'foo' starts at line 1, col 4
+    const code = 'foo foo foo';
+    const result = injectAnchor(code, 'foo', 'L1', code, 1, 4);
     // All three are wrapped
     const count = (result.match(/class="link-anchor"/g) || []).length;
     expect(count).toBe(3);
-    // Only occurrence 1 (second one) carries data-lid-primary
+    // Only the second occurrence carries data-lid-primary
     expect(result).toContain('data-lid-primary="1"');
     const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
     expect(primaryCount).toBe(1);
   });
 
-  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
-    const result = injectAnchor('word word', 'word', 'L2', 0);
+  it('marks occurrence at col 0 (first) as primary', () => {
+    // 'word word': first 'word' starts at line 1, col 0
+    const code = 'word word';
+    const result = injectAnchor(code, 'word', 'L2', code, 1, 0);
     const parts = result.split('<span class="link-anchor"');
-    // parts[0] is before first anchor; parts[1] is first anchor content
+    // parts[1] is the first anchor element content
     expect(parts[1]).toContain('data-lid-primary="1"');
   });
 
-  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+  it('does not add primary attribute when no anchor position given', () => {
     const result = injectAnchor('foo foo', 'foo', 'L3');
     expect(result).not.toContain('data-lid-primary');
   });
@@ -450,23 +507,27 @@ describe('injectTailAnchor', () => {
     expect(count).toBe(3);
   });
 
-  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
-    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+  it('wraps only occurrence at line 1 col 0 (first)', () => {
+    // 'foo foo foo': first 'foo' at line 1, col 0
+    const code = 'foo foo foo';
+    const result = injectTailAnchor(code, 'foo', 9, code, 1, 0);
     const count = (result.match(/class="tail-anchor"/g) || []).length;
     expect(count).toBe(1);
-    // The first occurrence should be wrapped; result starts with the span
     expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
   });
 
-  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
-    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+  it('wraps only occurrence at line 1 col 4 (second)', () => {
+    // 'foo foo foo': second 'foo' at line 1, col 4
+    const code = 'foo foo foo';
+    const result = injectTailAnchor(code, 'foo', 9, code, 1, 4);
     const count = (result.match(/class="tail-anchor"/g) || []).length;
     expect(count).toBe(1);
   });
 
   it('wraps only the target occurrence, leaving others as plain text', () => {
+    // 'alpha beta alpha beta alpha': third 'alpha' at line 1, col 22
     const html = 'alpha beta alpha beta alpha';
-    const result = injectTailAnchor(html, 'alpha', 3, 2);
+    const result = injectTailAnchor(html, 'alpha', 3, html, 1, 22);
     // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
     const count = (result.match(/class="tail-anchor"/g) || []).length;
     expect(count).toBe(1);

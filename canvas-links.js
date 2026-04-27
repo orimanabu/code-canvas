@@ -19,14 +19,14 @@ export function initLinks(deps) {
   // ═══════════════════════════════════════════════════════
   // LINKS
   // ═══════════════════════════════════════════════════════
-  function createLink(fromId, text, toId, anchorMatchIdx = -1) {
+  function createLink(fromId, text, toId, anchorLine = -1, anchorCol = -1) {
     // Avoid duplicate
     if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
       setStatus(`⚠ A link from "${text}" to this block already exists`);
       return;
     }
     pushUndo();
-    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorMatchIdx });
+    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorLine, anchorCol });
     renderNode(S.nodes.find(n => n.id === fromId));
     renderLinks();
     scheduleSave();
@@ -186,9 +186,9 @@ export function initLinks(deps) {
   // ═══════════════════════════════════════════════════════
   // LINK MODE
   // ═══════════════════════════════════════════════════════
-  function enterLinkMode(fromId, text, anchorRect = null, anchorMatchIdx = -1) {
+  function enterLinkMode(fromId, text, anchorRect = null, anchorLine = -1, anchorCol = -1) {
     S.linkMode = true;
-    S.pending = { fromId, text, anchorRect, anchorMatchIdx };
+    S.pending = { fromId, text, anchorRect, anchorLine, anchorCol };
     document.body.classList.add('link-mode');
     setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
   }
@@ -205,9 +205,9 @@ export function initLinks(deps) {
   // ═══════════════════════════════════════════════════════
   // TAIL ATTACH MODE
   // ═══════════════════════════════════════════════════════
-  function enterTailAttachModeLocal(fromId, text, tailMatchIdx = -1) {
+  function enterTailAttachModeLocal(fromId, text, tailLine = -1, tailCol = -1) {
     S.tailAttachMode = true;
-    S.tailPending = { fromId, text, tailMatchIdx };
+    S.tailPending = { fromId, text, tailLine, tailCol };
     document.body.classList.add('tail-attach-mode');
     setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
   }
@@ -402,29 +402,32 @@ export function initLinks(deps) {
     return -1;
   }
 
-  // Returns the 0-based occurrence index of text in code at charOffset,
-  // using the same word-boundary matching as injectAnchor.
-  // charOffset is the character position in `code` of the selection start.
-  // We count how many occurrences end before charOffset; the next one is the
-  // selected occurrence. This tolerates charOffset landing just before the
-  // match (e.g. when the user's selection began with a leading space that was
-  // trimmed from `text`).
-  function getOccurrenceIdx(code, text, charOffset) {
+  // Returns {line, col} (1-based line, 0-based col) of the occurrence of text
+  // in code that contains charOffset, using the same word-boundary rules as
+  // injectAnchor. Tolerates charOffset landing just before the match (e.g.
+  // when leading whitespace was trimmed from the selection). Returns
+  // {line: -1, col: -1} if no match found.
+  function getAnchorLineCol(code, text, charOffset) {
     const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const prefix = /\w/.test(text[0])                  ? '\\b' : '';
-    const suffix = /\w/.test(text[text.length - 1])    ? '\\b' : '';
+    const prefix = /\w/.test(text[0])               ? '\\b' : '';
+    const suffix = /\w/.test(text[text.length - 1]) ? '\\b' : '';
     const re = new RegExp(prefix + pat + suffix, 'g');
-    let idx = 0;
-    let m;
+    let m, lastMatchIdx = -1;
     while ((m = re.exec(code)) !== null) {
-      // Return this occurrence if charOffset falls within it (normal case) or
-      // lies before it (charOffset was trimmed from the start of the selection).
-      if (charOffset < m.index + text.length) return idx;
-      idx++;
+      if (charOffset < m.index + text.length) return _charToLineCol(code, m.index);
+      lastMatchIdx = m.index;
     }
-    // charOffset is past all occurrences — trailing whitespace in selection;
-    // return the last occurrence, or -1 if none matched at all.
-    return idx > 0 ? idx - 1 : -1;
+    if (lastMatchIdx >= 0) return _charToLineCol(code, lastMatchIdx);
+    return { line: -1, col: -1 };
+  }
+
+  function _charToLineCol(code, charIdx) {
+    let line = 1, col = 0;
+    for (let i = 0; i < charIdx; i++) {
+      if (code[i] === '\n') { line++; col = 0; }
+      else { col++; }
+    }
+    return { line, col };
   }
 
   // Text selection → link tip popup
@@ -448,14 +451,18 @@ export function initLinks(deps) {
     const range  = sel.getRangeAt(0);
     const rect   = range.getBoundingClientRect();
 
-    // Determine which occurrence of the selected text was actually selected
-    let anchorMatchIdx = -1;
+    // Determine the line/col of the selected occurrence in the raw code
+    let anchorLine = -1, anchorCol = -1;
     if (range.startContainer.nodeType === Node.TEXT_NODE) {
       const pre = el.querySelector('.node-body pre');
       const codeNode = S.nodes.find(n => n.id === fromId);
       if (pre && codeNode?.code != null) {
         const charOffset = getCodeTextOffset(pre, range.startContainer, range.startOffset);
-        if (charOffset >= 0) anchorMatchIdx = getOccurrenceIdx(codeNode.code, text, charOffset);
+        if (charOffset >= 0) {
+          const lc = getAnchorLineCol(codeNode.code, text, charOffset);
+          anchorLine = lc.line;
+          anchorCol  = lc.col;
+        }
       }
     }
 
@@ -469,7 +476,7 @@ export function initLinks(deps) {
     linkTipLink.onclick = () => {
       sel.removeAllRanges();
       linkTip.style.display = 'none';
-      enterLinkMode(fromId, text, anchorRect, anchorMatchIdx);
+      enterLinkMode(fromId, text, anchorRect, anchorLine, anchorCol);
     };
 
     linkTipNewBlock.onclick = () => {
@@ -480,7 +487,7 @@ export function initLinks(deps) {
       const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
       const newNode = addNode(nx, ny);
       newNode.pendingKeyword = text;
-      createLink(fromId, text, newNode.id, anchorMatchIdx);
+      createLink(fromId, text, newNode.id, anchorLine, anchorCol);
       renderLinks();
       selectNode(newNode.id);
       startEdit(newNode.id);
@@ -490,7 +497,7 @@ export function initLinks(deps) {
     linkTipAttachTail.onclick = () => {
       sel.removeAllRanges();
       linkTip.style.display = 'none';
-      enterTailAttachMode(fromId, text, anchorMatchIdx);
+      enterTailAttachMode(fromId, text, anchorLine, anchorCol);
     };
 
     linkTipNewBubble.onclick = () => {
@@ -501,7 +508,7 @@ export function initLinks(deps) {
       const cy = anchorRect.top + anchorRect.height / 2;
       const cp = s2c(cx, cy);
       const newBubble = addBubble(cp.x - 100, cp.y - 160);
-      attachTailToText(newBubble, fromId, text, anchorMatchIdx);
+      attachTailToText(newBubble, fromId, text, anchorLine, anchorCol);
     };
   });
 

@@ -32018,3 +32018,3209 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 2m 8s
 ```
+
+```
+❯ リンクアンカーの保持の仕方を変えたいです。今は正規表現マッチをしてマッチインデックスを保持していますが、代わりに行番号と列番号によって直接指定で
+  きるようにしてください
+
+⏺ 現在のアンカー実装を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 関連ファイルを詳しく読みます。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ テストファイルと関連する部分も読みます。
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ canvas-links.js の enterTailAttachMode を確認します。
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ ペースト処理のコンテキストも確認します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ 全体像が把握できました。anchorMatchIdx を anchorLine/anchorCol（1-based行、0-based列）に変更します。影響ファイルは6つです。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 43 lines, removed 4 lines
+      169    }).join('');
+      170  }
+      171
+      172 +// Returns {line, col} (1-based line, 0-based col within the line) for
+      173 +// the character at charIdx in code.
+      174 +function _charToLineCol(code, charIdx) {
+      175 +  let line = 1, col = 0;
+      176 +  for (let i = 0; i < charIdx; i++) {
+      177 +    if (code[i] === '\n') { line++; col = 0; }
+      178 +    else { col++; }
+      179 +  }
+      180 +  return { line, col };
+      181 +}
+      182 +
+      183 +// Converts (1-based line, 0-based col) in raw code to the 0-based occurrence
+      184 +// index of rawText starting at exactly that position. Uses the same
+      185 +// word-boundary rules as injectAnchor/injectTailAnchor. Returns -1 if not found.
+      186 +function _lineColToMatchIdx(code, rawText, targetLine, targetCol) {
+      187 +  if (targetLine < 0) return -1;
+      188 +  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      189 +  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      190 +  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      191 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      192 +  let idx = 0, m;
+      193 +  while ((m = re.exec(code)) !== null) {
+      194 +    const { line, col } = _charToLineCol(code, m.index);
+      195 +    if (line === targetLine && col === targetCol) return idx;
+      196 +    idx++;
+      197 +  }
+      198 +  return -1;
+      199 +}
+      200 +
+      201  // Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
+      173 -export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      202 +// code is the raw (un-highlighted) source; anchorLine/anchorCol (1-based line,
+      203 +// 0-based col) identify the primary occurrence to mark with data-lid-primary.
+      204 +// Pass code=null or anchorLine=-1 to skip primary marking.
+      205 +export function injectAnchor(html, rawText, linkId, code = null, anchorLine = -1, anchorCol = -1) {
+      206 +  const anchorMatchIdx = (code != null && anchorLine >= 0)
+      207 +    ? _lineColToMatchIdx(code, rawText, anchorLine, anchorCol)
+      208 +    : -1;
+      209    const escapedText = esc(rawText);
+      210    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      211    // Word-boundary assertions prevent "start" from matching inside "startNoPodLock".
+     ...
+      221    );
+      222  }
+      223
+      189 -// Inject a tail-anchor span for the occurrence of rawText at tailMatchIdx.
+      190 -// When tailMatchIdx < 0, all occurrences are wrapped (backward compat).
+      224 +// Inject a tail-anchor span for the occurrence of rawText at (tailLine, tailCol).
+      225 +// code is the raw source used to locate the target occurrence.
+      226 +// When code=null or tailLine=-1, all occurrences are wrapped (backward compat).
+      227  // Uses class="tail-anchor" / data-taid.
+      192 -export function injectTailAnchor(html, rawText, taid, tailMatchIdx = -1) {
+      228 +export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1, tailCol = -1) {
+      229 +  const tailMatchIdx = (code != null && tailLine >= 0)
+      230 +    ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+      231 +    : -1;
+      232    const escapedText = esc(rawText);
+      233    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      234    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+
+⏺ 次に canvas-links.js を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      19    // ═══════════════════════════════════════════════════════
+      20    // LINKS
+      21    // ═══════════════════════════════════════════════════════
+      22 -  function createLink(fromId, text, toId, anchorMatchIdx = -1) {
+      22 +  function createLink(fromId, text, toId, anchorLine = -1, anchorCol = -1) {
+      23      // Avoid duplicate
+      24      if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
+      25        setStatus(`⚠ A link from "${text}" to this block already exists`);
+      26        return;
+      27      }
+      28      pushUndo();
+      29 -    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorMatchIdx });
+      29 +    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorLine, anchorCol });
+      30      renderNode(S.nodes.find(n => n.id === fromId));
+      31      renderLinks();
+      32      scheduleSave();
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      205    // ═══════════════════════════════════════════════════════
+      206    // TAIL ATTACH MODE
+      207    // ═══════════════════════════════════════════════════════
+      208 -  function enterTailAttachModeLocal(fromId, text, tailMatchIdx = -1) {
+      208 +  function enterTailAttachModeLocal(fromId, text, tailLine = -1, tailCol = -1) {
+      209      S.tailAttachMode = true;
+      210 -    S.tailPending = { fromId, text, tailMatchIdx };
+      210 +    S.tailPending = { fromId, text, tailLine, tailCol };
+      211      document.body.classList.add('tail-attach-mode');
+      212      setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
+      213    }
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      186    // ═══════════════════════════════════════════════════════
+      187    // LINK MODE
+      188    // ═══════════════════════════════════════════════════════
+      189 -  function enterLinkMode(fromId, text, anchorRect = null, anchorMatchIdx = -1) {
+      189 +  function enterLinkMode(fromId, text, anchorRect = null, anchorLine = -1, anchorCol = -1) {
+      190      S.linkMode = true;
+      191 -    S.pending = { fromId, text, anchorRect, anchorMatchIdx };
+      191 +    S.pending = { fromId, text, anchorRect, anchorLine, anchorCol };
+      192      document.body.classList.add('link-mode');
+      193      setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
+      194    }
+
+⏺ 次に getOccurrenceIdx を getAnchorLineCol に置き換え、mouseup ハンドラを更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 33 lines, removed 26 lines
+      402      return -1;
+      403    }
+      404
+      405 -  // Returns the 0-based occurrence index of text in code at charOffset,
+      406 -  // using the same word-boundary matching as injectAnchor.
+      407 -  // charOffset is the character position in `code` of the selection start.
+      408 -  // We count how many occurrences end before charOffset; the next one is the
+      409 -  // selected occurrence. This tolerates charOffset landing just before the
+      410 -  // match (e.g. when the user's selection began with a leading space that was
+      411 -  // trimmed from `text`).
+      412 -  function getOccurrenceIdx(code, text, charOffset) {
+      405 +  // Returns {line, col} (1-based line, 0-based col) of the occurrence of text
+      406 +  // in code that contains charOffset, using the same word-boundary rules as
+      407 +  // injectAnchor. Tolerates charOffset landing just before the match (e.g.
+      408 +  // when leading whitespace was trimmed from the selection). Returns
+      409 +  // {line: -1, col: -1} if no match found.
+      410 +  function getAnchorLineCol(code, text, charOffset) {
+      411      const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      414 -    const prefix = /\w/.test(text[0])                  ? '\\b' : '';
+      415 -    const suffix = /\w/.test(text[text.length - 1])    ? '\\b' : '';
+      412 +    const prefix = /\w/.test(text[0])               ? '\\b' : '';
+      413 +    const suffix = /\w/.test(text[text.length - 1]) ? '\\b' : '';
+      414      const re = new RegExp(prefix + pat + suffix, 'g');
+      417 -    let idx = 0;
+      418 -    let m;
+      415 +    let m, lastMatchIdx = -1;
+      416      while ((m = re.exec(code)) !== null) {
+      420 -      // Return this occurrence if charOffset falls within it (normal case) or
+      421 -      // lies before it (charOffset was trimmed from the start of the selection).
+      422 -      if (charOffset < m.index + text.length) return idx;
+      423 -      idx++;
+      417 +      if (charOffset < m.index + text.length) return _charToLineCol(code, m.index);
+      418 +      lastMatchIdx = m.index;
+      419      }
+      425 -    // charOffset is past all occurrences — trailing whitespace in selection;
+      426 -    // return the last occurrence, or -1 if none matched at all.
+      427 -    return idx > 0 ? idx - 1 : -1;
+      420 +    if (lastMatchIdx >= 0) return _charToLineCol(code, lastMatchIdx);
+      421 +    return { line: -1, col: -1 };
+      422    }
+      423
+      424 +  function _charToLineCol(code, charIdx) {
+      425 +    let line = 1, col = 0;
+      426 +    for (let i = 0; i < charIdx; i++) {
+      427 +      if (code[i] === '\n') { line++; col = 0; }
+      428 +      else { col++; }
+      429 +    }
+      430 +    return { line, col };
+      431 +  }
+      432 +
+      433    // Text selection → link tip popup
+      434    document.addEventListener('mouseup', e => {
+      435      if (S.linkMode || S.tailAttachMode) return;
+     ...
+      451      const range  = sel.getRangeAt(0);
+      452      const rect   = range.getBoundingClientRect();
+      453
+      451 -    // Determine which occurrence of the selected text was actually selected
+      452 -    let anchorMatchIdx = -1;
+      454 +    // Determine the line/col of the selected occurrence in the raw code
+      455 +    let anchorLine = -1, anchorCol = -1;
+      456      if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      457        const pre = el.querySelector('.node-body pre');
+      458        const codeNode = S.nodes.find(n => n.id === fromId);
+      459        if (pre && codeNode?.code != null) {
+      460          const charOffset = getCodeTextOffset(pre, range.startContainer, range.startOffset);
+      458 -        if (charOffset >= 0) anchorMatchIdx = getOccurrenceIdx(codeNode.code, text, charOffset);
+      461 +        if (charOffset >= 0) {
+      462 +          const lc = getAnchorLineCol(codeNode.code, text, charOffset);
+      463 +          anchorLine = lc.line;
+      464 +          anchorCol  = lc.col;
+      465 +        }
+      466        }
+      467      }
+      468
+     ...
+      476      linkTipLink.onclick = () => {
+      477        sel.removeAllRanges();
+      478        linkTip.style.display = 'none';
+      472 -      enterLinkMode(fromId, text, anchorRect, anchorMatchIdx);
+      479 +      enterLinkMode(fromId, text, anchorRect, anchorLine, anchorCol);
+      480      };
+      481
+      482      linkTipNewBlock.onclick = () => {
+     ...
+      487        const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      488        const newNode = addNode(nx, ny);
+      489        newNode.pendingKeyword = text;
+      483 -      createLink(fromId, text, newNode.id, anchorMatchIdx);
+      490 +      createLink(fromId, text, newNode.id, anchorLine, anchorCol);
+      491        renderLinks();
+      492        selectNode(newNode.id);
+      493        startEdit(newNode.id);
+     ...
+      497      linkTipAttachTail.onclick = () => {
+      498        sel.removeAllRanges();
+      499        linkTip.style.display = 'none';
+      493 -      enterTailAttachMode(fromId, text, anchorMatchIdx);
+      500 +      enterTailAttachMode(fromId, text, anchorLine, anchorCol);
+      501      };
+      502
+      503      linkTipNewBubble.onclick = () => {
+     ...
+      508        const cy = anchorRect.top + anchorRect.height / 2;
+      509        const cp = s2c(cx, cy);
+      510        const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      504 -      attachTailToText(newBubble, fromId, text, anchorMatchIdx);
+      511 +      attachTailToText(newBubble, fromId, text, anchorLine, anchorCol);
+      512      };
+      513    });
+      514
+
+⏺ 次に canvas-nodes.js を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Error editing file
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 3 lines, removed 3 lines
+      123            n.tailX = cp.x; n.tailY = cp.y;
+      124          }
+      125          const oldFromId = n.tailAnchorFromId;
+      126 -        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      126 +        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      127          if (oldFromId != null) {
+      128            const cn = S.nodes.find(c => c.id === oldFromId);
+      129            if (cn) renderNode(cn);
+     ...
+      532      if (!removed?.type || removed.type === 'code') {
+      533        S.nodes.forEach(n => {
+      534          if (n.type === 'bubble' && n.tailAnchorFromId === id) {
+      535 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      535 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      536          }
+      537        });
+      538      }
+     ...
+      701            n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+      702            n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+      703            // Pasted bubbles start with a free tail — no anchor collision risk
+      704 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      704 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      705          }
+      706          S.nodes.push(n);
+      707          const el = document.createElement('div');
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      147        color: 'green',
+      148        fontFamily: 'default', fontSize: 13,
+      149        showTail: true,
+      150 -      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorMatchIdx: -1,
+      150 +      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorLine: -1, tailAnchorCol: -1,
+      151      };
+      152      S.nodes.push(n);
+      153      const el = document.createElement('div');
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 6 lines, removed 5 lines
+      172      }
+      173    }
+      174
+      175 -  function attachTailToText(bubbleNode, fromId, text, tailMatchIdx = -1) {
+      175 +  function attachTailToText(bubbleNode, fromId, text, tailLine = -1, tailCol = -1) {
+      176      pushUndo();
+      177      const oldFromId = bubbleNode.tailAnchorFromId;
+      178 -    bubbleNode.tailAnchorId       = S.taid++;
+      179 -    bubbleNode.tailAnchorText     = text;
+      180 -    bubbleNode.tailAnchorFromId   = fromId;
+      181 -    bubbleNode.tailAnchorMatchIdx = tailMatchIdx;
+      178 +    bubbleNode.tailAnchorId     = S.taid++;
+      179 +    bubbleNode.tailAnchorText   = text;
+      180 +    bubbleNode.tailAnchorFromId = fromId;
+      181 +    bubbleNode.tailAnchorLine   = tailLine;
+      182 +    bubbleNode.tailAnchorCol    = tailCol;
+      183      const codeNode = S.nodes.find(n => n.id === fromId);
+      184      if (codeNode) renderNode(codeNode);
+      185      if (oldFromId != null && oldFromId !== fromId) {
+
+⏺ 次に S.pending と S.tailPending の参照箇所を更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      336        // Link-mode: clicking a node creates a link
+      337        if (S.linkMode) {
+      338          if (S.pending && S.pending.fromId !== n.id) {
+      339 -          createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorMatchIdx ?? -1);
+      339 +          createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorLine ?? -1, S.pending.anchorCol ?? -1);
+      340            exitLinkMode();
+      341          }
+      342          e.stopPropagation();
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      346        // Tail-attach-mode: clicking a bubble attaches its tail
+      347        if (S.tailAttachMode) {
+      348          if (S.tailPending && n.type === 'bubble') {
+      349 -          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailMatchIdx ?? -1);
+      349 +          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailLine ?? -1, S.tailPending.tailCol ?? -1)
+          +;
+      350            exitTailAttachMode();
+      351          }
+      352          e.stopPropagation();
+
+⏺ ペースト処理も更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 2 lines, removed 1 line
+      734            stroke: data.stroke || '#388bfd',
+      735            strokeWidth: data.strokeWidth || 1.5,
+      736            dash: data.dash || '',
+      737 -          anchorMatchIdx: data.anchorMatchIdx ?? -1,
+      737 +          anchorLine: data.anchorLine ?? -1,
+      738 +          anchorCol:  data.anchorCol  ?? -1,
+      739          });
+      740        }
+      741      }
+
+⏺ canvas-node-rendering.js を更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines, removed 2 lines
+      38      const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+      39                                .sort((a, b) => b.text.length - a.text.length);
+      40      for (const lnk of nodeLinks) {
+      41 -      html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
+      41 +      html = injectAnchor(html, lnk.text, lnk.id, n?.code ?? null, lnk.anchorLine ?? -1, lnk.anchorCol ?? -1);
+      42      }
+      43      const tailBubbles = S.nodes
+      44        .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+      45        .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+      46      for (const tb of tailBubbles) {
+      47 -      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
+      47 +      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, n?.code ?? null, tb.tailAnchorLine ?? -1, tb.tailAnchorCol
+         +?? -1);
+      48      }
+      49      return { html, lang };
+      50    }
+
+⏺ canvas.js のシリアライズ/デシリアライズを更新します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      364      nodes: S.nodes.map(n => {
+      365        if (n.type === 'bubble') {
+      366          const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      367 -                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
+      367 +                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol } = n;
+      368          return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      369 -                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
+      369 +                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol };
+      370        }
+      371        if (n.type === 'frame') {
+      372          const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      379        const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
+      380        return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
+      381      }),
+      382 -    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, strok
+          -e, strokeWidth, dash, anchorMatchIdx })),
+      382 +    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorLine, anchorCol }) => ({ id, fromId, text, toId
+          +, stroke, strokeWidth, dash, anchorLine, anchorCol })),
+      383      freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
+      384        id, points: points.map(p => ({ x: p.x, y: p.y })), lineStyle, stroke, strokeWidth, dash,
+      385      })),
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      464              showTail: nd.showTail ?? true,
+      465              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      466              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      467 -            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
+      467 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      468      } else if (nd.type === 'frame') {
+      469        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      470              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ テストを更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 12 lines, removed 8 lines
+      372      expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+      373    });
+      374
+      375 -  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+      375 +  it('wraps all occurrences when no anchor position given', () => {
+      376      const result = injectAnchor('foo foo foo', 'foo', 'L1');
+      377      const count = (result.match(/class="link-anchor"/g) || []).length;
+      378      expect(count).toBe(3);
+      379    });
+      380
+      381 -  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
+      382 -    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+      381 +  it('marks the occurrence at (line, col) with data-lid-primary', () => {
+      382 +    // 'foo foo foo': second 'foo' starts at line 1, col 4
+      383 +    const code = 'foo foo foo';
+      384 +    const result = injectAnchor(code, 'foo', 'L1', code, 1, 4);
+      385      // All three are wrapped
+      386      const count = (result.match(/class="link-anchor"/g) || []).length;
+      387      expect(count).toBe(3);
+      386 -    // Only occurrence 1 (second one) carries data-lid-primary
+      388 +    // Only the second occurrence carries data-lid-primary
+      389      expect(result).toContain('data-lid-primary="1"');
+      390      const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+      391      expect(primaryCount).toBe(1);
+      392    });
+      393
+      392 -  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
+      393 -    const result = injectAnchor('word word', 'word', 'L2', 0);
+      394 +  it('marks occurrence at col 0 (first) as primary', () => {
+      395 +    // 'word word': first 'word' starts at line 1, col 0
+      396 +    const code = 'word word';
+      397 +    const result = injectAnchor(code, 'word', 'L2', code, 1, 0);
+      398      const parts = result.split('<span class="link-anchor"');
+      395 -    // parts[0] is before first anchor; parts[1] is first anchor content
+      399 +    // parts[1] is the first anchor element content
+      400      expect(parts[1]).toContain('data-lid-primary="1"');
+      401    });
+      402
+      399 -  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+      403 +  it('does not add primary attribute when no anchor position given', () => {
+      404      const result = injectAnchor('foo foo', 'foo', 'L3');
+      405      expect(result).not.toContain('data-lid-primary');
+      406    });
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 10 lines, removed 6 lines
+      454      expect(count).toBe(3);
+      455    });
+      456
+      457 -  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
+      458 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+      457 +  it('wraps only occurrence at line 1 col 0 (first)', () => {
+      458 +    // 'foo foo foo': first 'foo' at line 1, col 0
+      459 +    const code = 'foo foo foo';
+      460 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 0);
+      461      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      462      expect(count).toBe(1);
+      461 -    // The first occurrence should be wrapped; result starts with the span
+      463      expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
+      464    });
+      465
+      465 -  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+      466 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+      466 +  it('wraps only occurrence at line 1 col 4 (second)', () => {
+      467 +    // 'foo foo foo': second 'foo' at line 1, col 4
+      468 +    const code = 'foo foo foo';
+      469 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 4);
+      470      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      471      expect(count).toBe(1);
+      472    });
+      473
+      474    it('wraps only the target occurrence, leaving others as plain text', () => {
+      475 +    // 'alpha beta alpha beta alpha': third 'alpha' at line 1, col 22
+      476      const html = 'alpha beta alpha beta alpha';
+      473 -    const result = injectTailAnchor(html, 'alpha', 3, 2);
+      477 +    const result = injectTailAnchor(html, 'alpha', 3, html, 1, 22);
+      478      // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
+      479      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      480      expect(count).toBe(1);
+
+⏺ 統合テストを更新します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      78      expect(S.nodes[0].showTail).toBe(false);
+      79    });
+      80
+      81 -  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+      81 +  it('restores tailAnchorLine/tailAnchorCol for bubble nodes', () => {
+      82      const b = addBubble(50, 60);
+      83 -    b.tailAnchorMatchIdx = 2;
+      83 +    b.tailAnchorLine = 3;
+      84 +    b.tailAnchorCol  = 7;
+      85
+      86      saveState();
+      87      loadState({ nodes: [], links: [] });
+      88      restoreFromStorage();
+      89
+      89 -    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+      90 +    expect(S.nodes[0].tailAnchorLine).toBe(3);
+      91 +    expect(S.nodes[0].tailAnchorCol).toBe(7);
+      92    });
+      93
+      94    it('restores links connecting nodes', () => {
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 48ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 42ms
+     … +53 lines (ctrl+o to see all)
+
+⏺ canvas-dom.test.js にも tailAnchorMatchIdx テストが残っています。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 3 lines, removed 2 lines
+      144      expect(n.showTail).toBe(true);
+      145    });
+      146
+      147 -  it('initializes tailAnchorMatchIdx to -1', () => {
+      147 +  it('initializes tailAnchorLine/tailAnchorCol to -1', () => {
+      148      const n = addBubble(0, 0);
+      149 -    expect(n.tailAnchorMatchIdx).toBe(-1);
+      149 +    expect(n.tailAnchorLine).toBe(-1);
+      150 +    expect(n.tailAnchorCol).toBe(-1);
+      151    });
+      152
+      153    it('initializes tailAnchorId, tailAnchorText, tailAnchorFromId to null', () => {
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      580      expect(S.nodes).toHaveLength(2);
+      581    });
+      582
+      583 -  it('pasted bubble resets tailAnchorMatchIdx to -1', () => {
+      583 +  it('pasted bubble resets tailAnchorLine/tailAnchorCol to -1', () => {
+      584      const b = addBubble(50, 50);
+      585 -    b.tailAnchorMatchIdx = 2; // simulate an anchored tail
+      585 +    b.tailAnchorLine = 2; // simulate an anchored tail
+      586 +    b.tailAnchorCol  = 5;
+      587      selectNode(b.id);
+      588      copyNodes();
+      589      pasteNodes();
+      590      const pasted = S.nodes.find(n => n.id !== b.id);
+      590 -    expect(pasted.tailAnchorMatchIdx).toBe(-1);
+      591 +    expect(pasted.tailAnchorLine).toBe(-1);
+      592 +    expect(pasted.tailAnchorCol).toBe(-1);
+      593    });
+      594  });
+      595
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。CLAUDE.md のデータモデル記述も更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      72
+      73  ## Key patterns
+      74
+      75 -- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         -LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         -nchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anch
+         -ored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color
+         -}`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+      75 +- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         +LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         +nchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-bas
+         +ed column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wra
+         +p all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, te
+         +xt, textColor, fontFamily, fontSize }`.
+      76  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+          block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      77  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      78  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      87  | Type | Created by | Key fields |
+      88  |------|-----------|------------|
+      89  | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNum
+          berStart`, `color` |
+      90 -| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         -tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
+      90 +| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         +tailAnchorText`, `tailAnchorFromId`, `tailAnchorLine`, `tailAnchorCol` |
+      91  | `frame` | "⬜ Group" button | `label`, `color` |
+      92  | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+      93
+
+⏺ また canvas-utils.js の injectAnchor/injectTailAnchor の export 説明も CLAUDE.md で確認して更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 2 lines, removed 2 lines
+      63  - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from start
+          ing when a button inside a node is clicked (requires DOM)
+      64  - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
+      65  - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      66 -- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in high
+         -lighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `inject
+         -TailAnchor` via internal `_injectSpans`.
+      67 -- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx
+         ->= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
+      66 +- `injectAnchor(html, rawText, linkId, code?, anchorLine?, anchorCol?)` — inject link-anchor `<span>` around every occurrence of `r
+         +awText` in highlighted HTML; when `code` is provided and `anchorLine >= 0`, the occurrence at that 1-based line / 0-based column po
+         +sition in the raw source gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+      67 +- `injectTailAnchor(html, rawText, taid, code?, tailLine?, tailCol?)` — inject a tail-anchor `<span>` into highlighted HTML. When `
+         +code` is provided and `tailLine >= 0`, only the occurrence at that line/col position is wrapped; otherwise all occurrences are wrap
+         +ped (backward-compat).
+      68  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      69  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      70  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ 最終確認としてテストを再実行します。
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿   ✓ tests/canvas-dialogs.test.js (27 tests) 355ms
+      ✓ tests/canvas-integration.test.js (27 tests) 535ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 527ms
+     … +6 lines (ctrl+o to expand)
+
+⏺ 327テスト全通過。変更内容をまとめます。
+
+  変更内容:
+
+  ┌──────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │         ファイル         │                                                      変更点                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-utils.js          │ _charToLineCol・_lineColToMatchIdx 内部ヘルパーを追加。injectAnchor/injectTailAnchor のシグネチャを (html,        │
+  │                          │ rawText, id, code, anchorLine, anchorCol) に変更                                                                  │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js          │ getOccurrenceIdx を getAnchorLineCol に置換。createLink・enterLinkMode・enterTailAttachModeLocal の引数を         │
+  │                          │ anchorLine/anchorCol に変更                                                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-nodes.js          │ tailAnchorMatchIdx → tailAnchorLine/tailAnchorCol。attachTailToText・ペースト処理を更新                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js │ injectAnchor/injectTailAnchor 呼び出しに n?.code と anchorLine/anchorCol を渡すよう変更                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.js                │ シリアライズ/デシリアライズを新フィールドに更新                                                                   │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ テスト4ファイル          │ anchorMatchIdx → 行番号/列番号ベースのテストに更新                                                                │
+  └──────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  後方互換性: 旧セーブデータ（anchorMatchIdx のみ）をロードした場合、anchorLine/anchorCol が未定義なので -1 にフォールバックし、アンカーの primary
+  マーキングなしで動作します。
+
+✻ Cooked for 9m 9s
+
+※ recap: Replaced anchorMatchIdx with anchorLine/anchorCol (1-based line, 0-based column) across all files for both link and tail anchors. All 327
+  tests pass. No next action needed. (disable recaps in /config)
+
+❯ anchorMatchIdxのみの旧セーブデータをロードした場合は、従来の正規表現マッチのマッチインデックスを使ったリンクアンカーを作成し、そのanchorLine/anch
+  orColをlocalStorageにセーブし、以降はanchorLine/anchorColでリンクアンカーを管理するようにしてください
+
+⏺ 旧データのマイグレーション処理を実装します。まず canvas.js の loadState 全体の構造を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装方針が固まりました。matchIdxToLineCol をユーティリティに追加し、loadState でマイグレーションを行います。
+
+  フロー:
+  - リンクアンカー: ノードレンダリングループの前にマイグレーション（レンダリング時に正しい値を使うため）
+  - バブルテールアンカー: 全ノードロード後・テールアンカー再レンダリングの前にマイグレーション
+  - どちらかが変換された場合は scheduleSave() でlocalStorageに保存
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 17 lines
+      169    }).join('');
+      170  }
+      171
+      172 +// Converts a 0-based occurrence index of rawText in code to {line, col}.
+      173 +// Uses the same word-boundary rules as injectAnchor/injectTailAnchor.
+      174 +// Returns {line: -1, col: -1} if matchIdx is out of range.
+      175 +export function matchIdxToLineCol(code, rawText, matchIdx) {
+      176 +  if (matchIdx < 0 || !code || !rawText) return { line: -1, col: -1 };
+      177 +  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      178 +  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      179 +  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      180 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      181 +  let idx = 0, m;
+      182 +  while ((m = re.exec(code)) !== null) {
+      183 +    if (idx === matchIdx) return _charToLineCol(code, m.index);
+      184 +    idx++;
+      185 +  }
+      186 +  return { line: -1, col: -1 };
+      187 +}
+      188 +
+      189  // Returns {line, col} (1-based line, 0-based col within the line) for
+      190  // the character at charIdx in code.
+      191  function _charToLineCol(code, charIdx) {
+
+⏺ 次に canvas.js で matchIdxToLineCol をインポートし、マイグレーションを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
+      2           injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      3 -         roundedRectRayHit, anchorFpFromSide, edgePoint,
+      3 +         roundedRectRayHit, anchorFpFromSide, edgePoint, matchIdxToLineCol,
+      4           svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+      5  import { initDialogs, showAlert } from './canvas-dialogs.js';
+      6  import { initNodeRendering } from './canvas-node-rendering.js';
+
+⏺ 次に loadState にマイグレーションを組み込みます。リンクはノードレンダリング前、バブルはノードロード後・再レンダリング前に処理します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 15 lines
+      455
+      456    S.links = data.links ?? [];
+      457
+      458 +  // Phase 1: migrate link anchors from anchorMatchIdx → anchorLine/anchorCol.
+      459 +  // Done before the node render loop so injectAnchor sees correct values.
+      460 +  let _anchorMigrated = false;
+      461 +  for (const lnk of S.links) {
+      462 +    if (lnk.anchorLine == null) {
+      463 +      if (lnk.anchorMatchIdx != null && lnk.anchorMatchIdx >= 0) {
+      464 +        // defer conversion until source node is loaded — mark with sentinel
+      465 +        lnk._pendingMatchIdx = lnk.anchorMatchIdx;
+      466 +        _anchorMigrated = true;
+      467 +      }
+      468 +      lnk.anchorLine = -1;
+      469 +      lnk.anchorCol  = -1;
+      470 +    }
+      471 +  }
+      472 +
+      473    for (const nd of (data.nodes ?? [])) {
+      474      let n;
+      475      if (nd.type === 'bubble') {
+
+⏺ ノードがロードされる前にコードにアクセスできないため、フェーズを分ける方式に切り替えます。センチネルを付けた後、ノードループの後で実際の変換を行い
+  ます。
+
+  まず bubble ノードのロード部分にレガシー値を保持するよう変更します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      479              showTail: nd.showTail ?? true,
+      480              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      481              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      482 -            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      482 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1,
+      483 +            // carry legacy field for migration if old format (removed after phase 2)
+      484 +            ...(nd.tailAnchorMatchIdx != null && nd.tailAnchorLine == null
+      485 +              ? { _legacyTailMatchIdx: nd.tailAnchorMatchIdx } : {}) };
+      486      } else if (nd.type === 'frame') {
+      487        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      488              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ 次にノードループ後、再レンダリングパスの前にフェーズ2のマイグレーションを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 37 lines, removed 5 lines
+      522    }));
+      523    renderLinks();
+      524    renderFreeLines();
+      525 -  // Re-render code nodes that need tail-anchor spans injected.
+      525 +
+      526 +  // Phase 2: resolve _pendingMatchIdx sentinels now that all nodes are loaded.
+      527 +  const _migratedFromIds = new Set();
+      528 +  for (const lnk of S.links) {
+      529 +    if (lnk._pendingMatchIdx != null) {
+      530 +      const srcNode = S.nodes.find(n => n.id === lnk.fromId);
+      531 +      if (srcNode?.code) {
+      532 +        const lc = matchIdxToLineCol(srcNode.code, lnk.text, lnk._pendingMatchIdx);
+      533 +        lnk.anchorLine = lc.line;
+      534 +        lnk.anchorCol  = lc.col;
+      535 +        _migratedFromIds.add(lnk.fromId);
+      536 +      }
+      537 +      delete lnk._pendingMatchIdx;
+      538 +    }
+      539 +  }
+      540 +  for (const n of S.nodes) {
+      541 +    if (n.type === 'bubble' && n._legacyTailMatchIdx != null && n._legacyTailMatchIdx >= 0) {
+      542 +      const srcNode = S.nodes.find(s => s.id === n.tailAnchorFromId);
+      543 +      if (srcNode?.code && n.tailAnchorText) {
+      544 +        const lc = matchIdxToLineCol(srcNode.code, n.tailAnchorText, n._legacyTailMatchIdx);
+      545 +        n.tailAnchorLine = lc.line;
+      546 +        n.tailAnchorCol  = lc.col;
+      547 +        _migratedFromIds.add(n.tailAnchorFromId);
+      548 +      }
+      549 +      delete n._legacyTailMatchIdx;
+      550 +      _anchorMigrated = true;
+      551 +    }
+      552 +  }
+      553 +  if (_anchorMigrated) scheduleSave();
+      554 +
+      555 +  // Re-render code nodes that need tail-anchor spans injected, and any that
+      556 +  // were just migrated so the correct primary anchor is shown.
+      557    // Bubble nodes may appear after their target code node in the saved array,
+      558    // so buildCodeHTML above found no bubbles yet and skipped injection.
+      528 -  const anchoredFromIds = new Set(
+      529 -    S.nodes
+      559 +  const anchoredFromIds = new Set([
+      560 +    ...S.nodes
+      561        .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
+      531 -      .map(n => n.tailAnchorFromId)
+      532 -  );
+      562 +      .map(n => n.tailAnchorFromId),
+      563 +    ..._migratedFromIds,
+      564 +  ]);
+      565    for (const fromId of anchoredFromIds) {
+      566      const cn = S.nodes.find(n => n.id === fromId);
+      567      if (cn) renderNode(cn);
+
+⏺ テストを実行します。
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 31ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。マイグレーションのテストも追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 51 lines
+       91      expect(S.nodes[0].tailAnchorCol).toBe(7);
+       92    });
+       93
+       94 +  it('migrates legacy tailAnchorMatchIdx to tailAnchorLine/tailAnchorCol on load', () => {
+       95 +    // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96 +    // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97 +    const oldData = {
+       98 +      nid: 3, lid: 1, taid: 1, flid: 1,
+       99 +      nodes: [
+      100 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101 +          code: 'hello world hello', lang: 'text', title: '', filePath: '',
+      102 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      103 +        { id: 2, type: 'bubble', x: 10, y: 10, w: 200, h: 100,
+      104 +          text: 'note', tailX: 50, tailY: 50, color: 'green',
+      105 +          showTail: true,
+      106 +          tailAnchorId: 0, tailAnchorText: 'hello', tailAnchorFromId: 1,
+      107 +          tailAnchorMatchIdx: 1 },  // old format: second occurrence
+      108 +      ],
+      109 +      links: [],
+      110 +    };
+      111 +    loadState(oldData);
+      112 +    const bubble = S.nodes.find(n => n.type === 'bubble');
+      113 +    // second 'hello' starts at line 1, col 12
+      114 +    expect(bubble.tailAnchorLine).toBe(1);
+      115 +    expect(bubble.tailAnchorCol).toBe(12);
+      116 +    expect(bubble._legacyTailMatchIdx).toBeUndefined();
+      117 +  });
+      118 +
+      119 +  it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120 +    // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121 +    const oldData = {
+      122 +      nid: 3, lid: 2, taid: 1, flid: 1,
+      123 +      nodes: [
+      124 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      125 +          code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+      126 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      127 +        { id: 2, x: 400, y: 0, w: 300, h: 200,
+      128 +          code: '', lang: 'text', title: '', filePath: '',
+      129 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      130 +      ],
+      131 +      links: [
+      132 +        { id: 1, fromId: 1, text: 'foo', toId: 2,
+      133 +          stroke: '#388bfd', strokeWidth: 1.5, dash: '',
+      134 +          anchorMatchIdx: 1 },  // old format: second occurrence
+      135 +      ],
+      136 +    };
+      137 +    loadState(oldData);
+      138 +    const lnk = S.links[0];
+      139 +    // second 'foo' starts at line 1, col 4
+      140 +    expect(lnk.anchorLine).toBe(1);
+      141 +    expect(lnk.anchorCol).toBe(4);
+      142 +    expect(lnk._pendingMatchIdx).toBeUndefined();
+      143 +  });
+      144 +
+      145    it('restores links connecting nodes', () => {
+      146      const a = addNode(0,   0,   'foo()');
+      147      const b = addNode(500, 0,   'bar()');
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 329テスト全通過。実装の概要をまとめます。
+
+  追加した変更内容:
+
+  canvas-utils.js: matchIdxToLineCol(code, rawText, matchIdx) をエクスポート。0-based マッチインデックスを {line, col} に変換します。
+
+  canvas.js の loadState に2フェーズのマイグレーション:
+  - フェーズ1 (ノードロード前): anchorMatchIdx を持つ旧形式のリンクに _pendingMatchIdx センチネルを付け、anchorLine = -1 に初期化
+  - バブルノードロード時: tailAnchorMatchIdx のみある旧形式なら _legacyTailMatchIdx として一時保持
+  - フェーズ2 (全ノードロード後): センチネルを解決。ソースノードの code を使って matchIdxToLineCol で行番号・列番号に変換。変換が発生した場合は
+  scheduleSave() でlocalStorageに保存し、影響を受けたコードノードを再レンダリング
+
+  旧形式の anchorMatchIdx: 1 などのデータをロードすると、自動的に anchorLine/anchorCol
+  に変換されてlocalStorageに保存されるため、以降は新形式で管理されます。
+
+✻ Crunched for 4m 27s
+
+※ recap: Migrated link and bubble tail anchors from match-index to line/column positioning. All 329 tests pass. No pending actions. (disable recaps
+  in /config)
+
+❯ dataVersionを上げてください。必要に応じてmigrate処理も追加してください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 現在の version は '3.1'、migration chain を確認できました。'3.2' に上げ、< '3.2' ブランチを追加します。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 1 line
+      1  // ═══════════════════════════════════════════════════════
+      2  // CONSTANTS
+      3  // ═══════════════════════════════════════════════════════
+      4 -export const DATA_VERSION = '3.1';
+      4 +export const DATA_VERSION = '3.2';
+      5
+      6  // ═══════════════════════════════════════════════════════
+      7  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines
+      443        }
+      444      }
+      445      showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      446 +  } else if (data.dataVersion < '3.2') {
+      447 +    // migrate 3.0/3.1: link/bubble anchor storage changed from anchorMatchIdx
+      448 +    // (0-based occurrence index) to anchorLine/anchorCol (1-based line, 0-based col).
+      449 +    // Field-level migration is handled automatically in Phase 1/2 below.
+      450 +    if (data.globalConfig) {
+      451 +      S.globalConfig.description = data.globalConfig.description || '';
+      452 +      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+      453 +    }
+      454    } else {
+      455      if (data.globalConfig) {
+      456        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ migration テストに dataVersion: '3.1' を追加して現実的にします。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+       95      // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96      // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97      const oldData = {
+       98 -      nid: 3, lid: 1, taid: 1, flid: 1,
+       98 +      dataVersion: '3.1', nid: 3, lid: 1, taid: 1, flid: 1,
+       99        nodes: [
+      100          { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101            code: 'hello world hello', lang: 'text', title: '', filePath: '',
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+      119    it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120      // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121      const oldData = {
+      122 -      nid: 3, lid: 2, taid: 1, flid: 1,
+      122 +      dataVersion: '3.1', nid: 3, lid: 2, taid: 1, flid: 1,
+      123        nodes: [
+      124          { id: 1, x: 0, y: 0, w: 300, h: 200,
+      125            code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+           Claude Code v2.1.112
+ ▐▛███▜▌   Sonnet 4.6 · Claude Pro
+▝▜█████▛▘  ~/devel/src/github.com/orimanabu/code-canvas
+  ▘▘ ▝▝    Welcome to Opus 4.7 xhigh! · /effort to tune speed vs. intelligence
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ ペースト処理のコンテキストも確認します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ 全体像が把握できました。anchorMatchIdx を anchorLine/anchorCol（1-based行、0-based列）に変更します。影響ファイルは6つです。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 43 lines, removed 4 lines
+      169    }).join('');
+      170  }
+      171
+      172 +// Returns {line, col} (1-based line, 0-based col within the line) for
+      173 +// the character at charIdx in code.
+      174 +function _charToLineCol(code, charIdx) {
+      175 +  let line = 1, col = 0;
+      176 +  for (let i = 0; i < charIdx; i++) {
+      177 +    if (code[i] === '\n') { line++; col = 0; }
+      178 +    else { col++; }
+      179 +  }
+      180 +  return { line, col };
+      181 +}
+      182 +
+      183 +// Converts (1-based line, 0-based col) in raw code to the 0-based occurrence
+      184 +// index of rawText starting at exactly that position. Uses the same
+      185 +// word-boundary rules as injectAnchor/injectTailAnchor. Returns -1 if not found.
+      186 +function _lineColToMatchIdx(code, rawText, targetLine, targetCol) {
+      187 +  if (targetLine < 0) return -1;
+      188 +  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      189 +  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      190 +  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      191 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      192 +  let idx = 0, m;
+      193 +  while ((m = re.exec(code)) !== null) {
+      194 +    const { line, col } = _charToLineCol(code, m.index);
+      195 +    if (line === targetLine && col === targetCol) return idx;
+      196 +    idx++;
+      197 +  }
+      198 +  return -1;
+      199 +}
+      200 +
+      201  // Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
+      173 -export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      202 +// code is the raw (un-highlighted) source; anchorLine/anchorCol (1-based line,
+      203 +// 0-based col) identify the primary occurrence to mark with data-lid-primary.
+      204 +// Pass code=null or anchorLine=-1 to skip primary marking.
+      205 +export function injectAnchor(html, rawText, linkId, code = null, anchorLine = -1, anchorCol = -1) {
+      206 +  const anchorMatchIdx = (code != null && anchorLine >= 0)
+      207 +    ? _lineColToMatchIdx(code, rawText, anchorLine, anchorCol)
+      208 +    : -1;
+      209    const escapedText = esc(rawText);
+      210    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      211    // Word-boundary assertions prevent "start" from matching inside "startNoPodLock".
+     ...
+      221    );
+      222  }
+      223
+      189 -// Inject a tail-anchor span for the occurrence of rawText at tailMatchIdx.
+      190 -// When tailMatchIdx < 0, all occurrences are wrapped (backward compat).
+      224 +// Inject a tail-anchor span for the occurrence of rawText at (tailLine, tailCol).
+      225 +// code is the raw source used to locate the target occurrence.
+      226 +// When code=null or tailLine=-1, all occurrences are wrapped (backward compat).
+      227  // Uses class="tail-anchor" / data-taid.
+      192 -export function injectTailAnchor(html, rawText, taid, tailMatchIdx = -1) {
+      228 +export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1, tailCol = -1) {
+      229 +  const tailMatchIdx = (code != null && tailLine >= 0)
+      230 +    ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+      231 +    : -1;
+      232    const escapedText = esc(rawText);
+      233    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      234    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+
+⏺ 次に canvas-links.js を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      19    // ═══════════════════════════════════════════════════════
+      20    // LINKS
+      21    // ═══════════════════════════════════════════════════════
+      22 -  function createLink(fromId, text, toId, anchorMatchIdx = -1) {
+      22 +  function createLink(fromId, text, toId, anchorLine = -1, anchorCol = -1) {
+      23      // Avoid duplicate
+      24      if (S.links.find(l => l.fromId === fromId && l.text === text && l.toId === toId)) {
+      25        setStatus(`⚠ A link from "${text}" to this block already exists`);
+      26        return;
+      27      }
+      28      pushUndo();
+      29 -    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorMatchIdx });
+      29 +    S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorLine, anchorCol });
+      30      renderNode(S.nodes.find(n => n.id === fromId));
+      31      renderLinks();
+      32      scheduleSave();
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      205    // ═══════════════════════════════════════════════════════
+      206    // TAIL ATTACH MODE
+      207    // ═══════════════════════════════════════════════════════
+      208 -  function enterTailAttachModeLocal(fromId, text, tailMatchIdx = -1) {
+      208 +  function enterTailAttachModeLocal(fromId, text, tailLine = -1, tailCol = -1) {
+      209      S.tailAttachMode = true;
+      210 -    S.tailPending = { fromId, text, tailMatchIdx };
+      210 +    S.tailPending = { fromId, text, tailLine, tailCol };
+      211      document.body.classList.add('tail-attach-mode');
+      212      setStatus(`📌 Click a bubble to attach its tail to "${text}" (Esc to cancel)`);
+      213    }
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 2 lines
+      186    // ═══════════════════════════════════════════════════════
+      187    // LINK MODE
+      188    // ═══════════════════════════════════════════════════════
+      189 -  function enterLinkMode(fromId, text, anchorRect = null, anchorMatchIdx = -1) {
+      189 +  function enterLinkMode(fromId, text, anchorRect = null, anchorLine = -1, anchorCol = -1) {
+      190      S.linkMode = true;
+      191 -    S.pending = { fromId, text, anchorRect, anchorMatchIdx };
+      191 +    S.pending = { fromId, text, anchorRect, anchorLine, anchorCol };
+      192      document.body.classList.add('link-mode');
+      193      setStatus(`🔗 Click the target block — "${text}" → ? (Esc to cancel)`);
+      194    }
+
+⏺ 次に getOccurrenceIdx を getAnchorLineCol に置き換え、mouseup ハンドラを更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 33 lines, removed 26 lines
+      402      return -1;
+      403    }
+      404
+      405 -  // Returns the 0-based occurrence index of text in code at charOffset,
+      406 -  // using the same word-boundary matching as injectAnchor.
+      407 -  // charOffset is the character position in `code` of the selection start.
+      408 -  // We count how many occurrences end before charOffset; the next one is the
+      409 -  // selected occurrence. This tolerates charOffset landing just before the
+      410 -  // match (e.g. when the user's selection began with a leading space that was
+      411 -  // trimmed from `text`).
+      412 -  function getOccurrenceIdx(code, text, charOffset) {
+      405 +  // Returns {line, col} (1-based line, 0-based col) of the occurrence of text
+      406 +  // in code that contains charOffset, using the same word-boundary rules as
+      407 +  // injectAnchor. Tolerates charOffset landing just before the match (e.g.
+      408 +  // when leading whitespace was trimmed from the selection). Returns
+      409 +  // {line: -1, col: -1} if no match found.
+      410 +  function getAnchorLineCol(code, text, charOffset) {
+      411      const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      414 -    const prefix = /\w/.test(text[0])                  ? '\\b' : '';
+      415 -    const suffix = /\w/.test(text[text.length - 1])    ? '\\b' : '';
+      412 +    const prefix = /\w/.test(text[0])               ? '\\b' : '';
+      413 +    const suffix = /\w/.test(text[text.length - 1]) ? '\\b' : '';
+      414      const re = new RegExp(prefix + pat + suffix, 'g');
+      417 -    let idx = 0;
+      418 -    let m;
+      415 +    let m, lastMatchIdx = -1;
+      416      while ((m = re.exec(code)) !== null) {
+      420 -      // Return this occurrence if charOffset falls within it (normal case) or
+      421 -      // lies before it (charOffset was trimmed from the start of the selection).
+      422 -      if (charOffset < m.index + text.length) return idx;
+      423 -      idx++;
+      417 +      if (charOffset < m.index + text.length) return _charToLineCol(code, m.index);
+      418 +      lastMatchIdx = m.index;
+      419      }
+      425 -    // charOffset is past all occurrences — trailing whitespace in selection;
+      426 -    // return the last occurrence, or -1 if none matched at all.
+      427 -    return idx > 0 ? idx - 1 : -1;
+      420 +    if (lastMatchIdx >= 0) return _charToLineCol(code, lastMatchIdx);
+      421 +    return { line: -1, col: -1 };
+      422    }
+      423
+      424 +  function _charToLineCol(code, charIdx) {
+      425 +    let line = 1, col = 0;
+      426 +    for (let i = 0; i < charIdx; i++) {
+      427 +      if (code[i] === '\n') { line++; col = 0; }
+      428 +      else { col++; }
+      429 +    }
+      430 +    return { line, col };
+      431 +  }
+      432 +
+      433    // Text selection → link tip popup
+      434    document.addEventListener('mouseup', e => {
+      435      if (S.linkMode || S.tailAttachMode) return;
+     ...
+      451      const range  = sel.getRangeAt(0);
+      452      const rect   = range.getBoundingClientRect();
+      453
+      451 -    // Determine which occurrence of the selected text was actually selected
+      452 -    let anchorMatchIdx = -1;
+      454 +    // Determine the line/col of the selected occurrence in the raw code
+      455 +    let anchorLine = -1, anchorCol = -1;
+      456      if (range.startContainer.nodeType === Node.TEXT_NODE) {
+      457        const pre = el.querySelector('.node-body pre');
+      458        const codeNode = S.nodes.find(n => n.id === fromId);
+      459        if (pre && codeNode?.code != null) {
+      460          const charOffset = getCodeTextOffset(pre, range.startContainer, range.startOffset);
+      458 -        if (charOffset >= 0) anchorMatchIdx = getOccurrenceIdx(codeNode.code, text, charOffset);
+      461 +        if (charOffset >= 0) {
+      462 +          const lc = getAnchorLineCol(codeNode.code, text, charOffset);
+      463 +          anchorLine = lc.line;
+      464 +          anchorCol  = lc.col;
+      465 +        }
+      466        }
+      467      }
+      468
+     ...
+      476      linkTipLink.onclick = () => {
+      477        sel.removeAllRanges();
+      478        linkTip.style.display = 'none';
+      472 -      enterLinkMode(fromId, text, anchorRect, anchorMatchIdx);
+      479 +      enterLinkMode(fromId, text, anchorRect, anchorLine, anchorCol);
+      480      };
+      481
+      482      linkTipNewBlock.onclick = () => {
+     ...
+      487        const ny = s2c(anchorRect.left + anchorRect.width / 2, anchorRect.top + anchorRect.height / 2).y;
+      488        const newNode = addNode(nx, ny);
+      489        newNode.pendingKeyword = text;
+      483 -      createLink(fromId, text, newNode.id, anchorMatchIdx);
+      490 +      createLink(fromId, text, newNode.id, anchorLine, anchorCol);
+      491        renderLinks();
+      492        selectNode(newNode.id);
+      493        startEdit(newNode.id);
+     ...
+      497      linkTipAttachTail.onclick = () => {
+      498        sel.removeAllRanges();
+      499        linkTip.style.display = 'none';
+      493 -      enterTailAttachMode(fromId, text, anchorMatchIdx);
+      500 +      enterTailAttachMode(fromId, text, anchorLine, anchorCol);
+      501      };
+      502
+      503      linkTipNewBubble.onclick = () => {
+     ...
+      508        const cy = anchorRect.top + anchorRect.height / 2;
+      509        const cp = s2c(cx, cy);
+      510        const newBubble = addBubble(cp.x - 100, cp.y - 160);
+      504 -      attachTailToText(newBubble, fromId, text, anchorMatchIdx);
+      511 +      attachTailToText(newBubble, fromId, text, anchorLine, anchorCol);
+      512      };
+      513    });
+      514
+
+⏺ 次に canvas-nodes.js を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Error editing file
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 3 lines, removed 3 lines
+      123            n.tailX = cp.x; n.tailY = cp.y;
+      124          }
+      125          const oldFromId = n.tailAnchorFromId;
+      126 -        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      126 +        n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      127          if (oldFromId != null) {
+      128            const cn = S.nodes.find(c => c.id === oldFromId);
+      129            if (cn) renderNode(cn);
+     ...
+      532      if (!removed?.type || removed.type === 'code') {
+      533        S.nodes.forEach(n => {
+      534          if (n.type === 'bubble' && n.tailAnchorFromId === id) {
+      535 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      535 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      536          }
+      537        });
+      538      }
+     ...
+      701            n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+      702            n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+      703            // Pasted bubbles start with a free tail — no anchor collision risk
+      704 -          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorMatchIdx = -1;
+      704 +          n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      705          }
+      706          S.nodes.push(n);
+      707          const el = document.createElement('div');
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      147        color: 'green',
+      148        fontFamily: 'default', fontSize: 13,
+      149        showTail: true,
+      150 -      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorMatchIdx: -1,
+      150 +      tailAnchorId: null, tailAnchorText: null, tailAnchorFromId: null, tailAnchorLine: -1, tailAnchorCol: -1,
+      151      };
+      152      S.nodes.push(n);
+      153      const el = document.createElement('div');
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 6 lines, removed 5 lines
+      172      }
+      173    }
+      174
+      175 -  function attachTailToText(bubbleNode, fromId, text, tailMatchIdx = -1) {
+      175 +  function attachTailToText(bubbleNode, fromId, text, tailLine = -1, tailCol = -1) {
+      176      pushUndo();
+      177      const oldFromId = bubbleNode.tailAnchorFromId;
+      178 -    bubbleNode.tailAnchorId       = S.taid++;
+      179 -    bubbleNode.tailAnchorText     = text;
+      180 -    bubbleNode.tailAnchorFromId   = fromId;
+      181 -    bubbleNode.tailAnchorMatchIdx = tailMatchIdx;
+      178 +    bubbleNode.tailAnchorId     = S.taid++;
+      179 +    bubbleNode.tailAnchorText   = text;
+      180 +    bubbleNode.tailAnchorFromId = fromId;
+      181 +    bubbleNode.tailAnchorLine   = tailLine;
+      182 +    bubbleNode.tailAnchorCol    = tailCol;
+      183      const codeNode = S.nodes.find(n => n.id === fromId);
+      184      if (codeNode) renderNode(codeNode);
+      185      if (oldFromId != null && oldFromId !== fromId) {
+
+⏺ 次に S.pending と S.tailPending の参照箇所を更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      336        // Link-mode: clicking a node creates a link
+      337        if (S.linkMode) {
+      338          if (S.pending && S.pending.fromId !== n.id) {
+      339 -          createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorMatchIdx ?? -1);
+      339 +          createLink(S.pending.fromId, S.pending.text, n.id, S.pending.anchorLine ?? -1, S.pending.anchorCol ?? -1);
+      340            exitLinkMode();
+      341          }
+      342          e.stopPropagation();
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      346        // Tail-attach-mode: clicking a bubble attaches its tail
+      347        if (S.tailAttachMode) {
+      348          if (S.tailPending && n.type === 'bubble') {
+      349 -          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailMatchIdx ?? -1);
+      349 +          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailLine ?? -1, S.tailPending.tailCol ?? -1)
+          +;
+      350            exitTailAttachMode();
+      351          }
+      352          e.stopPropagation();
+
+⏺ ペースト処理も更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 2 lines, removed 1 line
+      734            stroke: data.stroke || '#388bfd',
+      735            strokeWidth: data.strokeWidth || 1.5,
+      736            dash: data.dash || '',
+      737 -          anchorMatchIdx: data.anchorMatchIdx ?? -1,
+      737 +          anchorLine: data.anchorLine ?? -1,
+      738 +          anchorCol:  data.anchorCol  ?? -1,
+      739          });
+      740        }
+      741      }
+
+⏺ canvas-node-rendering.js を更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines, removed 2 lines
+      38      const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+      39                                .sort((a, b) => b.text.length - a.text.length);
+      40      for (const lnk of nodeLinks) {
+      41 -      html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
+      41 +      html = injectAnchor(html, lnk.text, lnk.id, n?.code ?? null, lnk.anchorLine ?? -1, lnk.anchorCol ?? -1);
+      42      }
+      43      const tailBubbles = S.nodes
+      44        .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+      45        .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+      46      for (const tb of tailBubbles) {
+      47 -      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
+      47 +      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, n?.code ?? null, tb.tailAnchorLine ?? -1, tb.tailAnchorCol
+         +?? -1);
+      48      }
+      49      return { html, lang };
+      50    }
+
+⏺ canvas.js のシリアライズ/デシリアライズを更新します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      364      nodes: S.nodes.map(n => {
+      365        if (n.type === 'bubble') {
+      366          const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      367 -                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
+      367 +                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol } = n;
+      368          return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      369 -                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
+      369 +                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol };
+      370        }
+      371        if (n.type === 'frame') {
+      372          const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      379        const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
+      380        return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
+      381      }),
+      382 -    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, strok
+          -e, strokeWidth, dash, anchorMatchIdx })),
+      382 +    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorLine, anchorCol }) => ({ id, fromId, text, toId
+          +, stroke, strokeWidth, dash, anchorLine, anchorCol })),
+      383      freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
+      384        id, points: points.map(p => ({ x: p.x, y: p.y })), lineStyle, stroke, strokeWidth, dash,
+      385      })),
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      464              showTail: nd.showTail ?? true,
+      465              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      466              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      467 -            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
+      467 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      468      } else if (nd.type === 'frame') {
+      469        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      470              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ テストを更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 12 lines, removed 8 lines
+      372      expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+      373    });
+      374
+      375 -  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+      375 +  it('wraps all occurrences when no anchor position given', () => {
+      376      const result = injectAnchor('foo foo foo', 'foo', 'L1');
+      377      const count = (result.match(/class="link-anchor"/g) || []).length;
+      378      expect(count).toBe(3);
+      379    });
+      380
+      381 -  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
+      382 -    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+      381 +  it('marks the occurrence at (line, col) with data-lid-primary', () => {
+      382 +    // 'foo foo foo': second 'foo' starts at line 1, col 4
+      383 +    const code = 'foo foo foo';
+      384 +    const result = injectAnchor(code, 'foo', 'L1', code, 1, 4);
+      385      // All three are wrapped
+      386      const count = (result.match(/class="link-anchor"/g) || []).length;
+      387      expect(count).toBe(3);
+      386 -    // Only occurrence 1 (second one) carries data-lid-primary
+      388 +    // Only the second occurrence carries data-lid-primary
+      389      expect(result).toContain('data-lid-primary="1"');
+      390      const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+      391      expect(primaryCount).toBe(1);
+      392    });
+      393
+      392 -  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
+      393 -    const result = injectAnchor('word word', 'word', 'L2', 0);
+      394 +  it('marks occurrence at col 0 (first) as primary', () => {
+      395 +    // 'word word': first 'word' starts at line 1, col 0
+      396 +    const code = 'word word';
+      397 +    const result = injectAnchor(code, 'word', 'L2', code, 1, 0);
+      398      const parts = result.split('<span class="link-anchor"');
+      395 -    // parts[0] is before first anchor; parts[1] is first anchor content
+      399 +    // parts[1] is the first anchor element content
+      400      expect(parts[1]).toContain('data-lid-primary="1"');
+      401    });
+      402
+      399 -  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+      403 +  it('does not add primary attribute when no anchor position given', () => {
+      404      const result = injectAnchor('foo foo', 'foo', 'L3');
+      405      expect(result).not.toContain('data-lid-primary');
+      406    });
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 10 lines, removed 6 lines
+      454      expect(count).toBe(3);
+      455    });
+      456
+      457 -  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
+      458 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+      457 +  it('wraps only occurrence at line 1 col 0 (first)', () => {
+      458 +    // 'foo foo foo': first 'foo' at line 1, col 0
+      459 +    const code = 'foo foo foo';
+      460 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 0);
+      461      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      462      expect(count).toBe(1);
+      461 -    // The first occurrence should be wrapped; result starts with the span
+      463      expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
+      464    });
+      465
+      465 -  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+      466 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+      466 +  it('wraps only occurrence at line 1 col 4 (second)', () => {
+      467 +    // 'foo foo foo': second 'foo' at line 1, col 4
+      468 +    const code = 'foo foo foo';
+      469 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 4);
+      470      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      471      expect(count).toBe(1);
+      472    });
+      473
+      474    it('wraps only the target occurrence, leaving others as plain text', () => {
+      475 +    // 'alpha beta alpha beta alpha': third 'alpha' at line 1, col 22
+      476      const html = 'alpha beta alpha beta alpha';
+      473 -    const result = injectTailAnchor(html, 'alpha', 3, 2);
+      477 +    const result = injectTailAnchor(html, 'alpha', 3, html, 1, 22);
+      478      // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
+      479      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      480      expect(count).toBe(1);
+
+⏺ 統合テストを更新します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      78      expect(S.nodes[0].showTail).toBe(false);
+      79    });
+      80
+      81 -  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+      81 +  it('restores tailAnchorLine/tailAnchorCol for bubble nodes', () => {
+      82      const b = addBubble(50, 60);
+      83 -    b.tailAnchorMatchIdx = 2;
+      83 +    b.tailAnchorLine = 3;
+      84 +    b.tailAnchorCol  = 7;
+      85
+      86      saveState();
+      87      loadState({ nodes: [], links: [] });
+      88      restoreFromStorage();
+      89
+      89 -    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+      90 +    expect(S.nodes[0].tailAnchorLine).toBe(3);
+      91 +    expect(S.nodes[0].tailAnchorCol).toBe(7);
+      92    });
+      93
+      94    it('restores links connecting nodes', () => {
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 48ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 42ms
+     … +53 lines (ctrl+o to see all)
+
+⏺ canvas-dom.test.js にも tailAnchorMatchIdx テストが残っています。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 3 lines, removed 2 lines
+      144      expect(n.showTail).toBe(true);
+      145    });
+      146
+      147 -  it('initializes tailAnchorMatchIdx to -1', () => {
+      147 +  it('initializes tailAnchorLine/tailAnchorCol to -1', () => {
+      148      const n = addBubble(0, 0);
+      149 -    expect(n.tailAnchorMatchIdx).toBe(-1);
+      149 +    expect(n.tailAnchorLine).toBe(-1);
+      150 +    expect(n.tailAnchorCol).toBe(-1);
+      151    });
+      152
+      153    it('initializes tailAnchorId, tailAnchorText, tailAnchorFromId to null', () => {
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      580      expect(S.nodes).toHaveLength(2);
+      581    });
+      582
+      583 -  it('pasted bubble resets tailAnchorMatchIdx to -1', () => {
+      583 +  it('pasted bubble resets tailAnchorLine/tailAnchorCol to -1', () => {
+      584      const b = addBubble(50, 50);
+      585 -    b.tailAnchorMatchIdx = 2; // simulate an anchored tail
+      585 +    b.tailAnchorLine = 2; // simulate an anchored tail
+      586 +    b.tailAnchorCol  = 5;
+      587      selectNode(b.id);
+      588      copyNodes();
+      589      pasteNodes();
+      590      const pasted = S.nodes.find(n => n.id !== b.id);
+      590 -    expect(pasted.tailAnchorMatchIdx).toBe(-1);
+      591 +    expect(pasted.tailAnchorLine).toBe(-1);
+      592 +    expect(pasted.tailAnchorCol).toBe(-1);
+      593    });
+      594  });
+      595
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。CLAUDE.md のデータモデル記述も更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      72
+      73  ## Key patterns
+      74
+      75 -- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         -LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         -nchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anch
+         -ored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color
+         -}`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+      75 +- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         +LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         +nchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-bas
+         +ed column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wra
+         +p all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, te
+         +xt, textColor, fontFamily, fontSize }`.
+      76  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+          block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      77  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      78  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      87  | Type | Created by | Key fields |
+      88  |------|-----------|------------|
+      89  | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNum
+          berStart`, `color` |
+      90 -| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         -tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
+      90 +| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         +tailAnchorText`, `tailAnchorFromId`, `tailAnchorLine`, `tailAnchorCol` |
+      91  | `frame` | "⬜ Group" button | `label`, `color` |
+      92  | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+      93
+
+⏺ また canvas-utils.js の injectAnchor/injectTailAnchor の export 説明も CLAUDE.md で確認して更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 2 lines, removed 2 lines
+      63  - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from start
+          ing when a button inside a node is clicked (requires DOM)
+      64  - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
+      65  - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      66 -- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in high
+         -lighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `inject
+         -TailAnchor` via internal `_injectSpans`.
+      67 -- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx
+         ->= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
+      66 +- `injectAnchor(html, rawText, linkId, code?, anchorLine?, anchorCol?)` — inject link-anchor `<span>` around every occurrence of `r
+         +awText` in highlighted HTML; when `code` is provided and `anchorLine >= 0`, the occurrence at that 1-based line / 0-based column po
+         +sition in the raw source gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+      67 +- `injectTailAnchor(html, rawText, taid, code?, tailLine?, tailCol?)` — inject a tail-anchor `<span>` into highlighted HTML. When `
+         +code` is provided and `tailLine >= 0`, only the occurrence at that line/col position is wrapped; otherwise all occurrences are wrap
+         +ped (backward-compat).
+      68  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      69  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      70  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ 最終確認としてテストを再実行します。
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿   ✓ tests/canvas-dialogs.test.js (27 tests) 355ms
+      ✓ tests/canvas-integration.test.js (27 tests) 535ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 527ms
+     … +6 lines (ctrl+o to expand)
+
+⏺ 327テスト全通過。変更内容をまとめます。
+
+  変更内容:
+
+  ┌──────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │         ファイル         │                                                      変更点                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-utils.js          │ _charToLineCol・_lineColToMatchIdx 内部ヘルパーを追加。injectAnchor/injectTailAnchor のシグネチャを (html,        │
+  │                          │ rawText, id, code, anchorLine, anchorCol) に変更                                                                  │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js          │ getOccurrenceIdx を getAnchorLineCol に置換。createLink・enterLinkMode・enterTailAttachModeLocal の引数を         │
+  │                          │ anchorLine/anchorCol に変更                                                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-nodes.js          │ tailAnchorMatchIdx → tailAnchorLine/tailAnchorCol。attachTailToText・ペースト処理を更新                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js │ injectAnchor/injectTailAnchor 呼び出しに n?.code と anchorLine/anchorCol を渡すよう変更                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.js                │ シリアライズ/デシリアライズを新フィールドに更新                                                                   │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ テスト4ファイル          │ anchorMatchIdx → 行番号/列番号ベースのテストに更新                                                                │
+  └──────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  後方互換性: 旧セーブデータ（anchorMatchIdx のみ）をロードした場合、anchorLine/anchorCol が未定義なので -1 にフォールバックし、アンカーの primary
+  マーキングなしで動作します。
+
+✻ Cooked for 9m 9s
+
+※ recap: Replaced anchorMatchIdx with anchorLine/anchorCol (1-based line, 0-based column) across all files for both link and tail anchors. All 327
+  tests pass. No next action needed. (disable recaps in /config)
+
+❯ anchorMatchIdxのみの旧セーブデータをロードした場合は、従来の正規表現マッチのマッチインデックスを使ったリンクアンカーを作成し、そのanchorLine/anch
+  orColをlocalStorageにセーブし、以降はanchorLine/anchorColでリンクアンカーを管理するようにしてください
+
+⏺ 旧データのマイグレーション処理を実装します。まず canvas.js の loadState 全体の構造を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装方針が固まりました。matchIdxToLineCol をユーティリティに追加し、loadState でマイグレーションを行います。
+
+  フロー:
+  - リンクアンカー: ノードレンダリングループの前にマイグレーション（レンダリング時に正しい値を使うため）
+  - バブルテールアンカー: 全ノードロード後・テールアンカー再レンダリングの前にマイグレーション
+  - どちらかが変換された場合は scheduleSave() でlocalStorageに保存
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 17 lines
+      169    }).join('');
+      170  }
+      171
+      172 +// Converts a 0-based occurrence index of rawText in code to {line, col}.
+      173 +// Uses the same word-boundary rules as injectAnchor/injectTailAnchor.
+      174 +// Returns {line: -1, col: -1} if matchIdx is out of range.
+      175 +export function matchIdxToLineCol(code, rawText, matchIdx) {
+      176 +  if (matchIdx < 0 || !code || !rawText) return { line: -1, col: -1 };
+      177 +  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      178 +  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      179 +  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      180 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      181 +  let idx = 0, m;
+      182 +  while ((m = re.exec(code)) !== null) {
+      183 +    if (idx === matchIdx) return _charToLineCol(code, m.index);
+      184 +    idx++;
+      185 +  }
+      186 +  return { line: -1, col: -1 };
+      187 +}
+      188 +
+      189  // Returns {line, col} (1-based line, 0-based col within the line) for
+      190  // the character at charIdx in code.
+      191  function _charToLineCol(code, charIdx) {
+
+⏺ 次に canvas.js で matchIdxToLineCol をインポートし、マイグレーションを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
+      2           injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      3 -         roundedRectRayHit, anchorFpFromSide, edgePoint,
+      3 +         roundedRectRayHit, anchorFpFromSide, edgePoint, matchIdxToLineCol,
+      4           svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+      5  import { initDialogs, showAlert } from './canvas-dialogs.js';
+      6  import { initNodeRendering } from './canvas-node-rendering.js';
+
+⏺ 次に loadState にマイグレーションを組み込みます。リンクはノードレンダリング前、バブルはノードロード後・再レンダリング前に処理します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 15 lines
+      455
+      456    S.links = data.links ?? [];
+      457
+      458 +  // Phase 1: migrate link anchors from anchorMatchIdx → anchorLine/anchorCol.
+      459 +  // Done before the node render loop so injectAnchor sees correct values.
+      460 +  let _anchorMigrated = false;
+      461 +  for (const lnk of S.links) {
+      462 +    if (lnk.anchorLine == null) {
+      463 +      if (lnk.anchorMatchIdx != null && lnk.anchorMatchIdx >= 0) {
+      464 +        // defer conversion until source node is loaded — mark with sentinel
+      465 +        lnk._pendingMatchIdx = lnk.anchorMatchIdx;
+      466 +        _anchorMigrated = true;
+      467 +      }
+      468 +      lnk.anchorLine = -1;
+      469 +      lnk.anchorCol  = -1;
+      470 +    }
+      471 +  }
+      472 +
+      473    for (const nd of (data.nodes ?? [])) {
+      474      let n;
+      475      if (nd.type === 'bubble') {
+
+⏺ ノードがロードされる前にコードにアクセスできないため、フェーズを分ける方式に切り替えます。センチネルを付けた後、ノードループの後で実際の変換を行い
+  ます。
+
+  まず bubble ノードのロード部分にレガシー値を保持するよう変更します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      479              showTail: nd.showTail ?? true,
+      480              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      481              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      482 -            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      482 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1,
+      483 +            // carry legacy field for migration if old format (removed after phase 2)
+      484 +            ...(nd.tailAnchorMatchIdx != null && nd.tailAnchorLine == null
+      485 +              ? { _legacyTailMatchIdx: nd.tailAnchorMatchIdx } : {}) };
+      486      } else if (nd.type === 'frame') {
+      487        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      488              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ 次にノードループ後、再レンダリングパスの前にフェーズ2のマイグレーションを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 37 lines, removed 5 lines
+      522    }));
+      523    renderLinks();
+      524    renderFreeLines();
+      525 -  // Re-render code nodes that need tail-anchor spans injected.
+      525 +
+      526 +  // Phase 2: resolve _pendingMatchIdx sentinels now that all nodes are loaded.
+      527 +  const _migratedFromIds = new Set();
+      528 +  for (const lnk of S.links) {
+      529 +    if (lnk._pendingMatchIdx != null) {
+      530 +      const srcNode = S.nodes.find(n => n.id === lnk.fromId);
+      531 +      if (srcNode?.code) {
+      532 +        const lc = matchIdxToLineCol(srcNode.code, lnk.text, lnk._pendingMatchIdx);
+      533 +        lnk.anchorLine = lc.line;
+      534 +        lnk.anchorCol  = lc.col;
+      535 +        _migratedFromIds.add(lnk.fromId);
+      536 +      }
+      537 +      delete lnk._pendingMatchIdx;
+      538 +    }
+      539 +  }
+      540 +  for (const n of S.nodes) {
+      541 +    if (n.type === 'bubble' && n._legacyTailMatchIdx != null && n._legacyTailMatchIdx >= 0) {
+      542 +      const srcNode = S.nodes.find(s => s.id === n.tailAnchorFromId);
+      543 +      if (srcNode?.code && n.tailAnchorText) {
+      544 +        const lc = matchIdxToLineCol(srcNode.code, n.tailAnchorText, n._legacyTailMatchIdx);
+      545 +        n.tailAnchorLine = lc.line;
+      546 +        n.tailAnchorCol  = lc.col;
+      547 +        _migratedFromIds.add(n.tailAnchorFromId);
+      548 +      }
+      549 +      delete n._legacyTailMatchIdx;
+      550 +      _anchorMigrated = true;
+      551 +    }
+      552 +  }
+      553 +  if (_anchorMigrated) scheduleSave();
+      554 +
+      555 +  // Re-render code nodes that need tail-anchor spans injected, and any that
+      556 +  // were just migrated so the correct primary anchor is shown.
+      557    // Bubble nodes may appear after their target code node in the saved array,
+      558    // so buildCodeHTML above found no bubbles yet and skipped injection.
+      528 -  const anchoredFromIds = new Set(
+      529 -    S.nodes
+      559 +  const anchoredFromIds = new Set([
+      560 +    ...S.nodes
+      561        .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
+      531 -      .map(n => n.tailAnchorFromId)
+      532 -  );
+      562 +      .map(n => n.tailAnchorFromId),
+      563 +    ..._migratedFromIds,
+      564 +  ]);
+      565    for (const fromId of anchoredFromIds) {
+      566      const cn = S.nodes.find(n => n.id === fromId);
+      567      if (cn) renderNode(cn);
+
+⏺ テストを実行します。
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 31ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。マイグレーションのテストも追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 51 lines
+       91      expect(S.nodes[0].tailAnchorCol).toBe(7);
+       92    });
+       93
+       94 +  it('migrates legacy tailAnchorMatchIdx to tailAnchorLine/tailAnchorCol on load', () => {
+       95 +    // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96 +    // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97 +    const oldData = {
+       98 +      nid: 3, lid: 1, taid: 1, flid: 1,
+       99 +      nodes: [
+      100 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101 +          code: 'hello world hello', lang: 'text', title: '', filePath: '',
+      102 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      103 +        { id: 2, type: 'bubble', x: 10, y: 10, w: 200, h: 100,
+      104 +          text: 'note', tailX: 50, tailY: 50, color: 'green',
+      105 +          showTail: true,
+      106 +          tailAnchorId: 0, tailAnchorText: 'hello', tailAnchorFromId: 1,
+      107 +          tailAnchorMatchIdx: 1 },  // old format: second occurrence
+      108 +      ],
+      109 +      links: [],
+      110 +    };
+      111 +    loadState(oldData);
+      112 +    const bubble = S.nodes.find(n => n.type === 'bubble');
+      113 +    // second 'hello' starts at line 1, col 12
+      114 +    expect(bubble.tailAnchorLine).toBe(1);
+      115 +    expect(bubble.tailAnchorCol).toBe(12);
+      116 +    expect(bubble._legacyTailMatchIdx).toBeUndefined();
+      117 +  });
+      118 +
+      119 +  it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120 +    // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121 +    const oldData = {
+      122 +      nid: 3, lid: 2, taid: 1, flid: 1,
+      123 +      nodes: [
+      124 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      125 +          code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+      126 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      127 +        { id: 2, x: 400, y: 0, w: 300, h: 200,
+      128 +          code: '', lang: 'text', title: '', filePath: '',
+      129 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      130 +      ],
+      131 +      links: [
+      132 +        { id: 1, fromId: 1, text: 'foo', toId: 2,
+      133 +          stroke: '#388bfd', strokeWidth: 1.5, dash: '',
+      134 +          anchorMatchIdx: 1 },  // old format: second occurrence
+      135 +      ],
+      136 +    };
+      137 +    loadState(oldData);
+      138 +    const lnk = S.links[0];
+      139 +    // second 'foo' starts at line 1, col 4
+      140 +    expect(lnk.anchorLine).toBe(1);
+      141 +    expect(lnk.anchorCol).toBe(4);
+      142 +    expect(lnk._pendingMatchIdx).toBeUndefined();
+      143 +  });
+      144 +
+      145    it('restores links connecting nodes', () => {
+      146      const a = addNode(0,   0,   'foo()');
+      147      const b = addNode(500, 0,   'bar()');
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 329テスト全通過。実装の概要をまとめます。
+
+  追加した変更内容:
+
+  canvas-utils.js: matchIdxToLineCol(code, rawText, matchIdx) をエクスポート。0-based マッチインデックスを {line, col} に変換します。
+
+  canvas.js の loadState に2フェーズのマイグレーション:
+  - フェーズ1 (ノードロード前): anchorMatchIdx を持つ旧形式のリンクに _pendingMatchIdx センチネルを付け、anchorLine = -1 に初期化
+  - バブルノードロード時: tailAnchorMatchIdx のみある旧形式なら _legacyTailMatchIdx として一時保持
+  - フェーズ2 (全ノードロード後): センチネルを解決。ソースノードの code を使って matchIdxToLineCol で行番号・列番号に変換。変換が発生した場合は
+  scheduleSave() でlocalStorageに保存し、影響を受けたコードノードを再レンダリング
+
+  旧形式の anchorMatchIdx: 1 などのデータをロードすると、自動的に anchorLine/anchorCol
+  に変換されてlocalStorageに保存されるため、以降は新形式で管理されます。
+
+✻ Crunched for 4m 27s
+
+※ recap: Migrated link and bubble tail anchors from match-index to line/column positioning. All 329 tests pass. No pending actions. (disable recaps
+  in /config)
+
+❯ dataVersionを上げてください。必要に応じてmigrate処理も追加してください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 現在の version は '3.1'、migration chain を確認できました。'3.2' に上げ、< '3.2' ブランチを追加します。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 1 line
+      1  // ═══════════════════════════════════════════════════════
+      2  // CONSTANTS
+      3  // ═══════════════════════════════════════════════════════
+      4 -export const DATA_VERSION = '3.1';
+      4 +export const DATA_VERSION = '3.2';
+      5
+      6  // ═══════════════════════════════════════════════════════
+      7  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines
+      443        }
+      444      }
+      445      showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      446 +  } else if (data.dataVersion < '3.2') {
+      447 +    // migrate 3.0/3.1: link/bubble anchor storage changed from anchorMatchIdx
+      448 +    // (0-based occurrence index) to anchorLine/anchorCol (1-based line, 0-based col).
+      449 +    // Field-level migration is handled automatically in Phase 1/2 below.
+      450 +    if (data.globalConfig) {
+      451 +      S.globalConfig.description = data.globalConfig.description || '';
+      452 +      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+      453 +    }
+      454    } else {
+      455      if (data.globalConfig) {
+      456        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ migration テストに dataVersion: '3.1' を追加して現実的にします。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+       95      // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96      // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97      const oldData = {
+       98 -      nid: 3, lid: 1, taid: 1, flid: 1,
+       98 +      dataVersion: '3.1', nid: 3, lid: 1, taid: 1, flid: 1,
+       99        nodes: [
+      100          { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101            code: 'hello world hello', lang: 'text', title: '', filePath: '',
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+      119    it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120      // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121      const oldData = {
+      122 -      nid: 3, lid: 2, taid: 1, flid: 1,
+      122 +      dataVersion: '3.1', nid: 3, lid: 2, taid: 1, flid: 1,
+      123        nodes: [
+      124          { id: 1, x: 0, y: 0, w: 300, h: 200,
+           Claude Code v2.1.112
+ ▐▛███▜▌   Sonnet 4.6 · Claude Pro
+▝▜█████▛▘  ~/devel/src/github.com/orimanabu/code-canvas
+  ▘▘ ▝▝    Welcome to Opus 4.7 xhigh! · /effort to tune speed vs. intelligence
+  ⎿  Added 1 line, removed 1 line
+      346        // Tail-attach-mode: clicking a bubble attaches its tail
+      347        if (S.tailAttachMode) {
+      348          if (S.tailPending && n.type === 'bubble') {
+      349 -          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailMatchIdx ?? -1);
+      349 +          attachTailToText(n, S.tailPending.fromId, S.tailPending.text, S.tailPending.tailLine ?? -1, S.tailPending.tailCol ?? -1)
+          +;
+      350            exitTailAttachMode();
+      351          }
+      352          e.stopPropagation();
+
+⏺ ペースト処理も更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 2 lines, removed 1 line
+      734            stroke: data.stroke || '#388bfd',
+      735            strokeWidth: data.strokeWidth || 1.5,
+      736            dash: data.dash || '',
+      737 -          anchorMatchIdx: data.anchorMatchIdx ?? -1,
+      737 +          anchorLine: data.anchorLine ?? -1,
+      738 +          anchorCol:  data.anchorCol  ?? -1,
+      739          });
+      740        }
+      741      }
+
+⏺ canvas-node-rendering.js を更新します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 2 lines, removed 2 lines
+      38      const nodeLinks = S.links.filter(l => l.fromId === nodeId)
+      39                                .sort((a, b) => b.text.length - a.text.length);
+      40      for (const lnk of nodeLinks) {
+      41 -      html = injectAnchor(html, lnk.text, lnk.id, lnk.anchorMatchIdx ?? -1);
+      41 +      html = injectAnchor(html, lnk.text, lnk.id, n?.code ?? null, lnk.anchorLine ?? -1, lnk.anchorCol ?? -1);
+      42      }
+      43      const tailBubbles = S.nodes
+      44        .filter(nb => nb.type === 'bubble' && nb.tailAnchorFromId === nodeId && nb.tailAnchorText)
+      45        .sort((a, b) => b.tailAnchorText.length - a.tailAnchorText.length);
+      46      for (const tb of tailBubbles) {
+      47 -      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, tb.tailAnchorMatchIdx ?? -1);
+      47 +      html = injectTailAnchor(html, tb.tailAnchorText, tb.tailAnchorId, n?.code ?? null, tb.tailAnchorLine ?? -1, tb.tailAnchorCol
+         +?? -1);
+      48      }
+      49      return { html, lang };
+      50    }
+
+⏺ canvas.js のシリアライズ/デシリアライズを更新します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 2 lines
+      364      nodes: S.nodes.map(n => {
+      365        if (n.type === 'bubble') {
+      366          const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      367 -                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx } = n;
+      367 +                tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol } = n;
+      368          return { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
+      369 -                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx };
+      369 +                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol };
+      370        }
+      371        if (n.type === 'frame') {
+      372          const { id, type, x, y, w, h, label, color, fontFamily, fontSize } = n;
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      379        const { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize } = n;
+      380        return { id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color, fontFamily, fontSize };
+      381      }),
+      382 -    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorMatchIdx }) => ({ id, fromId, text, toId, strok
+          -e, strokeWidth, dash, anchorMatchIdx })),
+      382 +    links: S.links.map(({ id, fromId, text, toId, stroke, strokeWidth, dash, anchorLine, anchorCol }) => ({ id, fromId, text, toId
+          +, stroke, strokeWidth, dash, anchorLine, anchorCol })),
+      383      freeLines: S.freeLines.map(({ id, points, lineStyle, stroke, strokeWidth, dash }) => ({
+      384        id, points: points.map(p => ({ x: p.x, y: p.y })), lineStyle, stroke, strokeWidth, dash,
+      385      })),
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      464              showTail: nd.showTail ?? true,
+      465              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      466              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      467 -            tailAnchorMatchIdx: nd.tailAnchorMatchIdx ?? -1 };
+      467 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      468      } else if (nd.type === 'frame') {
+      469        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      470              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ テストを更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 12 lines, removed 8 lines
+      372      expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+      373    });
+      374
+      375 -  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+      375 +  it('wraps all occurrences when no anchor position given', () => {
+      376      const result = injectAnchor('foo foo foo', 'foo', 'L1');
+      377      const count = (result.match(/class="link-anchor"/g) || []).length;
+      378      expect(count).toBe(3);
+      379    });
+      380
+      381 -  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
+      382 -    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+      381 +  it('marks the occurrence at (line, col) with data-lid-primary', () => {
+      382 +    // 'foo foo foo': second 'foo' starts at line 1, col 4
+      383 +    const code = 'foo foo foo';
+      384 +    const result = injectAnchor(code, 'foo', 'L1', code, 1, 4);
+      385      // All three are wrapped
+      386      const count = (result.match(/class="link-anchor"/g) || []).length;
+      387      expect(count).toBe(3);
+      386 -    // Only occurrence 1 (second one) carries data-lid-primary
+      388 +    // Only the second occurrence carries data-lid-primary
+      389      expect(result).toContain('data-lid-primary="1"');
+      390      const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+      391      expect(primaryCount).toBe(1);
+      392    });
+      393
+      392 -  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
+      393 -    const result = injectAnchor('word word', 'word', 'L2', 0);
+      394 +  it('marks occurrence at col 0 (first) as primary', () => {
+      395 +    // 'word word': first 'word' starts at line 1, col 0
+      396 +    const code = 'word word';
+      397 +    const result = injectAnchor(code, 'word', 'L2', code, 1, 0);
+      398      const parts = result.split('<span class="link-anchor"');
+      395 -    // parts[0] is before first anchor; parts[1] is first anchor content
+      399 +    // parts[1] is the first anchor element content
+      400      expect(parts[1]).toContain('data-lid-primary="1"');
+      401    });
+      402
+      399 -  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+      403 +  it('does not add primary attribute when no anchor position given', () => {
+      404      const result = injectAnchor('foo foo', 'foo', 'L3');
+      405      expect(result).not.toContain('data-lid-primary');
+      406    });
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 10 lines, removed 6 lines
+      454      expect(count).toBe(3);
+      455    });
+      456
+      457 -  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
+      458 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+      457 +  it('wraps only occurrence at line 1 col 0 (first)', () => {
+      458 +    // 'foo foo foo': first 'foo' at line 1, col 0
+      459 +    const code = 'foo foo foo';
+      460 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 0);
+      461      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      462      expect(count).toBe(1);
+      461 -    // The first occurrence should be wrapped; result starts with the span
+      463      expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
+      464    });
+      465
+      465 -  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+      466 -    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+      466 +  it('wraps only occurrence at line 1 col 4 (second)', () => {
+      467 +    // 'foo foo foo': second 'foo' at line 1, col 4
+      468 +    const code = 'foo foo foo';
+      469 +    const result = injectTailAnchor(code, 'foo', 9, code, 1, 4);
+      470      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      471      expect(count).toBe(1);
+      472    });
+      473
+      474    it('wraps only the target occurrence, leaving others as plain text', () => {
+      475 +    // 'alpha beta alpha beta alpha': third 'alpha' at line 1, col 22
+      476      const html = 'alpha beta alpha beta alpha';
+      473 -    const result = injectTailAnchor(html, 'alpha', 3, 2);
+      477 +    const result = injectTailAnchor(html, 'alpha', 3, html, 1, 22);
+      478      // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
+      479      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      480      expect(count).toBe(1);
+
+⏺ 統合テストを更新します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      78      expect(S.nodes[0].showTail).toBe(false);
+      79    });
+      80
+      81 -  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+      81 +  it('restores tailAnchorLine/tailAnchorCol for bubble nodes', () => {
+      82      const b = addBubble(50, 60);
+      83 -    b.tailAnchorMatchIdx = 2;
+      83 +    b.tailAnchorLine = 3;
+      84 +    b.tailAnchorCol  = 7;
+      85
+      86      saveState();
+      87      loadState({ nodes: [], links: [] });
+      88      restoreFromStorage();
+      89
+      89 -    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+      90 +    expect(S.nodes[0].tailAnchorLine).toBe(3);
+      91 +    expect(S.nodes[0].tailAnchorCol).toBe(7);
+      92    });
+      93
+      94    it('restores links connecting nodes', () => {
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 48ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 42ms
+     … +53 lines (ctrl+o to see all)
+
+⏺ canvas-dom.test.js にも tailAnchorMatchIdx テストが残っています。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 3 lines, removed 2 lines
+      144      expect(n.showTail).toBe(true);
+      145    });
+      146
+      147 -  it('initializes tailAnchorMatchIdx to -1', () => {
+      147 +  it('initializes tailAnchorLine/tailAnchorCol to -1', () => {
+      148      const n = addBubble(0, 0);
+      149 -    expect(n.tailAnchorMatchIdx).toBe(-1);
+      149 +    expect(n.tailAnchorLine).toBe(-1);
+      150 +    expect(n.tailAnchorCol).toBe(-1);
+      151    });
+      152
+      153    it('initializes tailAnchorId, tailAnchorText, tailAnchorFromId to null', () => {
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 5 lines, removed 3 lines
+      580      expect(S.nodes).toHaveLength(2);
+      581    });
+      582
+      583 -  it('pasted bubble resets tailAnchorMatchIdx to -1', () => {
+      583 +  it('pasted bubble resets tailAnchorLine/tailAnchorCol to -1', () => {
+      584      const b = addBubble(50, 50);
+      585 -    b.tailAnchorMatchIdx = 2; // simulate an anchored tail
+      585 +    b.tailAnchorLine = 2; // simulate an anchored tail
+      586 +    b.tailAnchorCol  = 5;
+      587      selectNode(b.id);
+      588      copyNodes();
+      589      pasteNodes();
+      590      const pasted = S.nodes.find(n => n.id !== b.id);
+      590 -    expect(pasted.tailAnchorMatchIdx).toBe(-1);
+      591 +    expect(pasted.tailAnchorLine).toBe(-1);
+      592 +    expect(pasted.tailAnchorCol).toBe(-1);
+      593    });
+      594  });
+      595
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。CLAUDE.md のデータモデル記述も更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      72
+      73  ## Key patterns
+      74
+      75 -- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         -LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         -nchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anch
+         -ored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color
+         -}`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+      75 +- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         +LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         +nchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-bas
+         +ed column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wra
+         +p all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, te
+         +xt, textColor, fontFamily, fontSize }`.
+      76  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+          block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      77  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      78  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      87  | Type | Created by | Key fields |
+      88  |------|-----------|------------|
+      89  | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNum
+          berStart`, `color` |
+      90 -| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         -tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
+      90 +| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         +tailAnchorText`, `tailAnchorFromId`, `tailAnchorLine`, `tailAnchorCol` |
+      91  | `frame` | "⬜ Group" button | `label`, `color` |
+      92  | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+      93
+
+⏺ また canvas-utils.js の injectAnchor/injectTailAnchor の export 説明も CLAUDE.md で確認して更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 2 lines, removed 2 lines
+      63  - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from start
+          ing when a button inside a node is clicked (requires DOM)
+      64  - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
+      65  - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      66 -- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in high
+         -lighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `inject
+         -TailAnchor` via internal `_injectSpans`.
+      67 -- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx
+         ->= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
+      66 +- `injectAnchor(html, rawText, linkId, code?, anchorLine?, anchorCol?)` — inject link-anchor `<span>` around every occurrence of `r
+         +awText` in highlighted HTML; when `code` is provided and `anchorLine >= 0`, the occurrence at that 1-based line / 0-based column po
+         +sition in the raw source gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+      67 +- `injectTailAnchor(html, rawText, taid, code?, tailLine?, tailCol?)` — inject a tail-anchor `<span>` into highlighted HTML. When `
+         +code` is provided and `tailLine >= 0`, only the occurrence at that line/col position is wrapped; otherwise all occurrences are wrap
+         +ped (backward-compat).
+      68  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      69  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      70  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ 最終確認としてテストを再実行します。
+
+⏺ Bash(npm test 2>&1 | tail -10)
+  ⎿   ✓ tests/canvas-dialogs.test.js (27 tests) 355ms
+      ✓ tests/canvas-integration.test.js (27 tests) 535ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 527ms
+     … +6 lines (ctrl+o to expand)
+
+⏺ 327テスト全通過。変更内容をまとめます。
+
+  変更内容:
+
+  ┌──────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │         ファイル         │                                                      変更点                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-utils.js          │ _charToLineCol・_lineColToMatchIdx 内部ヘルパーを追加。injectAnchor/injectTailAnchor のシグネチャを (html,        │
+  │                          │ rawText, id, code, anchorLine, anchorCol) に変更                                                                  │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-links.js          │ getOccurrenceIdx を getAnchorLineCol に置換。createLink・enterLinkMode・enterTailAttachModeLocal の引数を         │
+  │                          │ anchorLine/anchorCol に変更                                                                                       │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-nodes.js          │ tailAnchorMatchIdx → tailAnchorLine/tailAnchorCol。attachTailToText・ペースト処理を更新                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas-node-rendering.js │ injectAnchor/injectTailAnchor 呼び出しに n?.code と anchorLine/anchorCol を渡すよう変更                           │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ canvas.js                │ シリアライズ/デシリアライズを新フィールドに更新                                                                   │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ テスト4ファイル          │ anchorMatchIdx → 行番号/列番号ベースのテストに更新                                                                │
+  └──────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  後方互換性: 旧セーブデータ（anchorMatchIdx のみ）をロードした場合、anchorLine/anchorCol が未定義なので -1 にフォールバックし、アンカーの primary
+  マーキングなしで動作します。
+
+✻ Cooked for 9m 9s
+
+※ recap: Replaced anchorMatchIdx with anchorLine/anchorCol (1-based line, 0-based column) across all files for both link and tail anchors. All 327
+  tests pass. No next action needed. (disable recaps in /config)
+
+❯ anchorMatchIdxのみの旧セーブデータをロードした場合は、従来の正規表現マッチのマッチインデックスを使ったリンクアンカーを作成し、そのanchorLine/anch
+  orColをlocalStorageにセーブし、以降はanchorLine/anchorColでリンクアンカーを管理するようにしてください
+
+⏺ 旧データのマイグレーション処理を実装します。まず canvas.js の loadState 全体の構造を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装方針が固まりました。matchIdxToLineCol をユーティリティに追加し、loadState でマイグレーションを行います。
+
+  フロー:
+  - リンクアンカー: ノードレンダリングループの前にマイグレーション（レンダリング時に正しい値を使うため）
+  - バブルテールアンカー: 全ノードロード後・テールアンカー再レンダリングの前にマイグレーション
+  - どちらかが変換された場合は scheduleSave() でlocalStorageに保存
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 17 lines
+      169    }).join('');
+      170  }
+      171
+      172 +// Converts a 0-based occurrence index of rawText in code to {line, col}.
+      173 +// Uses the same word-boundary rules as injectAnchor/injectTailAnchor.
+      174 +// Returns {line: -1, col: -1} if matchIdx is out of range.
+      175 +export function matchIdxToLineCol(code, rawText, matchIdx) {
+      176 +  if (matchIdx < 0 || !code || !rawText) return { line: -1, col: -1 };
+      177 +  const pat = rawText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      178 +  const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      179 +  const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      180 +  const re = new RegExp(prefix + pat + suffix, 'g');
+      181 +  let idx = 0, m;
+      182 +  while ((m = re.exec(code)) !== null) {
+      183 +    if (idx === matchIdx) return _charToLineCol(code, m.index);
+      184 +    idx++;
+      185 +  }
+      186 +  return { line: -1, col: -1 };
+      187 +}
+      188 +
+      189  // Returns {line, col} (1-based line, 0-based col within the line) for
+      190  // the character at charIdx in code.
+      191  function _charToLineCol(code, charIdx) {
+
+⏺ 次に canvas.js で matchIdxToLineCol をインポートし、マイグレーションを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      1  import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
+      2           injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+      3 -         roundedRectRayHit, anchorFpFromSide, edgePoint,
+      3 +         roundedRectRayHit, anchorFpFromSide, edgePoint, matchIdxToLineCol,
+      4           svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+      5  import { initDialogs, showAlert } from './canvas-dialogs.js';
+      6  import { initNodeRendering } from './canvas-node-rendering.js';
+
+⏺ 次に loadState にマイグレーションを組み込みます。リンクはノードレンダリング前、バブルはノードロード後・再レンダリング前に処理します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 15 lines
+      455
+      456    S.links = data.links ?? [];
+      457
+      458 +  // Phase 1: migrate link anchors from anchorMatchIdx → anchorLine/anchorCol.
+      459 +  // Done before the node render loop so injectAnchor sees correct values.
+      460 +  let _anchorMigrated = false;
+      461 +  for (const lnk of S.links) {
+      462 +    if (lnk.anchorLine == null) {
+      463 +      if (lnk.anchorMatchIdx != null && lnk.anchorMatchIdx >= 0) {
+      464 +        // defer conversion until source node is loaded — mark with sentinel
+      465 +        lnk._pendingMatchIdx = lnk.anchorMatchIdx;
+      466 +        _anchorMigrated = true;
+      467 +      }
+      468 +      lnk.anchorLine = -1;
+      469 +      lnk.anchorCol  = -1;
+      470 +    }
+      471 +  }
+      472 +
+      473    for (const nd of (data.nodes ?? [])) {
+      474      let n;
+      475      if (nd.type === 'bubble') {
+
+⏺ ノードがロードされる前にコードにアクセスできないため、フェーズを分ける方式に切り替えます。センチネルを付けた後、ノードループの後で実際の変換を行い
+  ます。
+
+  まず bubble ノードのロード部分にレガシー値を保持するよう変更します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines, removed 1 line
+      479              showTail: nd.showTail ?? true,
+      480              tailAnchorId: nd.tailAnchorId ?? null, tailAnchorText: nd.tailAnchorText ?? null,
+      481              tailAnchorFromId: nd.tailAnchorFromId ?? null,
+      482 -            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1 };
+      482 +            tailAnchorLine: nd.tailAnchorLine ?? -1, tailAnchorCol: nd.tailAnchorCol ?? -1,
+      483 +            // carry legacy field for migration if old format (removed after phase 2)
+      484 +            ...(nd.tailAnchorMatchIdx != null && nd.tailAnchorLine == null
+      485 +              ? { _legacyTailMatchIdx: nd.tailAnchorMatchIdx } : {}) };
+      486      } else if (nd.type === 'frame') {
+      487        n = { id: nd.id, type: 'frame', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      488              label: nd.label ?? '', color: nd.color ?? 'blue',
+
+⏺ 次にノードループ後、再レンダリングパスの前にフェーズ2のマイグレーションを追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 37 lines, removed 5 lines
+      522    }));
+      523    renderLinks();
+      524    renderFreeLines();
+      525 -  // Re-render code nodes that need tail-anchor spans injected.
+      525 +
+      526 +  // Phase 2: resolve _pendingMatchIdx sentinels now that all nodes are loaded.
+      527 +  const _migratedFromIds = new Set();
+      528 +  for (const lnk of S.links) {
+      529 +    if (lnk._pendingMatchIdx != null) {
+      530 +      const srcNode = S.nodes.find(n => n.id === lnk.fromId);
+      531 +      if (srcNode?.code) {
+      532 +        const lc = matchIdxToLineCol(srcNode.code, lnk.text, lnk._pendingMatchIdx);
+      533 +        lnk.anchorLine = lc.line;
+      534 +        lnk.anchorCol  = lc.col;
+      535 +        _migratedFromIds.add(lnk.fromId);
+      536 +      }
+      537 +      delete lnk._pendingMatchIdx;
+      538 +    }
+      539 +  }
+      540 +  for (const n of S.nodes) {
+      541 +    if (n.type === 'bubble' && n._legacyTailMatchIdx != null && n._legacyTailMatchIdx >= 0) {
+      542 +      const srcNode = S.nodes.find(s => s.id === n.tailAnchorFromId);
+      543 +      if (srcNode?.code && n.tailAnchorText) {
+      544 +        const lc = matchIdxToLineCol(srcNode.code, n.tailAnchorText, n._legacyTailMatchIdx);
+      545 +        n.tailAnchorLine = lc.line;
+      546 +        n.tailAnchorCol  = lc.col;
+      547 +        _migratedFromIds.add(n.tailAnchorFromId);
+      548 +      }
+      549 +      delete n._legacyTailMatchIdx;
+      550 +      _anchorMigrated = true;
+      551 +    }
+      552 +  }
+      553 +  if (_anchorMigrated) scheduleSave();
+      554 +
+      555 +  // Re-render code nodes that need tail-anchor spans injected, and any that
+      556 +  // were just migrated so the correct primary anchor is shown.
+      557    // Bubble nodes may appear after their target code node in the saved array,
+      558    // so buildCodeHTML above found no bubbles yet and skipped injection.
+      528 -  const anchoredFromIds = new Set(
+      529 -    S.nodes
+      559 +  const anchoredFromIds = new Set([
+      560 +    ...S.nodes
+      561        .filter(n => n.type === 'bubble' && n.tailAnchorFromId != null)
+      531 -      .map(n => n.tailAnchorFromId)
+      532 -  );
+      562 +      .map(n => n.tailAnchorFromId),
+      563 +    ..._migratedFromIds,
+      564 +  ]);
+      565    for (const fromId of anchoredFromIds) {
+      566      const cn = S.nodes.find(n => n.id === fromId);
+      567      if (cn) renderNode(cn);
+
+⏺ テストを実行します。
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 31ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。マイグレーションのテストも追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 51 lines
+       91      expect(S.nodes[0].tailAnchorCol).toBe(7);
+       92    });
+       93
+       94 +  it('migrates legacy tailAnchorMatchIdx to tailAnchorLine/tailAnchorCol on load', () => {
+       95 +    // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96 +    // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97 +    const oldData = {
+       98 +      nid: 3, lid: 1, taid: 1, flid: 1,
+       99 +      nodes: [
+      100 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101 +          code: 'hello world hello', lang: 'text', title: '', filePath: '',
+      102 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      103 +        { id: 2, type: 'bubble', x: 10, y: 10, w: 200, h: 100,
+      104 +          text: 'note', tailX: 50, tailY: 50, color: 'green',
+      105 +          showTail: true,
+      106 +          tailAnchorId: 0, tailAnchorText: 'hello', tailAnchorFromId: 1,
+      107 +          tailAnchorMatchIdx: 1 },  // old format: second occurrence
+      108 +      ],
+      109 +      links: [],
+      110 +    };
+      111 +    loadState(oldData);
+      112 +    const bubble = S.nodes.find(n => n.type === 'bubble');
+      113 +    // second 'hello' starts at line 1, col 12
+      114 +    expect(bubble.tailAnchorLine).toBe(1);
+      115 +    expect(bubble.tailAnchorCol).toBe(12);
+      116 +    expect(bubble._legacyTailMatchIdx).toBeUndefined();
+      117 +  });
+      118 +
+      119 +  it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120 +    // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121 +    const oldData = {
+      122 +      nid: 3, lid: 2, taid: 1, flid: 1,
+      123 +      nodes: [
+      124 +        { id: 1, x: 0, y: 0, w: 300, h: 200,
+      125 +          code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+      126 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      127 +        { id: 2, x: 400, y: 0, w: 300, h: 200,
+      128 +          code: '', lang: 'text', title: '', filePath: '',
+      129 +          showLineNumbers: true, lineNumberStart: 1, color: 'blue' },
+      130 +      ],
+      131 +      links: [
+      132 +        { id: 1, fromId: 1, text: 'foo', toId: 2,
+      133 +          stroke: '#388bfd', strokeWidth: 1.5, dash: '',
+      134 +          anchorMatchIdx: 1 },  // old format: second occurrence
+      135 +      ],
+      136 +    };
+      137 +    loadState(oldData);
+      138 +    const lnk = S.links[0];
+      139 +    // second 'foo' starts at line 1, col 4
+      140 +    expect(lnk.anchorLine).toBe(1);
+      141 +    expect(lnk.anchorCol).toBe(4);
+      142 +    expect(lnk._pendingMatchIdx).toBeUndefined();
+      143 +  });
+      144 +
+      145    it('restores links connecting nodes', () => {
+      146      const a = addNode(0,   0,   'foo()');
+      147      const b = addNode(500, 0,   'bar()');
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 329テスト全通過。実装の概要をまとめます。
+
+  追加した変更内容:
+
+  canvas-utils.js: matchIdxToLineCol(code, rawText, matchIdx) をエクスポート。0-based マッチインデックスを {line, col} に変換します。
+
+  canvas.js の loadState に2フェーズのマイグレーション:
+  - フェーズ1 (ノードロード前): anchorMatchIdx を持つ旧形式のリンクに _pendingMatchIdx センチネルを付け、anchorLine = -1 に初期化
+  - バブルノードロード時: tailAnchorMatchIdx のみある旧形式なら _legacyTailMatchIdx として一時保持
+  - フェーズ2 (全ノードロード後): センチネルを解決。ソースノードの code を使って matchIdxToLineCol で行番号・列番号に変換。変換が発生した場合は
+  scheduleSave() でlocalStorageに保存し、影響を受けたコードノードを再レンダリング
+
+  旧形式の anchorMatchIdx: 1 などのデータをロードすると、自動的に anchorLine/anchorCol
+  に変換されてlocalStorageに保存されるため、以降は新形式で管理されます。
+
+✻ Crunched for 4m 27s
+
+※ recap: Migrated link and bubble tail anchors from match-index to line/column positioning. All 329 tests pass. No pending actions. (disable recaps
+  in /config)
+
+❯ dataVersionを上げてください。必要に応じてmigrate処理も追加してください
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 現在の version は '3.1'、migration chain を確認できました。'3.2' に上げ、< '3.2' ブランチを追加します。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 1 line
+      1  // ═══════════════════════════════════════════════════════
+      2  // CONSTANTS
+      3  // ═══════════════════════════════════════════════════════
+      4 -export const DATA_VERSION = '3.1';
+      4 +export const DATA_VERSION = '3.2';
+      5
+      6  // ═══════════════════════════════════════════════════════
+      7  // UTILS
+
+⏺ Update(canvas.js)
+  ⎿  Added 8 lines
+      443        }
+      444      }
+      445      showAlert('The data format has been updated to a new version. Your settings have been migrated automatically.');
+      446 +  } else if (data.dataVersion < '3.2') {
+      447 +    // migrate 3.0/3.1: link/bubble anchor storage changed from anchorMatchIdx
+      448 +    // (0-based occurrence index) to anchorLine/anchorCol (1-based line, 0-based col).
+      449 +    // Field-level migration is handled automatically in Phase 1/2 below.
+      450 +    if (data.globalConfig) {
+      451 +      S.globalConfig.description = data.globalConfig.description || '';
+      452 +      S.globalConfig.repositories = (data.globalConfig.repositories || []).map(r => ({ ...r }));
+      453 +    }
+      454    } else {
+      455      if (data.globalConfig) {
+      456        S.globalConfig.description = data.globalConfig.description || '';
+
+⏺ migration テストに dataVersion: '3.1' を追加して現実的にします。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+       95      // Simulate old-format save data: bubble tail anchor stored as occurrence index.
+       96      // 'hello world hello': 'hello' at col 0 (idx 0), col 12 (idx 1)
+       97      const oldData = {
+       98 -      nid: 3, lid: 1, taid: 1, flid: 1,
+       98 +      dataVersion: '3.1', nid: 3, lid: 1, taid: 1, flid: 1,
+       99        nodes: [
+      100          { id: 1, x: 0, y: 0, w: 300, h: 200,
+      101            code: 'hello world hello', lang: 'text', title: '', filePath: '',
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+      119    it('migrates legacy anchorMatchIdx to anchorLine/anchorCol on load', () => {
+      120      // 'foo foo foo': second 'foo' (idx 1) starts at col 4
+      121      const oldData = {
+      122 -      nid: 3, lid: 2, taid: 1, flid: 1,
+      122 +      dataVersion: '3.1', nid: 3, lid: 2, taid: 1, flid: 1,
+      123        nodes: [
+      124          { id: 1, x: 0, y: 0, w: 300, h: 200,
+      125            code: 'foo foo foo', lang: 'text', title: '', filePath: '',
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (134 tests) 40ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 29ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 379ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 329テスト全通過。変更内容:
+
+  - canvas-utils.js: DATA_VERSION を '3.1' → '3.2' に更新
+  - canvas.js: else if (data.dataVersion < '3.2') ブランチを追加。3.0/3.1 形式のデータに対して globalConfig
+  を通常通りロードし、フィールドレベルのマイグレーション (anchorMatchIdx → anchorLine/anchorCol) は既存の Phase 1/2 に委ねる
+  - テスト: migration テストのサンプルデータに dataVersion: '3.1' を追加し、実際の旧バージョンデータを模倣
+
+✻ Churned for 1m 18s
+
+❯ 必要に応じてテストコードとドキュメントを更新してください
+
+⏺ 現状を確認してから必要な箇所を洗い出します。
+
+⏺ Explore(Test and doc gap analysis)
+  ⎿  Done (36 tool uses · 70.7k tokens · 1m 48s)
+  (ctrl+o to expand)
+
+⏺ README.md と CLAUDE.md の該当箇所、テストファイルを確認します。
+
+  Searched for 5 patterns, listed 1 directory (ctrl+o to expand)
+
+⏺ README.ja.md にはリンクオブジェクトの anchorMatchIdx は記載されていないようです。README.md の該当箇所、README.ja.md
+  のリンクオブジェクト部分、CLAUDE.md のリンクモデル部分を確認します。
+
+  Read 4 files (ctrl+o to expand)
+
+⏺ 全体把握ができました。並行して変更を適用します。
+
+  CLAUDE.md — matchIdxToLineCol 追加、Links パターン更新:
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line
+      66  - `injectAnchor(html, rawText, linkId, code?, anchorLine?, anchorCol?)` — inject link-anchor `<span>` around every occurrence of `r
+          awText` in highlighted HTML; when `code` is provided and `anchorLine >= 0`, the occurrence at that 1-based line / 0-based column po
+          sition in the raw source gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+      67  - `injectTailAnchor(html, rawText, taid, code?, tailLine?, tailCol?)` — inject a tail-anchor `<span>` into highlighted HTML. When `
+          code` is provided and `tailLine >= 0`, only the occurrence at that line/col position is wrapped; otherwise all occurrences are wrap
+          ped (backward-compat).
+      68  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      69 +- `matchIdxToLineCol(code, rawText, matchIdx)` — converts a 0-based occurrence index of `rawText` in `code` to `{line, col}` (1-bas
+         +ed line, 0-based col). Uses the same word-boundary rules as `injectAnchor`. Returns `{line: -1, col: -1}` when `matchIdx` is out of
+         + range. Used during migration of pre-3.2 save data.
+      70  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      71  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+      72  - `edgePoint(from, to)` — exit point on a node's edge toward another node (arrow geometry)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      76  - **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+          LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+          nchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-bas
+          ed column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wra
+          p all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, te
+          xt, textColor, fontFamily, fontSize }`.
+      77  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+          block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      78  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      79 -- **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+         -`S.links[]`; rendered as SVG paths on every viewport change.
+      79 +- **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash, ancho
+         +rLine, anchorCol }` in `S.links[]`; rendered as SVG paths on every viewport change. `anchorLine` (1-based) and `anchorCol` (0-based
+         +) identify the specific occurrence of `text` in the source node that serves as the arrow origin (−1 = not set).
+      80  - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free
+          -lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
+      81  - **Undo**: `pushUndo()` snapshots `S.nodes`, `S.links`, `S.freeLines` (shallow copy), capped at 10. `undo()` pops the top snapshot
+          , clears DOM, and re-renders all nodes and lines.
+      82  - **Persistence**: Auto-saved to a per-tab `localStorage` key `code-canvas-v1-{TAB_ID}` on every change (stale entries from closed
+          tabs purged after 30 days). Import/export uses JSON with the full state schema.
+
+⏺ README.md — dataVersion、Link テーブル、サンプル JSON 更新:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      75
+      76  | Field | Type | Description |
+      77  |---|---|---|
+      78 -| `dataVersion` | string | Format version (currently `"3.1"`) |
+      78 +| `dataVersion` | string | Format version (currently `"3.2"`) |
+      79  | `canvasTitle` | string | Title of the entire canvas |
+      80  | `nodes` | Node[] | Array of code blocks, bubbles, and frames |
+      81  | `links` | Link[] | Array of links |
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines
+      130  | `tailAnchorId` | number \| null | ID of the tail-anchor binding (links the tail tip to a specific text occurrence in a code bloc
+           k). `null` when not anchored. |
+      131  | `tailAnchorFromId` | number \| null | Node ID of the code block that the tail is anchored to. `null` when not anchored. |
+      132  | `tailAnchorText` | string \| null | The selected text that the tail tip is anchored to. `null` when not anchored. |
+      133 +| `tailAnchorLine` | number | 1-based line number in the source code block's raw text that identifies the anchor occurrence. `-1`
+          +when not set (all occurrences are highlighted). |
+      134 +| `tailAnchorCol` | number | 0-based column number within `tailAnchorLine` that identifies the anchor occurrence. `-1` when not se
+          +t. |
+      135
+      136  ## Node object (frame)
+      137
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines, removed 1 line
+      161  | `stroke` | string | Arrow color (CSS color string, default: `"#388bfd"`) |
+      162  | `strokeWidth` | number | Arrow width in pixels (default: `1.5`) |
+      163  | `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
+      164 -| `anchorMatchIdx` | number | 0-based index of which occurrence of `text` in the source block is the arrow origin. `-1` means unse
+          -t (first occurrence is used). |
+      164 +| `anchorLine` | number | 1-based line number in the source block's raw text that identifies the arrow origin occurrence. `-1` mea
+          +ns unset (no specific occurrence highlighted as primary). |
+      165 +| `anchorCol` | number | 0-based column number within `anchorLine` that identifies the arrow origin occurrence. `-1` means unset.
+          +|
+      166
+      167  ## FreeLine object
+      168
+
+⏺ Update(README.md)
+  ⎿  Added 1 line, removed 1 line
+      212
+      213  ```json
+      214  {
+      215 -  "dataVersion": "3.1",
+      215 +  "dataVersion": "3.2",
+      216    "canvasTitle": "crun_code_reading",
+      217    "nodes": [
+      218      {
+
+⏺ Update(README.md)
+  ⎿  Added 2 lines, removed 1 line
+      265        "stroke": "#388bfd",
+      266        "strokeWidth": 1.5,
+      267        "dash": "",
+      268 -      "anchorMatchIdx": 0
+      268 +      "anchorLine": 1,
+      269 +      "anchorCol": 0
+      270      }
+      271    ],
+      272    "freeLines": [
+
+⏺ README.ja.md — dataVersion、Link テーブルに anchorLine/anchorCol 追加、bubble テーブルに tailAnchorLine/Col 追加、サンプル JSON:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+      66
+      67  | フィールド | 型 | 説明 |
+      68  |---|---|---|
+      69 -| `dataVersion` | string | フォーマットバージョン（現在 `"1.0"`） |
+      69 +| `dataVersion` | string | フォーマットバージョン（現在 `"3.2"`） |
+      70  | `canvasTitle` | string | キャンバス全体のタイトル |
+      71  | `nodes` | Node[] | コードブロック・吹き出し・フレームの配列 |
+      72  | `links` | Link[] | リンクの配列 |
+
+⏺ Update(README.ja.md)
+  ⎿  Added 5 lines
+      117  | `showTail` | boolean | 尾部を表示するかどうか（デフォルト：`true`） |
+      118  | `fontFamily` | string | フォントファミリーID。コードブロックと同じ選択肢。省略時は `"default"` |
+      119  | `fontSize` | number | フォントサイズ（px、6〜96）。プリセット（11〜48 px）から選択するか直接入力可能。省略時は `13` |
+      120 +| `tailAnchorId` | number \| null | テールアンカーバインディングのID（テール先端をコードブロック内の特定テキスト出現にリンク）。ア
+          +ンカーなしの場合は `null` |
+      121 +| `tailAnchorFromId` | number \| null | テールが固定されているコードブロックのノードID。アンカーなしの場合は `null` |
+      122 +| `tailAnchorText` | string \| null | テール先端が固定されている選択テキスト。アンカーなしの場合は `null` |
+      123 +| `tailAnchorLine` | number | アンカー位置を示す接続元コードブロックの生テキスト内の行番号（1始まり）。未設定時は `-1`（全出現をハ
+          +イライト） |
+      124 +| `tailAnchorCol` | number | `tailAnchorLine` 内でアンカー位置を示す列番号（0始まり）。未設定時は `-1` |
+      125
+      126  ## Nodeオブジェクト（フレーム）
+      127
+
+⏺ Update(README.ja.md)
+  ⎿  Added 2 lines
+      151  | `stroke` | string | 矢印の色（CSSカラー文字列、デフォルト：`"#388bfd"`） |
+      152  | `strokeWidth` | number | 矢印の太さ（ピクセル、デフォルト：`1.5`） |
+      153  | `dash` | string | SVGのstroke-dasharray値（`""` = 実線、`"8 4"` = 破線、`"16 6"` = 長破線） |
+      154 +| `anchorLine` | number | 矢印の起点となる出現箇所を示す接続元ブロックの生テキスト内の行番号（1始まり）。`-1` は未設定 |
+      155 +| `anchorCol` | number | `anchorLine` 内で矢印の起点を示す列番号（0始まり）。`-1` は未設定 |
+      156
+      157  ## FreeLineオブジェクト
+      158
+
+⏺ README.ja.md のサンプル JSON も更新します（dataVersion、anchorLine/anchorCol、gitConfig→globalConfig）。
+
+⏺ Update(README.ja.md)
+  ⎿  Added 1 line, removed 1 line
+      193
+      194  ```json
+      195  {
+      196 -  "dataVersion": "1.0",
+      196 +  "dataVersion": "3.2",
+      197    "canvasTitle": "crun_code_reading",
+      198    "nodes": [
+      199      {
+
+⏺ Update(README.ja.md)
+  ⎿  Added 15 lines, removed 6 lines
+      242        "toId": 3,
+      243        "stroke": "#388bfd",
+      244        "strokeWidth": 1.5,
+      245 -      "dash": ""
+      245 +      "dash": "",
+      246 +      "anchorLine": 1,
+      247 +      "anchorCol": 0
+      248      }
+      249    ],
+      250    "freeLines": [
+     ...
+      260    "nid": 7,
+      261    "lid": 6,
+      262    "flid": 2,
+      263 +  "taid": 1,
+      264    "vp": {
+      265      "x": 76.9,
+      266      "y": -6.8,
+      267      "scale": 0.7
+      268    },
+      266 -  "gitConfig": {
+      267 -    "url": "https://github.com/containers/crun",
+      268 -    "branch": "main",
+      269 -    "tag": "",
+      270 -    "commitHash": "a1b2c3d4e5f6..."
+      269 +  "globalConfig": {
+      270 +    "description": "",
+      271 +    "repositories": [
+      272 +      {
+      273 +        "nickname": "crun",
+      274 +        "url": "https://github.com/containers/crun",
+      275 +        "branch": "main",
+      276 +        "tag": "",
+      277 +        "commitHash": "a1b2c3d4e5f6..."
+      278 +      }
+      279 +    ]
+      280    }
+      281  }
+      282  ```
+
+⏺ tests/canvas-utils.test.js — matchIdxToLineCol のインポートとテストスイートを追加:
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 1 line
+       5    LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
+       6    injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
+       7    makeDashSvg, makeWidthSvg,
+       8 +  matchIdxToLineCol,
+       9    roundedRectRayHit, anchorFpFromSide, edgePoint,
+      10  } from '../canvas-utils.js';
+      11
+
+⏺ matchIdxToLineCol テストを injectAnchor テストの直前に追加します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 52 lines
+      331    });
+      332  });
+      333
+      334 +// ─── matchIdxToLineCol ───────────────────────────────────
+      335 +describe('matchIdxToLineCol', () => {
+      336 +  it('returns line 1 col 0 for occurrence 0 on a single line', () => {
+      337 +    expect(matchIdxToLineCol('foo bar foo', 'foo', 0)).toEqual({ line: 1, col: 0 });
+      338 +  });
+      339 +
+      340 +  it('returns correct col for occurrence 1 on a single line', () => {
+      341 +    // 'foo bar foo': second 'foo' starts at col 8
+      342 +    expect(matchIdxToLineCol('foo bar foo', 'foo', 1)).toEqual({ line: 1, col: 8 });
+      343 +  });
+      344 +
+      345 +  it('returns correct line/col for an occurrence on line 2', () => {
+      346 +    // 'hello\nworld\nhello': second 'hello' starts at line 3 col 0
+      347 +    expect(matchIdxToLineCol('hello\nworld\nhello', 'hello', 1)).toEqual({ line: 3, col: 0 });
+      348 +  });
+      349 +
+      350 +  it('returns correct col within a multi-line string', () => {
+      351 +    // 'line1\nfoo bar foo': second 'foo' at line 2 col 8
+      352 +    expect(matchIdxToLineCol('line1\nfoo bar foo', 'foo', 1)).toEqual({ line: 2, col: 8 });
+      353 +  });
+      354 +
+      355 +  it('returns {line: -1, col: -1} when matchIdx exceeds occurrence count', () => {
+      356 +    expect(matchIdxToLineCol('foo', 'foo', 1)).toEqual({ line: -1, col: -1 });
+      357 +  });
+      358 +
+      359 +  it('returns {line: -1, col: -1} for negative matchIdx', () => {
+      360 +    expect(matchIdxToLineCol('foo foo', 'foo', -1)).toEqual({ line: -1, col: -1 });
+      361 +  });
+      362 +
+      363 +  it('returns {line: -1, col: -1} for empty code', () => {
+      364 +    expect(matchIdxToLineCol('', 'foo', 0)).toEqual({ line: -1, col: -1 });
+      365 +  });
+      366 +
+      367 +  it('respects word boundaries — does not match partial words', () => {
+      368 +    // 'startNoPodLock' should not match 'start'
+      369 +    expect(matchIdxToLineCol('startNoPodLock', 'start', 0)).toEqual({ line: -1, col: -1 });
+      370 +  });
+      371 +
+      372 +  it('matches occurrence 0 when word is standalone', () => {
+      373 +    expect(matchIdxToLineCol('start stop start', 'start', 0)).toEqual({ line: 1, col: 0 });
+      374 +  });
+      375 +
+      376 +  it('roundtrips with _lineColToMatchIdx — all occurrences', () => {
+      377 +    const code = 'foo bar\nfoo baz\nfoo';
+      378 +    for (let i = 0; i < 3; i++) {
+      379 +      const lc = matchIdxToLineCol(code, 'foo', i);
+      380 +      expect(lc.line).toBeGreaterThan(0);
+      381 +      expect(lc.col).toBeGreaterThanOrEqual(0);
+      382 +    }
+      383 +  });
+      384 +});
+      385 +
+      386  // ─── injectAnchor ────────────────────────────────────────
+      387  describe('injectAnchor', () => {
+      388    it('wraps matching text in a link-anchor span', () => {
+
+⏺ tests/canvas-integration.test.js — DATA_VERSION の保存テストを追加:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 20 lines
+      27  // Scenario: the user builds a canvas with code nodes, bubbles, and links,
+      28  // closes the tab, and reopens it — expecting everything to be restored.
+      29  describe('Save/Restore round-trip', () => {
+      30 +  it('saves dataVersion 3.2 to localStorage', () => {
+      31 +    saveState();
+      32 +    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      33 +    expect(saved.dataVersion).toBe('3.2');
+      34 +  });
+      35 +
+      36 +  it('saves and restores links with anchorLine/anchorCol', () => {
+      37 +    const a = addNode(0,   0, 'foo foo foo');
+      38 +    const b = addNode(500, 0, '');
+      39 +    createLink(a.id, 'foo', b.id, 1, 4); // second 'foo' at line 1, col 4
+      40 +
+      41 +    saveState();
+      42 +    loadState({ nodes: [], links: [] });
+      43 +    restoreFromStorage();
+      44 +
+      45 +    const lnk = S.links[0];
+      46 +    expect(lnk.anchorLine).toBe(1);
+      47 +    expect(lnk.anchorCol).toBe(4);
+      48 +  });
+      49 +
+      50    it('restores code nodes with all fields intact', () => {
+      51      const n = addNode(100, 200, 'const x = 42;');
+      52      n.title    = 'My Node';
+
+⏺ テスト実行:
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   ❯ tests/canvas-integration.test.js:33:18
+          31|     saveState();
+          32|     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+     … +11 lines (ctrl+o to expand)
+
+⏺ STORAGE_KEY の形式を確認します。
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ STORAGE_KEY は code-canvas-v1-{TAB_ID} 形式なので、プレフィックスで検索するよう修正します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 8 lines, removed 2 lines
+      29  describe('Save/Restore round-trip', () => {
+      30    it('saves dataVersion 3.2 to localStorage', () => {
+      31      saveState();
+      32 -    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      33 -    expect(saved.dataVersion).toBe('3.2');
+      32 +    // Actual key is 'code-canvas-v1-{TAB_ID}'; find it by prefix.
+      33 +    const prefix = 'code-canvas-v1-';
+      34 +    let saved = null;
+      35 +    for (let i = 0; i < localStorage.length; i++) {
+      36 +      const k = localStorage.key(i);
+      37 +      if (k?.startsWith(prefix)) { saved = JSON.parse(localStorage.getItem(k)); break; }
+      38 +    }
+      39 +    expect(saved?.dataVersion).toBe('3.2');
+      40    });
+      41
+      42    it('saves and restores links with anchorLine/anchorCol', () => {
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿       39|     expect(saved?.dataVersion).toBe('3.2');
+            |                                ^
+          40|   });
+     … +8 lines (ctrl+o to expand)
+
+⏺ saveState がどのキーに保存しているか確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ localStorage.key(i) ではなく Object.keys(localStorage) を使う方法に変更します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 2 lines, removed 6 lines
+      30    it('saves dataVersion 3.2 to localStorage', () => {
+      31      saveState();
+      32      // Actual key is 'code-canvas-v1-{TAB_ID}'; find it by prefix.
+      33 -    const prefix = 'code-canvas-v1-';
+      34 -    let saved = null;
+      35 -    for (let i = 0; i < localStorage.length; i++) {
+      36 -      const k = localStorage.key(i);
+      37 -      if (k?.startsWith(prefix)) { saved = JSON.parse(localStorage.getItem(k)); break; }
+      38 -    }
+      33 +    const key = Object.keys(localStorage).find(k => k.startsWith('code-canvas-v1-'));
+      34 +    const saved = key ? JSON.parse(localStorage.getItem(key)) : null;
+      35      expect(saved?.dataVersion).toBe('3.2');
+      36    });
+      37
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿       35|     expect(saved?.dataVersion).toBe('3.2');
+            |                                ^
+          36|   });
+     … +8 lines (ctrl+o to expand)
+
+⏺ __canvasApp のエクスポートを確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ STORAGE_KEY がエクスポートされていました。テストで使えます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 3 lines
+      2  import { describe, it, expect, beforeEach } from 'vitest';
+      3  import '../canvas.js';
+      4  const {
+      5 -  S,
+      5 +  S, STORAGE_KEY,
+      6    addNode, removeNode, selectNode, addBubble,
+      7    loadState, saveState, restoreFromStorage,
+      8    createLink, removeLink,
+     ...
+      11    pushUndo, undo,
+      12  } = globalThis.__canvasApp;
+      13
+      14 -const STORAGE_KEY = 'code-canvas-v1';
+      15 -
+      14  function resetState() {
+      15    loadState({ nodes: [], links: [], nid: 1, lid: 1, vp: { x: 0, y: 0, scale: 1 } });
+      16    localStorage.removeItem(STORAGE_KEY);
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 3 lines
+      27  describe('Save/Restore round-trip', () => {
+      28    it('saves dataVersion 3.2 to localStorage', () => {
+      29      saveState();
+      30 -    // Actual key is 'code-canvas-v1-{TAB_ID}'; find it by prefix.
+      31 -    const key = Object.keys(localStorage).find(k => k.startsWith('code-canvas-v1-'));
+      32 -    const saved = key ? JSON.parse(localStorage.getItem(key)) : null;
+      30 +    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      31      expect(saved?.dataVersion).toBe('3.2');
+      32    });
+      33
+
+⏺ resetState の cleanup も修正します。
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 1 line, removed 1 line
+      13
+      14  function resetState() {
+      15    loadState({ nodes: [], links: [], nid: 1, lid: 1, vp: { x: 0, y: 0, scale: 1 } });
+      16 -  localStorage.removeItem(STORAGE_KEY);
+      16 +  localStorage.removeItem(STORAGE_KEY); // STORAGE_KEY includes TAB_ID suffix
+      17  }
+      18
+      19  beforeEach(() => {
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (144 tests) 45ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 32ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 413ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 341テスト全通過。変更内容まとめ:
+
+  テスト:
+  - canvas-utils.test.js: matchIdxToLineCol を import に追加し、11ケースのテストスイートを追加（単一行・複数行・単語境界・範囲外・空文字列など）
+  - canvas-integration.test.js:
+    - STORAGE_KEY を __canvasApp からインポート（cleanup が正しく動くよう修正）
+    - dataVersion: '3.2' が localStorage に保存されることを確認するテストを追加
+    - anchorLine/anchorCol 付きリンクの保存・復元テストを追加
+
+  ドキュメント:
+  - CLAUDE.md: matchIdxToLineCol をエクスポートリストに追加、Links パターンに anchorLine/anchorCol の説明を追加
+  - README.md: dataVersion を "3.2" に更新、Link テーブルの anchorMatchIdx を anchorLine/anchorCol に置換、bubble ノードテーブルに
+  tailAnchorLine/tailAnchorCol を追加、サンプル JSON を更新
+  - README.ja.md: dataVersion を "3.2" に更新、bubble テーブルにテールアンカーフィールドを追加、Link テーブルに anchorLine/anchorCol
+  を追加、サンプル JSON を現行フォーマット（globalConfig + taid）に更新
+
+✻ Cooked for 8m 2s
+```
