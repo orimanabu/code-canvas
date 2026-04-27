@@ -31423,3 +31423,341 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Brewed for 5m 25s
 ```
+
+```
+❯ ドキュメントとテストを更新して
+
+⏺ Bash(git log --oneline -10)
+  ⎿  3d58ea8 fix: tail anchor targets the selected occurrence, not always the first
+     8eb89ed feat: add "Create bubble from here" to text-selection tip
+     b9e19a2 fix: correct anchorMatchIdx when selection starts before the matched word
+     … +7 lines (ctrl+o to expand)
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD~5..HEAD --name-only)
+  ⎿  canvas-links.js
+     canvas-node-rendering.js
+     canvas-nodes.js
+     … +6 lines (ctrl+o to expand)
+
+⏺ Bash(npm test 2>&1 | tail -50)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD~5..HEAD -- canvas-utils.js | head -200)
+  ⎿  diff --git a/canvas-utils.js b/canvas-utils.js
+     index aebc1e7..0641e6a 100644
+     --- a/canvas-utils.js
+     … +37 lines (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD~5..HEAD -- canvas-links.js | head -200)
+  ⎿  diff --git a/canvas-links.js b/canvas-links.js
+     index aa7ec09..ee7c5e3 100644
+     --- a/canvas-links.js
+     … +34 lines (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD~5..HEAD -- canvas-nodes.js | head -300)
+  ⎿  diff --git a/canvas-nodes.js b/canvas-nodes.js
+     index 2140138..ccb84b9 100644
+     --- a/canvas-nodes.js
+     … +36 lines (ctrl+o to expand)
+
+⏺ Bash(git diff HEAD~5..HEAD -- tests/canvas-utils.test.js)
+  ⎿  diff --git a/tests/canvas-utils.test.js b/tests/canvas-utils.test.js
+     index 96905b4..f55efa3 100644
+     --- a/tests/canvas-utils.test.js
+     … +35 lines (ctrl+o to expand)
+
+⏺ Now let me look at the current test files and the current source to understand what coverage is missing.
+
+  Read 3 files (ctrl+o to expand)
+
+⏺ Now let me look at canvas.js for linkTipNewBubble wiring, and the integration/dom tests to see what they cover:
+
+  Searched for 6 patterns, read 3 files (ctrl+o to expand)
+
+⏺ Now I have a clear picture. Let me write the tests and update CLAUDE.md.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now I'll add the new tests:
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 60 lines
+      371      const html = 'first line\nhello world';
+      372      expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
+      373    });
+      374 +
+      375 +  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+      376 +    const result = injectAnchor('foo foo foo', 'foo', 'L1');
+      377 +    const count = (result.match(/class="link-anchor"/g) || []).length;
+      378 +    expect(count).toBe(3);
+      379 +  });
+      380 +
+      381 +  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
+      382 +    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+      383 +    // All three are wrapped
+      384 +    const count = (result.match(/class="link-anchor"/g) || []).length;
+      385 +    expect(count).toBe(3);
+      386 +    // Only occurrence 1 (second one) carries data-lid-primary
+      387 +    expect(result).toContain('data-lid-primary="1"');
+      388 +    const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+      389 +    expect(primaryCount).toBe(1);
+      390 +  });
+      391 +
+      392 +  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
+      393 +    const result = injectAnchor('word word', 'word', 'L2', 0);
+      394 +    const parts = result.split('<span class="link-anchor"');
+      395 +    // parts[0] is before first anchor; parts[1] is first anchor content
+      396 +    expect(parts[1]).toContain('data-lid-primary="1"');
+      397 +  });
+      398 +
+      399 +  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+      400 +    const result = injectAnchor('foo foo', 'foo', 'L3');
+      401 +    expect(result).not.toContain('data-lid-primary');
+      402 +  });
+      403  });
+      404
+      405  // ─── injectTailAnchor ────────────────────────────────────
+     ...
+      443      const result = injectTailAnchor('first\nstartNoPodLock', 'start', 1);
+      444      expect(result).not.toContain('tail-anchor');
+      445    });
+      446 +
+      447 +  it('wraps all occurrences when tailMatchIdx is -1', () => {
+      448 +    const result = injectTailAnchor('foo foo foo', 'foo', 9);
+      449 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      450 +    expect(count).toBe(3);
+      451 +  });
+      452 +
+      453 +  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
+      454 +    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+      455 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      456 +    expect(count).toBe(1);
+      457 +    // The wrapped occurrence must be the first one; the others are plain text
+      458 +    const firstFooIdx = result.indexOf('foo');
+      459 +    expect(result.slice(firstFooIdx - 20, firstFooIdx)).toContain('tail-anchor');
+      460 +  });
+      461 +
+      462 +  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+      463 +    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+      464 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      465 +    expect(count).toBe(1);
+      466 +  });
+      467 +
+      468 +  it('wraps only the target occurrence, leaving others as plain text', () => {
+      469 +    const html = 'alpha beta alpha beta alpha';
+      470 +    const result = injectTailAnchor(html, 'alpha', 3, 2);
+      471 +    // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
+      472 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      473 +    expect(count).toBe(1);
+      474 +    // plain occurrences still appear in output
+      475 +    expect(result).toContain('alpha');
+      476 +  });
+      477  });
+      478
+      479  // ─── LINK_COLORS ─────────────────────────────────────────
+
+⏺ Now add tests for tailAnchorMatchIdx in the integration tests:
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 11 lines
+      78      expect(S.nodes[0].showTail).toBe(false);
+      79    });
+      80
+      81 +  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+      82 +    const b = addBubble(50, 60);
+      83 +    b.tailAnchorMatchIdx = 2;
+      84 +
+      85 +    saveState();
+      86 +    loadState({ nodes: [], links: [] });
+      87 +    restoreFromStorage();
+      88 +
+      89 +    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+      90 +  });
+      91 +
+      92    it('restores links connecting nodes', () => {
+      93      const a = addNode(0,   0,   'foo()');
+      94      const b = addNode(500, 0,   'bar()');
+
+⏺ Now add a test for addBubble initializing tailAnchorMatchIdx = -1 and paste resetting it. Let me find the bubble tests in canvas-dom.test.js:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 12 lines
+      143      const n = addBubble(0, 0);
+      144      expect(n.showTail).toBe(true);
+      145    });
+      146 +
+      147 +  it('initializes tailAnchorMatchIdx to -1', () => {
+      148 +    const n = addBubble(0, 0);
+      149 +    expect(n.tailAnchorMatchIdx).toBe(-1);
+      150 +  });
+      151 +
+      152 +  it('initializes tailAnchorId, tailAnchorText, tailAnchorFromId to null', () => {
+      153 +    const n = addBubble(0, 0);
+      154 +    expect(n.tailAnchorId).toBeNull();
+      155 +    expect(n.tailAnchorText).toBeNull();
+      156 +    expect(n.tailAnchorFromId).toBeNull();
+      157 +  });
+      158  });
+      159
+      160  // ─── loadState ─────────────────────────────────────────
+
+⏺ Now add a test for pasted bubble resetting tailAnchorMatchIdx. Let me find the copy/paste tests:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 10 lines
+      578      expect(() => pasteNodes()).not.toThrow();
+      579      expect(S.nodes).toHaveLength(2);
+      580    });
+      581 +
+      582 +  it('pasted bubble resets tailAnchorMatchIdx to -1', () => {
+      583 +    const b = addBubble(50, 50);
+      584 +    b.tailAnchorMatchIdx = 2; // simulate an anchored tail
+      585 +    selectNode(b.id);
+      586 +    copyNodes();
+      587 +    pasteNodes();
+      588 +    const pasted = S.nodes.find(n => n.id !== b.id);
+      589 +    expect(pasted.tailAnchorMatchIdx).toBe(-1);
+      590 +  });
+      591  });
+      592
+      593  // ─── Font defaults ─────────────────────────────────────────
+
+⏺ Now let's run the tests to make sure everything passes:
+
+⏺ Bash(npm test 2>&1)
+  ⎿  Error: Exit code 1
+
+     > test
+     > vitest run
+
+
+      RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ❯ tests/canvas-utils.test.js (134 tests | 1 failed) 54ms
+        × injectTailAnchor > wraps only occurrence 0 when tailMatchIdx=0 23ms
+     … +29 lines (ctrl+o to see all)
+
+⏺ The test logic for checking the first occurrence is wrong. Let me fix it:
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 2 lines, removed 3 lines
+      454      const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+      455      const count = (result.match(/class="tail-anchor"/g) || []).length;
+      456      expect(count).toBe(1);
+      457 -    // The wrapped occurrence must be the first one; the others are plain text
+      458 -    const firstFooIdx = result.indexOf('foo');
+      459 -    expect(result.slice(firstFooIdx - 20, firstFooIdx)).toContain('tail-anchor');
+      457 +    // The first occurrence should be wrapped; result starts with the span
+      458 +    expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
+      459    });
+      460
+      461    it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ All 327 tests pass. Now let's update CLAUDE.md to reflect the changes:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 2 lines, removed 2 lines
+      63  - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from start
+          ing when a button inside a node is clicked (requires DOM)
+      64  - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
+      65  - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
+      66 -- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor spans into highlighted HTML; shares core logic with `
+         -injectTailAnchor` via internal `_injectSpans`
+      67 -- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor spans
+      66 +- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in high
+         +lighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `inject
+         +TailAnchor` via internal `_injectSpans`.
+      67 +- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx
+         +>= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
+      68  - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
+      69  - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
+      70  - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      72
+      73  ## Key patterns
+      74
+      75 -- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         -LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Fr
+         -ame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFam
+         -ily, fontSize }`.
+      75 +- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, show
+         +LineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailA
+         +nchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anch
+         +ored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color
+         +}`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+      76  - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-
+          block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+      77  - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
+      78  - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in
+          `S.links[]`; rendered as SVG paths on every viewport change.
+
+⏺ Now update the Node types table in CLAUDE.md to reflect the full bubble fields:
+
+⏺ Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      87  | Type | Created by | Key fields |
+      88  |------|-----------|------------|
+      89  | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNum
+          berStart`, `color` |
+      90 -| `bubble` | "💬 Bubble" button | `text`, `tailX`, `tailY`, `color`, `showTail` |
+      90 +| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `
+         +tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
+      91  | `frame` | "⬜ Group" button | `label`, `color` |
+      92  | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+      93
+
+⏺ Let's run the tests one final time to confirm everything is still green:
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (134 tests) 53ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 327 tests, all green. Here's a summary of what was updated:
+
+  Tests added (12 new tests, 315 → 327):
+
+  - tests/canvas-utils.test.js — injectAnchor:
+    - wraps all occurrences when anchorMatchIdx = -1
+    - marks only the target occurrence with data-lid-primary
+    - correct primary attribution for occurrence 0 vs 1
+    - no primary attribute when anchorMatchIdx = -1
+  - tests/canvas-utils.test.js — injectTailAnchor:
+    - wraps all occurrences when tailMatchIdx = -1
+    - wraps only occurrence 0 when tailMatchIdx = 0
+    - wraps only occurrence 1 when tailMatchIdx = 1
+    - plain occurrences remain as text when a target is specified
+  - tests/canvas-dom.test.js — addBubble:
+    - initializes tailAnchorMatchIdx to -1
+    - initializes tailAnchorId/Text/FromId to null
+    - pasted bubble resets tailAnchorMatchIdx to -1
+  - tests/canvas-integration.test.js — Save/Restore:
+    - tailAnchorMatchIdx survives a save/restore round-trip
+
+  CLAUDE.md updated:
+  - injectAnchor / injectTailAnchor signatures and behavior (first-line skip removed, tailMatchIdx parameter added)
+  - Bubble node model now lists all tail anchor fields including tailAnchorMatchIdx
+  - Node types table updated with full bubble fields and new creation path ("Create bubble from here" tip)
+
+✻ Cogitated for 4m 33s
+```

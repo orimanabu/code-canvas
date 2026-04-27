@@ -78,6 +78,17 @@ describe('Save/Restore round-trip', () => {
     expect(S.nodes[0].showTail).toBe(false);
   });
 
+  it('restores tailAnchorMatchIdx for bubble nodes', () => {
+    const b = addBubble(50, 60);
+    b.tailAnchorMatchIdx = 2;
+
+    saveState();
+    loadState({ nodes: [], links: [] });
+    restoreFromStorage();
+
+    expect(S.nodes[0].tailAnchorMatchIdx).toBe(2);
+  });
+
   it('restores links connecting nodes', () => {
     const a = addNode(0,   0,   'foo()');
     const b = addNode(500, 0,   'bar()');

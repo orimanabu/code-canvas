@@ -143,6 +143,18 @@ describe('addBubble', () => {
     const n = addBubble(0, 0);
     expect(n.showTail).toBe(true);
   });
+
+  it('initializes tailAnchorMatchIdx to -1', () => {
+    const n = addBubble(0, 0);
+    expect(n.tailAnchorMatchIdx).toBe(-1);
+  });
+
+  it('initializes tailAnchorId, tailAnchorText, tailAnchorFromId to null', () => {
+    const n = addBubble(0, 0);
+    expect(n.tailAnchorId).toBeNull();
+    expect(n.tailAnchorText).toBeNull();
+    expect(n.tailAnchorFromId).toBeNull();
+  });
 });
 
 // ─── loadState ─────────────────────────────────────────
@@ -565,6 +577,16 @@ describe('copyNodes / cutNodes / pasteNodes', () => {
     // Should not throw; S.clipboard unchanged, paste proceeds normally
     expect(() => pasteNodes()).not.toThrow();
     expect(S.nodes).toHaveLength(2);
+  });
+
+  it('pasted bubble resets tailAnchorMatchIdx to -1', () => {
+    const b = addBubble(50, 50);
+    b.tailAnchorMatchIdx = 2; // simulate an anchored tail
+    selectNode(b.id);
+    copyNodes();
+    pasteNodes();
+    const pasted = S.nodes.find(n => n.id !== b.id);
+    expect(pasted.tailAnchorMatchIdx).toBe(-1);
   });
 });
 

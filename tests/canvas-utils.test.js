@@ -371,6 +371,35 @@ describe('injectAnchor', () => {
     const html = 'first line\nhello world';
     expect(injectAnchor(html, 'notfound', 'z')).toBe(html);
   });
+
+  it('wraps all occurrences when anchorMatchIdx is -1', () => {
+    const result = injectAnchor('foo foo foo', 'foo', 'L1');
+    const count = (result.match(/class="link-anchor"/g) || []).length;
+    expect(count).toBe(3);
+  });
+
+  it('marks the occurrence at anchorMatchIdx with data-lid-primary', () => {
+    const result = injectAnchor('foo foo foo', 'foo', 'L1', 1);
+    // All three are wrapped
+    const count = (result.match(/class="link-anchor"/g) || []).length;
+    expect(count).toBe(3);
+    // Only occurrence 1 (second one) carries data-lid-primary
+    expect(result).toContain('data-lid-primary="1"');
+    const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+    expect(primaryCount).toBe(1);
+  });
+
+  it('marks occurrence 0 (first) as primary when anchorMatchIdx=0', () => {
+    const result = injectAnchor('word word', 'word', 'L2', 0);
+    const parts = result.split('<span class="link-anchor"');
+    // parts[0] is before first anchor; parts[1] is first anchor content
+    expect(parts[1]).toContain('data-lid-primary="1"');
+  });
+
+  it('does not add primary attribute when anchorMatchIdx is -1', () => {
+    const result = injectAnchor('foo foo', 'foo', 'L3');
+    expect(result).not.toContain('data-lid-primary');
+  });
 });
 
 // ─── injectTailAnchor ────────────────────────────────────
@@ -413,6 +442,36 @@ describe('injectTailAnchor', () => {
   it('uses word boundaries — does not match partial words', () => {
     const result = injectTailAnchor('first\nstartNoPodLock', 'start', 1);
     expect(result).not.toContain('tail-anchor');
+  });
+
+  it('wraps all occurrences when tailMatchIdx is -1', () => {
+    const result = injectTailAnchor('foo foo foo', 'foo', 9);
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(3);
+  });
+
+  it('wraps only occurrence 0 when tailMatchIdx=0', () => {
+    const result = injectTailAnchor('foo foo foo', 'foo', 9, 0);
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+    // The first occurrence should be wrapped; result starts with the span
+    expect(result.startsWith('<span class="tail-anchor"')).toBe(true);
+  });
+
+  it('wraps only occurrence 1 (second) when tailMatchIdx=1', () => {
+    const result = injectTailAnchor('foo foo foo', 'foo', 9, 1);
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('wraps only the target occurrence, leaving others as plain text', () => {
+    const html = 'alpha beta alpha beta alpha';
+    const result = injectTailAnchor(html, 'alpha', 3, 2);
+    // occurrence 0 and 1 are plain 'alpha'; occurrence 2 is wrapped
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+    // plain occurrences still appear in output
+    expect(result).toContain('alpha');
   });
 });
 

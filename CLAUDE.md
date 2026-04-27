@@ -63,8 +63,8 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 - `onClickStop(el, handler)` — attach `mousedown` + `click` listeners that both stop propagation, preventing canvas drag from starting when a button inside a node is clicked (requires DOM)
 - `positionCtxMenu(el, x, y)` — show a context-menu element at (x, y), clamped to the viewport (requires DOM)
 - `makeDashSvg(dash, color)`, `makeWidthSvg(width, color)` — inline SVG snippets for context-menu stroke-style buttons
-- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor spans into highlighted HTML; shares core logic with `injectTailAnchor` via internal `_injectSpans`
-- `injectTailAnchor(html, rawText, taid)` — inject tail-anchor spans
+- `injectAnchor(html, rawText, linkId, anchorMatchIdx?)` — inject link-anchor `<span>` around every occurrence of `rawText` in highlighted HTML; when `anchorMatchIdx >= 0`, that specific occurrence also gets `data-lid-primary="1"`. Shares core logic with `injectTailAnchor` via internal `_injectSpans`.
+- `injectTailAnchor(html, rawText, taid, tailMatchIdx?)` — inject a tail-anchor `<span>` into highlighted HTML. When `tailMatchIdx >= 0`, only the occurrence at that index is wrapped; when `-1` (default), all occurrences are wrapped (backward-compat).
 - `splitHtmlLines(html)`, `addLineNumbers(html, start)` — per-line HTML rendering with correct span handling
 - `roundedRectRayHit(...)` — ray vs. rounded-rect intersection (bubble tail geometry)
 - `anchorFpFromSide(r, side)` — exit point from an anchor element's bounding rect
@@ -72,7 +72,7 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 
 ## Key patterns
 
-- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail }`. Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
+- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorMatchIdx }` — `tailAnchorMatchIdx` is the 0-based occurrence index of the anchored text in the source node (−1 = no specific occurrence / wrap all). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
 - **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
 - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
 - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash }` in `S.links[]`; rendered as SVG paths on every viewport change.
@@ -87,7 +87,7 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 | Type | Created by | Key fields |
 |------|-----------|------------|
 | `code` (default) | "+ Add Block" button or canvas double-click | `code`, `lang`, `title`, `filePath`, `showLineNumbers`, `lineNumberStart`, `color` |
-| `bubble` | "💬 Bubble" button | `text`, `tailX`, `tailY`, `color`, `showTail` |
+| `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `tailAnchorText`, `tailAnchorFromId`, `tailAnchorMatchIdx` |
 | `frame` | "⬜ Group" button | `label`, `color` |
 | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
 
