@@ -134,13 +134,10 @@ export const TEXT_COLORS = [
 
 // Shared core for injectAnchor and injectTailAnchor.
 // Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
-// Skips the first line; when `trackCount` is true, first-line matches still
-// advance `matchCount` so `buildSpan(idx)` receives the correct global index.
 // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
-function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
+function _injectSpans(html, re, insidePattern, buildSpan) {
   const parts = html.split(/(<[^>]*>)/);
   let insideAnchor = false;
-  let firstLinePassed = false;
   let matchCount = 0;
 
   function replaceSegment(str) {
@@ -154,29 +151,11 @@ function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
     return out + str.slice(last);
   }
 
-  function countOnly(str) {
-    const cre = new RegExp(re.source, re.flags);
-    while (cre.exec(str) !== null) matchCount++;
-  }
-
   return parts.map((p, i) => {
     if (i % 2 === 1) { // tag segment
       if (insidePattern.test(p)) insideAnchor = true;
       else if (p === '</span>' && insideAnchor) insideAnchor = false;
       return p;
-    }
-    if (!firstLinePassed) {
-      const nlIdx = p.indexOf('\n');
-      if (nlIdx === -1) {
-        if (trackCount) countOnly(p);
-        return p;
-      }
-      firstLinePassed = true;
-      const before = p.slice(0, nlIdx + 1);
-      const after  = p.slice(nlIdx + 1);
-      if (trackCount) countOnly(before);
-      if (insideAnchor) return p;
-      return before + replaceSegment(after);
     }
     if (insideAnchor) return p;
     return replaceSegment(p);
@@ -184,8 +163,6 @@ function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
 }
 
 // Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
-// Matches in the first line are skipped (but counted) so the global occurrence index
-// `anchorMatchIdx` stays consistent with the selection offset computed at link-creation time.
 export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
   const escapedText = esc(rawText);
   const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -199,7 +176,6 @@ export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
       const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
       return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
     },
-    true,
   );
 }
 
@@ -214,7 +190,6 @@ export function injectTailAnchor(html, rawText, taid) {
   return _injectSpans(html, re,
     /^<span[^>]+class="[^"]*\btail-anchor\b/,
     () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
-    false,
   );
 }
 

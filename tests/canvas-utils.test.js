@@ -332,23 +332,22 @@ describe('addLineNumbers', () => {
 
 // ─── injectAnchor ────────────────────────────────────────
 describe('injectAnchor', () => {
-  it('wraps matching text on line 2+ in a link-anchor span', () => {
+  it('wraps matching text in a link-anchor span', () => {
     const result = injectAnchor('first line\nhello world', 'world', 'link-1');
     expect(result).toContain('class="link-anchor"');
     expect(result).toContain('data-lid="link-1"');
     expect(result).toContain('world');
   });
 
-  it('does not inject anchor on the first line', () => {
+  it('injects anchor on the first line', () => {
     const result = injectAnchor('hello world', 'world', 'link-1');
-    expect(result).not.toContain('class="link-anchor"');
-    expect(result).toBe('hello world');
+    expect(result).toContain('class="link-anchor"');
+    expect(result).toContain('data-lid="link-1"');
   });
 
-  it('does not inject anchor when match is only on the first line', () => {
+  it('injects anchor when match is only on the first line', () => {
     const result = injectAnchor('world\nsecond line', 'world', 'x');
-    expect(result).not.toContain('link-anchor');
-    expect(result.startsWith('world\n')).toBe(true);
+    expect(result).toContain('link-anchor');
   });
 
   it('does not alter surrounding text on line 2', () => {
@@ -376,23 +375,22 @@ describe('injectAnchor', () => {
 
 // ─── injectTailAnchor ────────────────────────────────────
 describe('injectTailAnchor', () => {
-  it('wraps matching text on line 2+ in a tail-anchor span', () => {
+  it('wraps matching text in a tail-anchor span', () => {
     const result = injectTailAnchor('first line\nhello world', 'world', 42);
     expect(result).toContain('class="tail-anchor"');
     expect(result).toContain('data-taid="42"');
     expect(result).toContain('world');
   });
 
-  it('does not inject on the first line', () => {
+  it('injects on the first line', () => {
     const result = injectTailAnchor('hello world', 'world', 1);
-    expect(result).not.toContain('tail-anchor');
-    expect(result).toBe('hello world');
+    expect(result).toContain('tail-anchor');
+    expect(result).toContain('data-taid="1"');
   });
 
-  it('does not inject when match is only on the first line', () => {
+  it('injects when match is only on the first line', () => {
     const result = injectTailAnchor('world\nsecond line', 'world', 1);
-    expect(result).not.toContain('tail-anchor');
-    expect(result.startsWith('world\n')).toBe(true);
+    expect(result).toContain('tail-anchor');
   });
 
   it('does not alter surrounding text', () => {

@@ -30693,3 +30693,197 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 2m 8s
 ```
+
+```
+❯ リンクアンカーを決める際、ブロック内の1行目を特別扱いしないようにしてください
+
+⏺ まず関連コードを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ _injectSpans の実装を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ getOccurrenceIdx の実装も確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ injectTailAnchor の呼び出し部分を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ テストも確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 全体を把握しました。変更内容を整理します:
+
+  1. _injectSpans から firstLinePassed / trackCount / countOnly ロジックを削除
+  2. injectAnchor と injectTailAnchor の呼び出しと説明コメントを更新
+  3. テストを新しい動作に合わせて更新
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 1 line, removed 22 lines
+      134
+      135  // Shared core for injectAnchor and injectTailAnchor.
+      136  // Walks `html` split on HTML tags, tracking anchor nesting via `insidePattern`.
+      137 -// Skips the first line; when `trackCount` is true, first-line matches still
+      138 -// advance `matchCount` so `buildSpan(idx)` receives the correct global index.
+      137  // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
+      140 -function _injectSpans(html, re, insidePattern, buildSpan, trackCount) {
+      138 +function _injectSpans(html, re, insidePattern, buildSpan) {
+      139    const parts = html.split(/(<[^>]*>)/);
+      140    let insideAnchor = false;
+      143 -  let firstLinePassed = false;
+      141    let matchCount = 0;
+      142
+      143    function replaceSegment(str) {
+     ...
+      151      return out + str.slice(last);
+      152    }
+      153
+      157 -  function countOnly(str) {
+      158 -    const cre = new RegExp(re.source, re.flags);
+      159 -    while (cre.exec(str) !== null) matchCount++;
+      160 -  }
+      161 -
+      154    return parts.map((p, i) => {
+      155      if (i % 2 === 1) { // tag segment
+      156        if (insidePattern.test(p)) insideAnchor = true;
+      157        else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      158        return p;
+      159      }
+      168 -    if (!firstLinePassed) {
+      169 -      const nlIdx = p.indexOf('\n');
+      170 -      if (nlIdx === -1) {
+      171 -        if (trackCount) countOnly(p);
+      172 -        return p;
+      173 -      }
+      174 -      firstLinePassed = true;
+      175 -      const before = p.slice(0, nlIdx + 1);
+      176 -      const after  = p.slice(nlIdx + 1);
+      177 -      if (trackCount) countOnly(before);
+      178 -      if (insideAnchor) return p;
+      179 -      return before + replaceSegment(after);
+      180 -    }
+      160      if (insideAnchor) return p;
+      161      return replaceSegment(p);
+      162    }).join('');
+
+⏺ Update(canvas-utils.js)
+  ⎿  Removed 3 lines
+      163  }
+      164
+      165  // Inject link-anchor spans around all occurrences of rawText in highlighted HTML.
+      166 -// Matches in the first line are skipped (but counted) so the global occurrence index
+      167 -// `anchorMatchIdx` stays consistent with the selection offset computed at link-creation time.
+      166  export function injectAnchor(html, rawText, linkId, anchorMatchIdx = -1) {
+      167    const escapedText = esc(rawText);
+      168    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+     ...
+      176        const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
+      177        return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      178      },
+      181 -    true,
+      179    );
+      180  }
+      181
+
+⏺ Update(canvas-utils.js)
+  ⎿  Removed 1 line
+      190    return _injectSpans(html, re,
+      191      /^<span[^>]+class="[^"]*\btail-anchor\b/,
+      192      () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+      193 -    false,
+      193    );
+      194  }
+      195
+
+⏺ 次にテストを更新します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 6 lines, removed 7 lines
+      332
+      333  // ─── injectAnchor ────────────────────────────────────────
+      334  describe('injectAnchor', () => {
+      335 -  it('wraps matching text on line 2+ in a link-anchor span', () => {
+      335 +  it('wraps matching text in a link-anchor span', () => {
+      336      const result = injectAnchor('first line\nhello world', 'world', 'link-1');
+      337      expect(result).toContain('class="link-anchor"');
+      338      expect(result).toContain('data-lid="link-1"');
+      339      expect(result).toContain('world');
+      340    });
+      341
+      342 -  it('does not inject anchor on the first line', () => {
+      342 +  it('injects anchor on the first line', () => {
+      343      const result = injectAnchor('hello world', 'world', 'link-1');
+      344 -    expect(result).not.toContain('class="link-anchor"');
+      345 -    expect(result).toBe('hello world');
+      344 +    expect(result).toContain('class="link-anchor"');
+      345 +    expect(result).toContain('data-lid="link-1"');
+      346    });
+      347
+      348 -  it('does not inject anchor when match is only on the first line', () => {
+      348 +  it('injects anchor when match is only on the first line', () => {
+      349      const result = injectAnchor('world\nsecond line', 'world', 'x');
+      350 -    expect(result).not.toContain('link-anchor');
+      351 -    expect(result.startsWith('world\n')).toBe(true);
+      350 +    expect(result).toContain('link-anchor');
+      351    });
+      352
+      353    it('does not alter surrounding text on line 2', () => {
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 6 lines, removed 7 lines
+      375
+      376  // ─── injectTailAnchor ────────────────────────────────────
+      377  describe('injectTailAnchor', () => {
+      378 -  it('wraps matching text on line 2+ in a tail-anchor span', () => {
+      378 +  it('wraps matching text in a tail-anchor span', () => {
+      379      const result = injectTailAnchor('first line\nhello world', 'world', 42);
+      380      expect(result).toContain('class="tail-anchor"');
+      381      expect(result).toContain('data-taid="42"');
+      382      expect(result).toContain('world');
+      383    });
+      384
+      385 -  it('does not inject on the first line', () => {
+      385 +  it('injects on the first line', () => {
+      386      const result = injectTailAnchor('hello world', 'world', 1);
+      387 -    expect(result).not.toContain('tail-anchor');
+      388 -    expect(result).toBe('hello world');
+      387 +    expect(result).toContain('tail-anchor');
+      388 +    expect(result).toContain('data-taid="1"');
+      389    });
+      390
+      391 -  it('does not inject when match is only on the first line', () => {
+      391 +  it('injects when match is only on the first line', () => {
+      392      const result = injectTailAnchor('world\nsecond line', 'world', 1);
+      393 -    expect(result).not.toContain('tail-anchor');
+      394 -    expect(result.startsWith('world\n')).toBe(true);
+      393 +    expect(result).toContain('tail-anchor');
+      394    });
+      395
+      396    it('does not alter surrounding text', () => {
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過しました。
+
+  変更内容のまとめ:
+
+  canvas-utils.js
+  - _injectSpans から firstLinePassed、trackCount、countOnly のロジックを削除。全テキストセグメントを均一に処理するようになった。
+  - injectAnchor と injectTailAnchor の呼び出しから trackCount 引数を除去。
+  - 1行目スキップに関するコメントを削除。
+
+  tests/canvas-utils.test.js
+  - 「1行目には注入しない」を検証していたテスト 4 件を「1行目にも注入する」に反転。
+
+✻ Sautéed for 2m 47s
+```
