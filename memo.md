@@ -30246,3 +30246,242 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Worked for 3m 14s
 ```
+
+```
+❯ anchorMatchIdxが正しく機能しているか確認してください。期待したMatch Indexがリンク元になっていないように見えます
+
+⏺ Explore(Explore anchorMatchIdx usage)
+  ⎿  Done (17 tool uses · 65.5k tokens · 57s)
+  (ctrl+o to expand)
+
+⏺ Now let me read the critical code sections directly to understand the bugs:
+
+  Searched for 1 pattern, read 4 files (ctrl+o to expand)
+
+⏺ Now I have a clear picture of the bug. Let me write the plan.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Ready to code?
+
+ Here is Claude's plan:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Plan: Fix anchorMatchIdx incorrect occurrence index when line numbers are enabled
+
+ Context
+
+ The user reports that anchorMatchIdx is not working correctly: when selecting a specific occurrence of a repeated keyword to create a link, the
+ link arrow originates from the wrong occurrence.
+
+ Root cause confirmed: getCodeTextOffset in canvas-links.js computes a character offset that does not account for \n characters removed by
+ addLineNumbers. When line numbers are enabled (showLineNumbers=true), addLineNumbers wraps each line in <span class="code-line"> and strips the \n
+  separators from the DOM. The walker in getCodeTextOffset accumulates text-node lengths without the \n gaps, so it returns a compressed offset.
+ getOccurrenceIdx then receives this shorter offset and finds the wrong match in the raw code (which still contains \n), returning an occurrence
+ index that is too low.
+
+ Example:
+ - Raw code: "foo\nfoo\nfoo" — "foo" appears at positions 0, 4, 8
+ - User selects the 3rd "foo" (line 3); DOM text nodes have no \n, so charOffset = 6
+ - getOccurrenceIdx("foo\nfoo\nfoo", "foo", 6) → position 4 contains offset 6 → returns index 1 (wrong; should be 2)
+ - With fix: charOffset = 8 → position 8 → returns index 2 ✓
+
+ Critical files
+
+ ┌─────────────────┬───────────┬─────────────────────────────────────────────────────────────┐
+ │      File       │ Location  │                            Role                             │
+ ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+ │ canvas-links.js │ ~line 373 │ getCodeTextOffset — the function to fix                     │
+ ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+ │ canvas-links.js │ ~line 392 │ getOccurrenceIdx — downstream consumer (no change needed)   │
+ ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+ │ canvas-utils.js │ ~line 140 │ _injectSpans / injectAnchor — downstream (no change needed) │
+ └─────────────────┴───────────┴─────────────────────────────────────────────────────────────┘
+
+ Fix
+
+ File: canvas-links.js, getCodeTextOffset function (~line 373–388)
+
+ Detect .code-line boundary crossings and add 1 to total per crossing to restore the stripped \n characters:
+
+ function getCodeTextOffset(pre, startNode, startOffset) {
+   const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, {
+     acceptNode(node) {
+       return node.parentElement?.closest('.ln-num')
+         ? NodeFilter.FILTER_REJECT
+         : NodeFilter.FILTER_ACCEPT;
+     },
+   });
+   let total = 0;
+   let lastCodeLine = null;
+   let node;
+   while ((node = walker.nextNode())) {
+     // addLineNumbers removes \n between lines; compensate by adding 1
+     // each time we cross into a new .code-line span.
+     const codeLine = node.parentElement?.closest('.code-line');
+     if (codeLine && codeLine !== lastCodeLine && lastCodeLine !== null) {
+       total += 1;
+     }
+     lastCodeLine = codeLine;
+     if (node === startNode) return total + startOffset;
+╭─── Claude Code v2.1.109 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                    │ Recent activity                                                                             │
+│                Welcome back Manabu!                │ 1d ago  テスト、ドキュメントの更新もお願いします                                            │
+│                                                    │ 1d ago  ファイル分割してcanvas.jsの行数を減らしたいです。コードのメンテナンスのしやすさ、…  │
+│                                                    │ 1d ago  /exit                                                                               │
+│                       ▐▛███▜▌                      │ /resume for more                                                                            │
+│                      ▝▜█████▛▘                     │ ─────────────────────────────────────────────────────────────────────────────────────────── │
+│                        ▘▘ ▝▝                       │ What's new                                                                                  │
+│                                                    │ `/config` settings (theme, editor mode, verbose, etc.) now persist to `~/.claude/settings.… │
+│  Sonnet 4.6 · Claude Pro · manabu.ori@gmail.com's  │ Added `prUrlTemplate` setting to point the footer PR badge at a custom code-review URL ins… │
+│  Organization                                      │ Added `CLAUDE_CODE_HIDE_CWD` environment variable to hide the working directory in the sta… │
+│    ~/devel/src/github.com/orimanabu/code-canvas    │ /release-notes for more                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+❯ /clear
+  ⎿  (no content)
+
+❯ anchorMatchIdxが正しく機能しているか確認してください。期待したMatch Indexがリンク元になっていないように見えます
+
+⏺ Explore(Explore anchorMatchIdx usage)
+  ⎿  Done (17 tool uses · 65.5k tokens · 57s)
+  (ctrl+o to expand)
+
+⏺ Now let me read the critical code sections directly to understand the bugs:
+
+  Searched for 1 pattern, read 4 files (ctrl+o to expand)
+
+⏺ Now I have a clear picture of the bug. Let me write the plan.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Updated plan
+  ⎿  /plan to preview
+
+⏺ User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/crispy-cooking-rossum.md · /plan to edit
+     Plan: Fix anchorMatchIdx incorrect occurrence index when line numbers are enabled
+
+     Context
+
+     The user reports that anchorMatchIdx is not working correctly: when selecting a specific occurrence of a repeated keyword to create a link, the
+      link arrow originates from the wrong occurrence.
+
+     Root cause confirmed: getCodeTextOffset in canvas-links.js computes a character offset that does not account for \n characters removed by
+     addLineNumbers. When line numbers are enabled (showLineNumbers=true), addLineNumbers wraps each line in <span class="code-line"> and strips the
+      \n separators from the DOM. The walker in getCodeTextOffset accumulates text-node lengths without the \n gaps, so it returns a compressed
+     offset. getOccurrenceIdx then receives this shorter offset and finds the wrong match in the raw code (which still contains \n), returning an
+     occurrence index that is too low.
+
+     Example:
+     - Raw code: "foo\nfoo\nfoo" — "foo" appears at positions 0, 4, 8
+     - User selects the 3rd "foo" (line 3); DOM text nodes have no \n, so charOffset = 6
+     - getOccurrenceIdx("foo\nfoo\nfoo", "foo", 6) → position 4 contains offset 6 → returns index 1 (wrong; should be 2)
+     - With fix: charOffset = 8 → position 8 → returns index 2 ✓
+
+     Critical files
+
+     ┌─────────────────┬───────────┬─────────────────────────────────────────────────────────────┐
+     │      File       │ Location  │                            Role                             │
+     ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+     │ canvas-links.js │ ~line 373 │ getCodeTextOffset — the function to fix                     │
+     ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+     │ canvas-links.js │ ~line 392 │ getOccurrenceIdx — downstream consumer (no change needed)   │
+     ├─────────────────┼───────────┼─────────────────────────────────────────────────────────────┤
+     │ canvas-utils.js │ ~line 140 │ _injectSpans / injectAnchor — downstream (no change needed) │
+     └─────────────────┴───────────┴─────────────────────────────────────────────────────────────┘
+
+     Fix
+
+     File: canvas-links.js, getCodeTextOffset function (~line 373–388)
+
+     Detect .code-line boundary crossings and add 1 to total per crossing to restore the stripped \n characters:
+
+     function getCodeTextOffset(pre, startNode, startOffset) {
+       const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, {
+         acceptNode(node) {
+           return node.parentElement?.closest('.ln-num')
+             ? NodeFilter.FILTER_REJECT
+             : NodeFilter.FILTER_ACCEPT;
+         },
+       });
+       let total = 0;
+       let lastCodeLine = null;
+       let node;
+       while ((node = walker.nextNode())) {
+         // addLineNumbers removes \n between lines; compensate by adding 1
+         // each time we cross into a new .code-line span.
+         const codeLine = node.parentElement?.closest('.code-line');
+         if (codeLine && codeLine !== lastCodeLine && lastCodeLine !== null) {
+           total += 1;
+         }
+         lastCodeLine = codeLine;
+         if (node === startNode) return total + startOffset;
+         total += node.textContent.length;
+       }
+       return -1;
+     }
+
+     Why this is safe:
+     - When showLineNumbers=false, there are no .code-line spans → codeLine is always null → condition never triggers → existing behavior preserved.
+     - When showLineNumbers=true, +1 is added for each line boundary crossed (exactly the number of \n chars removed by addLineNumbers).
+     - The lastCodeLine !== null guard prevents adding +1 for the very first line (no preceding \n).
+
+     Secondary issue (not blocking, noted for awareness)
+
+     _injectSpans deliberately skips injecting spans in the first line of the highlighted HTML (but counts them via countOnly when trackCount=true).
+      If the user selects text that only appears on line 1, no data-lid-primary span is ever injected, so the link arrow falls back to the first
+     available span on a later line. This is pre-existing intentional design and is not the issue the user is reporting, so it is not changed here.
+
+     Verification
+
+     1. Create a code block, enable Line No (line numbers).
+     2. Enter code with the same word repeated on multiple lines (e.g., start).
+     3. Select the 2nd or 3rd occurrence of that word.
+     4. Create a link ("Link to…" or "New block").
+     5. Confirm: the link arrow's origin highlights the occurrence that was selected, not the first occurrence.
+     6. Also test without line numbers: behavior should be unchanged.
+     7. Run npm test — all existing tests should pass (no test changes expected).
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 8 lines
+      379        },
+      380      });
+      381      let total = 0;
+      382 +    let lastCodeLine = null;
+      383      let node;
+      384      while ((node = walker.nextNode())) {
+      385 +      // addLineNumbers strips \n from the DOM (each line becomes <span class="code-line">).
+      386 +      // Re-add 1 per line boundary crossed so the offset matches codeNode.code.
+      387 +      const codeLine = node.parentElement?.closest('.code-line');
+      388 +      if (codeLine && codeLine !== lastCodeLine && lastCodeLine !== null) {
+      389 +        total += 1;
+      390 +      }
+      391 +      lastCodeLine = codeLine;
+      392        if (node === startNode) return total + startOffset;
+      393        total += node.textContent.length;
+      394      }
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ All 315 tests pass.
+
+  Fix applied to canvas-links.js line 373: getCodeTextOffset now tracks the current .code-line span and adds 1 to the accumulated offset each time
+  it crosses into a new line span.
+
+  Why this fixes the bug: addLineNumbers converts \n characters into span boundaries (<span class="code-line">...</span>), removing them from the
+  DOM's text content. The old code accumulated text-node lengths without those missing newlines, so the returned offset was "compressed" by one
+  character per preceding line break. getOccurrenceIdx would then find a match at a lower index than the one actually selected. With the fix, the
+  offset correctly mirrors the position in codeNode.code.
+
+  Scope: Only affects selection on code blocks with line numbers enabled (showLineNumbers=true). When line numbers are off, there are no .code-line
+  spans, so codeLine is always null and the new code path never triggers.
+
+✻ Sautéed for 8m 24s
+```

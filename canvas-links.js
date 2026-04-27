@@ -379,8 +379,16 @@ export function initLinks(deps) {
       },
     });
     let total = 0;
+    let lastCodeLine = null;
     let node;
     while ((node = walker.nextNode())) {
+      // addLineNumbers strips \n from the DOM (each line becomes <span class="code-line">).
+      // Re-add 1 per line boundary crossed so the offset matches codeNode.code.
+      const codeLine = node.parentElement?.closest('.code-line');
+      if (codeLine && codeLine !== lastCodeLine && lastCodeLine !== null) {
+        total += 1;
+      }
+      lastCodeLine = codeLine;
       if (node === startNode) return total + startOffset;
       total += node.textContent.length;
     }
