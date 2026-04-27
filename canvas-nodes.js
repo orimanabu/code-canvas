@@ -109,6 +109,7 @@ export function initNodes(deps) {
       class: 'tail-handle',
       cx: tip.x, cy: tip.y, r: '6',
       fill: _tc.hex, stroke: '#0d1117', 'stroke-width': '1.5',
+      opacity: '0.7',
     });
     handle.addEventListener('mousedown', e => {
       e.stopPropagation(); e.preventDefault();
