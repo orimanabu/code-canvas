@@ -107,7 +107,7 @@ export function initNodes(deps) {
 
     const handle = svgE('circle', {
       class: 'tail-handle',
-      cx: tip.x, cy: tip.y, r: '6',
+      cx: tip.x, cy: tip.y, r: '3',
       fill: _tc.hex, stroke: '#0d1117', 'stroke-width': '1.5',
       opacity: '0.7',
     });
