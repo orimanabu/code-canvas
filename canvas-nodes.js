@@ -422,7 +422,7 @@ export function initNodes(deps) {
 
     el.addEventListener('dblclick', e => {
       e.stopPropagation();
-      if (n.type === 'text' && !e.target.closest('.node-btn') && S.editing !== n.id) {
+      if ((n.type === 'text' || n.type === 'bubble') && !e.target.closest('.node-btn') && S.editing !== n.id) {
         startEdit(n.id);
       }
     });

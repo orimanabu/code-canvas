@@ -35483,3 +35483,32 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Crunched for 1m 37s
 ```
+
+```
+❯ BubbleとTextに関して、ブロックをダブルクリックすると編集モードに入るようにしてください
+
+⏺ Let me look at how node events are currently set up for bubble and text nodes.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ setupNodeEventsのdblclickハンドラはtextノードのみ対応しています。bubbleノードはダブルクリックで編集モードに入るよう別のハンドラ（line
+  247）があります。その内容を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ setupNodeEvents の dblclick ハンドラは type === 'text' のみ対応しています。bubble を追加すればOKです。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      422
+      423      el.addEventListener('dblclick', e => {
+      424        e.stopPropagation();
+      425 -      if (n.type === 'text' && !e.target.closest('.node-btn') && S.editing !== n.id) {
+      425 +      if ((n.type === 'text' || n.type === 'bubble') && !e.target.closest('.node-btn') && S.editing !== n.id) {
+      426          startEdit(n.id);
+      427        }
+      428      });
+
+⏺ BubbleとTextノードをダブルクリックすると編集モードに入るようになりました。変更は1行のみで、setupNodeEvents の dblclick ハンドラの条件に n.type ===
+   'bubble' を追加しました（canvas-nodes.js:425）。
+```
