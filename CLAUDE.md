@@ -11,10 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | File | Description |
 |------|-------------|
 | `canvas.html` | Entry point. Minimal DOM: toolbar, canvas container, SVG layer, modal dialogs, status bar. Loads `canvas.css` and `canvas.js` as an ES module (`<script type="module">`). |
-| `canvas.css` | All styles. Four major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), and text nodes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`). |
+| `canvas.css` | All styles. Five major visual systems: code block nodes (`.node`, `.node-header`, `.node-body`), bubble/comment nodes (`.bubble-node`, `.bubble-body`, `.bubble-tail-poly`), frame nodes (`.frame-node`, `.frame-header`, `.frame-label`), text nodes (`.text-node`, `.text-node-header`, `.text-body`, `.text-content`), and arrow nodes (`.arrow-node`, `.arrow-handle`, `.arrow-body-handle`, `.arrow-head-handle`, `.arrow-rotate-handle`). |
 | `canvas-utils.js` | Utility functions and constants. ES module with named exports. Pure functions (no DOM) are unit-testable without jsdom; DOM helpers (`svgE`, `buildMenuItems`, `onClickStop`, `positionCtxMenu`) require jsdom and are tested in `tests/canvas-utils-dom.test.js`. Also exports `LINK_COLORS`, `LINK_WIDTHS`, `LINK_DASHES`, `makeDashSvg`, `makeWidthSvg`, `READY_STATUS`, `DEFAULT_FONT_SIZE` shared by other modules. |
-| `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameContent`, `renderNode`. |
-| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
+| `canvas-node-rendering.js` | Node rendering logic. `initNodeRendering(deps)` → `{ renderNode }`. Contains: HIGHLIGHT, COLOR/FONT HELPERS, Z-ORDER, HTML builders (`editHTML`, `viewHTML`, `bubbleViewHTML`, `bubbleEditHTML`), `renderBubbleContent`, `renderFrameContent`, `renderArrowContent`, `renderNode`. |
+| `canvas-nodes.js` | Node lifecycle and clipboard. `initNodes(deps)` → node functions. Contains: bubble tail rendering (`renderBubbleTail`, `renderAnchoredBubbleTails`, `attachTailToText`), `addNode`, `addBubble`, `addFrame`, `addText`, `addArrow`, `removeNode`, `startEdit`, `stopEdit`, `autoFitNode`, `selectNode`, `toggleMultiSel`, `clearMultiSel`, `setupNodeEvents`, `setupFrameEvents`, `setupArrowEvents`, COPY/CUT/PASTE, `fitAll`, `jumpTo`. |
 | `canvas-links.js` | Link system. `initLinks(deps)` → link functions. Contains: `createLink`, `removeLink`, `renderLinks`, `targetEntryPoint`, LINK/TAIL-ATTACH MODES, LINK CONTEXT MENU, LINK PREVIEW, TEXT SELECTION→LINK. |
 | `canvas-free-lines.js` | Freehand lines. `initFreeLines(deps)` → free-line functions. Contains: `renderFreeLines`, `addFreeLine`, `removeFreeLine`, `selectFreeLine`, line draw mode, line context menu. |
 | `canvas-dialogs.js` | All modal dialog logic (Global Config, Repo sub-dialog, Group Frame, Git Fetch, codesnippetd). Initialized via `initDialogs(deps)` called from `canvas.js`. |
@@ -73,8 +73,8 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 
 ## Key patterns
 
-- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-based column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wrap all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`.
-- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, or the code-block view/edit HTML generators. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
+- **Node data model**: Each node in `S.nodes[]` is a plain object. Code nodes: `{ id, x, y, w, h, code, lang, title, filePath, showLineNumbers, lineNumberStart, color }`. Bubble nodes: `{ id, type: 'bubble', x, y, w, h, text, tailX, tailY, color, showTail, tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol }` — `tailAnchorLine` (1-based) and `tailAnchorCol` (0-based column within the line) identify the exact position of the anchored text in the raw source code (−1 = no specific position / wrap all occurrences). Frame nodes: `{ id, type: 'frame', x, y, w, h, label, color }`. Text nodes: `{ id, type: 'text', x, y, w, h, text, textColor, fontFamily, fontSize }`. Arrow nodes: `{ id, type: 'arrow', x, y, bodyLen, headLen, headWidth, angle, color, strokeWidth }` — `x,y` is the tail/pivot point in canvas coords; `angle` is degrees clockwise from +X (0=right); no `w`/`h` (width = bodyLen + headLen, height is fixed 40px).
+- **Rendering**: `renderNode(n)` dispatches to `renderFrameContent()`, `renderTextContent()`, `renderBubbleContent()`, `renderArrowContent()`, or the code-block view/edit HTML generators. Arrow nodes return early before the standard `left/top/width/height` assignment. Nodes are never re-rendered in-place; `stopEdit()` re-renders the whole element.
 - **Edit mode**: `startEdit(id)` swaps the highlighted `<pre>` for a `<textarea>`; `stopEdit()` reads the textarea and re-renders.
 - **Links**: Created via text selection → tooltip click flow. Stored as `{ id, fromId, toId, text, stroke, strokeWidth, dash, anchorLine, anchorCol }` in `S.links[]`; rendered as SVG paths on every viewport change. `anchorLine` (1-based) and `anchorCol` (0-based) identify the specific occurrence of `text` in the source node that serves as the arrow origin (−1 = not set).
 - **Free lines**: Stored as `{ id, points, lineStyle, stroke, strokeWidth, dash }` in `S.freeLines[]`. Rendered into a `<g id="free-lines-layer">` inside `#svg-links`. `lineStyle` is `'polyline'`, `'curve'`, or `'straight'`.
@@ -91,6 +91,18 @@ canvas.js                 ← imports all of the above; owns S, wires deps
 | `bubble` | "💬 Bubble" button or "Create bubble from here" tip | `text`, `tailX`, `tailY`, `color`, `showTail`, `tailAnchorId`, `tailAnchorText`, `tailAnchorFromId`, `tailAnchorLine`, `tailAnchorCol` |
 | `frame` | "⬜ Group" button | `label`, `color` |
 | `text` | "T Text" button | `text`, `textColor` (from `TEXT_COLORS`), `fontFamily`, `fontSize` |
+| `arrow` | "→ Arrow" button | `x`, `y` (tail/pivot), `bodyLen`, `headLen`, `headWidth`, `angle` (degrees CW from +X), `color`, `strokeWidth` |
+
+### Arrow node specifics
+
+Arrow nodes use a different layout model from other node types:
+- **No `w`/`h`**: div width = `bodyLen + headLen`; height is fixed at 40px.
+- **`top = n.y - 20`**: the div is vertically centered on the tail point (n.x, n.y).
+- **CSS rotation**: `transform: rotate(angle + 'deg')` with `transform-origin: 0 50%` pivots at the tail.
+- **Three SVG drag handles** (rebuilt on every render): blue `.arrow-body-handle` (resize shaft), yellow `.arrow-head-handle` (resize arrowhead), green `.arrow-rotate-handle` (rotate; Shift snaps to 15°).
+- **`S.arrowDrag`**: `{ id, handleType: 'body'|'head'|'rotate' }` — processed in `canvas.js` mousemove using dot-product projection onto the arrow axis.
+- **Context menu** (`#arrow-ctx`): color swatches + stroke width (1–4px) + delete.
+- **Drag top-offset**: the drag handler in `canvas.js` uses `n.y - 20` for `el.style.top` for arrow nodes.
 
 ## Keyboard shortcuts
 

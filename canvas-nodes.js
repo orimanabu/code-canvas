@@ -1,5 +1,5 @@
 // No local imports — all deps injected via initNodes(deps)
-import { roundedRectRayHit, anchorFpFromSide, NODE_COLORS, svgE } from './canvas-utils.js';
+import { roundedRectRayHit, anchorFpFromSide, NODE_COLORS, svgE, buildMenuItems, positionCtxMenu } from './canvas-utils.js';
 
 export function initNodes(deps) {
   const { S, canvas, wrap, ndEl, s2c, c2s,
@@ -297,6 +297,138 @@ export function initNodes(deps) {
     selectNode(n.id);
     scheduleSave();
     return n;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // ARROW NODE
+  // ═══════════════════════════════════════════════════════
+  function addArrow(x, y) {
+    pushUndo();
+    const n = {
+      id: S.nid++, type: 'arrow',
+      x, y,
+      bodyLen: 160, headLen: 28, headWidth: 20,
+      angle: 0, color: 'blue', strokeWidth: 2,
+    };
+    S.nodes.push(n);
+    const el = document.createElement('div');
+    el.className = 'arrow-node';
+    el.id = 'nd-' + n.id;
+    canvas.appendChild(el);
+    setupArrowEvents(n, el);
+    renderNode(n, el);
+    renderLinks();
+    selectNode(n.id);
+    scheduleSave();
+    return n;
+  }
+
+  function setupArrowEvents(n, el) {
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      if (e.target.classList.contains('arrow-handle')) return;
+      if (S.linkMode || S.tailAttachMode) { e.stopPropagation(); return; }
+      if (e.ctrlKey || e.metaKey) return;
+      if (S.mode === 'hand' || S.spaceDown) {
+        e.preventDefault();
+        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+        wrap.style.cursor = 'grabbing';
+        return;
+      }
+      if (e.shiftKey) {
+        e.preventDefault(); e.stopPropagation();
+        if (S.sel !== null && !S.multiSel.has(S.sel)) {
+          S.multiSel.add(S.sel);
+          ndEl(S.sel)?.classList.add('multi-selected');
+        }
+        toggleMultiSel(n.id);
+        setStatus(S.multiSel.size > 0 ? `${S.multiSel.size} object(s) selected` : 'Ready');
+        return;
+      }
+      if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
+        S.sel = n.id;
+        e.preventDefault();
+        const allIds = new Set(S.multiSel);
+        if (S.sel !== null) allIds.add(S.sel);
+        const multiOrigins = new Map();
+        allIds.forEach(id => {
+          const mn = S.nodes.find(nn => nn.id === id);
+          if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y });
+        });
+        pushUndo();
+        S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
+        allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
+        return;
+      }
+      clearMultiSel();
+      selectNode(n.id);
+      e.preventDefault();
+      pushUndo();
+      S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y };
+      el.classList.add('dragging');
+    });
+
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault(); e.stopPropagation();
+      selectNode(n.id);
+      showArrowCtx(n.id, e.clientX, e.clientY);
+    });
+  }
+
+  function showArrowCtx(nodeId, x, y) {
+    const n = S.nodes.find(nn => nn.id === nodeId);
+    if (!n) return;
+    const ctxEl    = document.getElementById('arrow-ctx');
+    const colorsEl = document.getElementById('arrow-ctx-colors');
+    const widthsEl = document.getElementById('arrow-ctx-widths');
+    const delBtn   = document.getElementById('arrow-ctx-del');
+
+    colorsEl.innerHTML = '';
+    for (const c of NODE_COLORS) {
+      const sw = document.createElement('div');
+      sw.className = 'lk-color-swatch' + (n.color === c.id ? ' active' : '');
+      sw.style.background = c.hex;
+      sw.title = c.label;
+      sw.addEventListener('click', () => {
+        n.color = c.id;
+        const elNode = ndEl(n.id);
+        if (elNode) renderNode(n, elNode);
+        scheduleSave();
+        ctxEl.style.display = 'none';
+      });
+      colorsEl.appendChild(sw);
+    }
+
+    const WIDTHS = [
+      { label: '1', value: 1 }, { label: '2', value: 2 },
+      { label: '3', value: 3 }, { label: '4', value: 4 },
+    ];
+    widthsEl.innerHTML = '';
+    for (const w of WIDTHS) {
+      const btn = document.createElement('button');
+      btn.className = 'arrow-width-btn' + (n.strokeWidth === w.value ? ' active' : '');
+      btn.textContent = w.label;
+      btn.addEventListener('click', () => {
+        n.strokeWidth = w.value;
+        const elNode = ndEl(n.id);
+        if (elNode) renderNode(n, elNode);
+        scheduleSave();
+        ctxEl.style.display = 'none';
+      });
+      widthsEl.appendChild(btn);
+    }
+
+    delBtn.onclick = () => { ctxEl.style.display = 'none'; removeNode(nodeId); };
+
+    positionCtxMenu(ctxEl, x, y);
+    setTimeout(() => {
+      document.addEventListener('pointerdown', function close(ev) {
+        if (!ctxEl.contains(ev.target)) {
+          ctxEl.style.display = 'none';
+          document.removeEventListener('pointerdown', close);
+        }
+      });
+    }, 0);
   }
 
   // ═══════════════════════════════════════════════════════
@@ -719,12 +851,14 @@ export function initNodes(deps) {
         S.nodes.push(n);
         const el = document.createElement('div');
         el.className = n.type === 'frame' ? 'frame-node'
+                     : n.type === 'arrow' ? 'arrow-node'
                      : n.type === 'text'  ? 'text-node'
                      : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
         el.id = 'nd-' + n.id;
         canvas.appendChild(el);
-        if (n.type === 'frame') setupFrameEvents(n, el);
-        else setupNodeEvents(n, el);
+        if (n.type === 'frame')      setupFrameEvents(n, el);
+        else if (n.type === 'arrow') setupArrowEvents(n, el);
+        else                         setupNodeEvents(n, el);
         renderNode(n, el);
         S.multiSel.add(n.id);
         ndEl(n.id)?.classList.add('multi-selected');
@@ -794,6 +928,17 @@ export function initNodes(deps) {
     if (!S.nodes.length) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of S.nodes) {
+      if (n.type === 'arrow') {
+        const rad   = (n.angle ?? 0) * Math.PI / 180;
+        const total = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+        const tipX  = n.x + total * Math.cos(rad);
+        const tipY  = n.y + total * Math.sin(rad);
+        minX = Math.min(minX, n.x, tipX);
+        minY = Math.min(minY, n.y, tipY);
+        maxX = Math.max(maxX, n.x, tipX);
+        maxY = Math.max(maxY, n.y, tipY);
+        continue;
+      }
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + n.w);
@@ -826,17 +971,27 @@ export function initNodes(deps) {
     const n = S.nodes.find(n => n.id === id);
     if (!n) return;
     const vw = wrap.clientWidth, vh = wrap.clientHeight;
-    const tx = vw / 2 - (n.x + n.w / 2) * S.vp.scale;
-    const ty = vh / 2 - (n.y + n.h / 2) * S.vp.scale;
+    let cx, cy;
+    if (n.type === 'arrow') {
+      const rad = (n.angle ?? 0) * Math.PI / 180;
+      const half = (n.bodyLen ?? 160) / 2;
+      cx = n.x + half * Math.cos(rad);
+      cy = n.y + half * Math.sin(rad);
+    } else {
+      cx = n.x + n.w / 2;
+      cy = n.y + n.h / 2;
+    }
+    const tx = vw / 2 - cx * S.vp.scale;
+    const ty = vh / 2 - cy * S.vp.scale;
     animateVP(tx, ty);
     selectNode(id);
   }
 
   return {
-    addNode, addBubble, addFrame, addText, removeNode,
+    addNode, addBubble, addFrame, addText, addArrow, removeNode,
     selectNode, toggleMultiSel, clearMultiSel,
     startEdit, stopEdit, autoFitNode,
-    setupNodeEvents, setupFrameEvents,
+    setupNodeEvents, setupFrameEvents, setupArrowEvents,
     renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
     getSelectedIds, copyNodes, cutNodes, pasteNodes,
     fitAll, jumpTo,

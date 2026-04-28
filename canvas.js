@@ -43,6 +43,7 @@ const S = {
   selLine: null,    // selected free-line id
   lineDrag: null,   // { id, sx, sy, origPoints } — line being dragged
   ptDrag: null,     // { lineId, ptIndex, sx, sy, origPt } — single point being dragged
+  arrowDrag: null,  // { id, handleType: 'body'|'head'|'rotate' }
   undoStack: [],    // undo history (up to 10 snapshots)
 };
 
@@ -214,11 +215,13 @@ function undo() {
     S.nodes.push(n);
     const el = document.createElement('div');
     el.className = n.type === 'frame' ? 'frame-node'
+                 : n.type === 'arrow' ? 'arrow-node'
                  : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
-    if (n.type === 'frame') setupFrameEvents(n, el);
-    else setupNodeEvents(n, el);
+    if (n.type === 'frame')      setupFrameEvents(n, el);
+    else if (n.type === 'arrow') setupArrowEvents(n, el);
+    else                         setupNodeEvents(n, el);
     renderNode(n, el);
   }
   renderLinks();
@@ -236,8 +239,8 @@ function undo() {
 let renderNode, renderLinks, renderFreeLines;
 let startEdit, stopEdit, autoFitNode;
 let selectNode, toggleMultiSel, clearMultiSel, removeNode;
-let addNode, addBubble, addFrame, addText;
-let setupNodeEvents, setupFrameEvents;
+let addNode, addBubble, addFrame, addText, addArrow;
+let setupNodeEvents, setupFrameEvents, setupArrowEvents;
 let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
 let getSelectedIds, copyNodes, cutNodes, pasteNodes;
 let fitAll, jumpTo;
@@ -326,10 +329,10 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
 }));
 
 // 4. Nodes (depends on renderNode, renderLinks, renderFreeLines, targetEntryPoint from above)
-({ addNode, addBubble, addFrame, addText, removeNode,
+({ addNode, addBubble, addFrame, addText, addArrow, removeNode,
    selectNode, toggleMultiSel, clearMultiSel,
    startEdit, stopEdit, autoFitNode,
-   setupNodeEvents, setupFrameEvents,
+   setupNodeEvents, setupFrameEvents, setupArrowEvents,
    renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
    getSelectedIds, copyNodes, cutNodes, pasteNodes,
    fitAll, jumpTo,
@@ -394,6 +397,10 @@ function saveState() {
     savedAt: Date.now(),
     canvasTitle: canvasTitleEl.value,
     nodes: S.nodes.map(n => {
+      if (n.type === 'arrow') {
+        const { id, type, x, y, bodyLen, headLen, headWidth, angle, color, strokeWidth } = n;
+        return { id, type, x, y, bodyLen, headLen, headWidth, angle, color, strokeWidth };
+      }
       if (n.type === 'bubble') {
         const { id, type, x, y, w, h, text, tailX, tailY, color, fontFamily, fontSize, showTail,
                 tailAnchorId, tailAnchorText, tailAnchorFromId, tailAnchorLine, tailAnchorCol } = n;
@@ -512,7 +519,12 @@ function loadState(data) {
 
   for (const nd of (data.nodes ?? [])) {
     let n;
-    if (nd.type === 'bubble') {
+    if (nd.type === 'arrow') {
+      n = { id: nd.id, type: 'arrow', x: nd.x, y: nd.y,
+            bodyLen: nd.bodyLen ?? 160, headLen: nd.headLen ?? 28,
+            headWidth: nd.headWidth ?? 20, angle: nd.angle ?? 0,
+            color: nd.color ?? 'blue', strokeWidth: nd.strokeWidth ?? 2 };
+    } else if (nd.type === 'bubble') {
       n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
             color: nd.color ?? 'green', fontFamily: nd.fontFamily ?? 'default', fontSize: nd.fontSize ?? 13,
@@ -541,15 +553,14 @@ function loadState(data) {
     S.nodes.push(n);
     const el = document.createElement('div');
     el.className = n.type === 'frame' ? 'frame-node'
+                 : n.type === 'arrow' ? 'arrow-node'
                  : n.type === 'text'  ? 'text-node'
                  : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
-    if (n.type === 'frame') {
-      setupFrameEvents(n, el);
-    } else {
-      setupNodeEvents(n, el);
-    }
+    if (n.type === 'frame')      setupFrameEvents(n, el);
+    else if (n.type === 'arrow') setupArrowEvents(n, el);
+    else                         setupNodeEvents(n, el);
     renderNode(n, el);
   }
   S.freeLines = (data.freeLines ?? []).map(l => ({
@@ -797,7 +808,7 @@ document.addEventListener('mousemove', e => {
             mn.tailY = otailY + dy;
           }
           const mel = ndEl(id);
-          if (mel) { mel.style.left = mn.x + 'px'; mel.style.top = mn.y + 'px'; }
+          if (mel) { mel.style.left = mn.x + 'px'; mel.style.top = (mn.type === 'arrow' ? mn.y - 20 : mn.y) + 'px'; }
         }
       });
     } else {
@@ -811,7 +822,7 @@ document.addEventListener('mousemove', e => {
           n.tailY = S.drag.otailY + dy;
         }
         const el = ndEl(n.id);
-        if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+        if (el) { el.style.left = n.x + 'px'; el.style.top = (n.type === 'arrow' ? n.y - 20 : n.y) + 'px'; }
       }
     }
     renderLinks();
@@ -822,6 +833,29 @@ document.addEventListener('mousemove', e => {
       const p = s2c(e.clientX, e.clientY);
       n.tailX = p.x; n.tailY = p.y;
       renderBubbleTail(n);
+    }
+  } else if (S.arrowDrag) {
+    const n = S.nodes.find(n => n.id === S.arrowDrag.id);
+    if (n) {
+      const cp  = s2c(e.clientX, e.clientY);
+      const rad = (n.angle ?? 0) * Math.PI / 180;
+      const cosA = Math.cos(rad), sinA = Math.sin(rad);
+      const dx = cp.x - n.x, dy = cp.y - n.y;
+      if (S.arrowDrag.handleType === 'body') {
+        const dot = dx * cosA + dy * sinA;
+        n.bodyLen = Math.max(20, dot - (n.headLen ?? 28));
+      } else if (S.arrowDrag.handleType === 'head') {
+        const dot  = dx * cosA + dy * sinA;
+        const perp = Math.abs(-dx * sinA + dy * cosA);
+        n.headLen   = Math.max(8,  dot - (n.bodyLen ?? 160));
+        n.headWidth = Math.max(6,  perp * 2);
+      } else if (S.arrowDrag.handleType === 'rotate') {
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (e.shiftKey) angle = Math.round(angle / 15) * 15;
+        n.angle = angle;
+      }
+      const el = ndEl(n.id);
+      if (el) renderNode(n, el);
     }
   } else if (S.resize) {
     const r = 1 / S.vp.scale;
@@ -907,6 +941,7 @@ document.addEventListener('mouseup', () => {
     if (_tdn && _tdn.tailX === S.tailDrag.otailX && _tdn.tailY === S.tailDrag.otailY) S.undoStack.pop();
     S.tailDrag = null; scheduleSave();
   }
+  if (S.arrowDrag) { S.arrowDrag = null; scheduleSave(); }
   if (S.marquee) {
     marqueeEl.style.display = 'none';
     const mq = S.marquee;
@@ -920,7 +955,18 @@ document.addEventListener('mouseup', () => {
       selectNode(null);
       S.nodes.forEach(n => {
         // Axis-aligned rect overlap: node rect vs marquee rect
-        if (n.x < c1.x && n.x + n.w > c0.x && n.y < c1.y && n.y + n.h > c0.y) {
+        let inMarquee;
+        if (n.type === 'arrow') {
+          const rad = (n.angle ?? 0) * Math.PI / 180;
+          const tot = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+          const tx  = n.x + tot * Math.cos(rad), ty = n.y + tot * Math.sin(rad);
+          const ax0 = Math.min(n.x, tx), ax1 = Math.max(n.x, tx);
+          const ay0 = Math.min(n.y, ty), ay1 = Math.max(n.y, ty);
+          inMarquee = ax0 < c1.x && ax1 > c0.x && ay0 < c1.y && ay1 > c0.y;
+        } else {
+          inMarquee = n.x < c1.x && n.x + n.w > c0.x && n.y < c1.y && n.y + n.h > c0.y;
+        }
+        if (inMarquee) {
           S.multiSel.add(n.id);
           ndEl(n.id)?.classList.add('multi-selected');
         }
@@ -1089,6 +1135,11 @@ document.getElementById('btn-add-text')?.addEventListener('click', () => {
 document.getElementById('btn-add-line')?.addEventListener('click', () => {
   if (S.lineDrawMode) exitLineDrawMode();
   else enterLineDrawMode();
+});
+
+document.getElementById('btn-add-arrow')?.addEventListener('click', () => {
+  const p = s2c(wrap.clientWidth / 2, wrap.clientHeight / 2);
+  addArrow(p.x - 80, p.y);
 });
 
 // Zoom controls
@@ -1359,7 +1410,7 @@ setStatus('Ready — double-click to add block | select text to create link | ri
 // TEST EXPORTS (Node.js / Vitest only — not used in browser)
 // ═══════════════════════════════════════════════════════
 if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
-  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, loadState,
+  globalThis.__canvasApp = { S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, addArrow, loadState,
     saveState, restoreFromStorage,
     createLink, removeLink,
     copyNodes, cutNodes, pasteNodes, toggleMultiSel,

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import '../canvas.js';
 const {
   S, STORAGE_KEY,
-  addNode, removeNode, selectNode, addBubble,
+  addNode, removeNode, selectNode, addBubble, addArrow,
   loadState, saveState, restoreFromStorage,
   createLink, removeLink,
   copyNodes, cutNodes, pasteNodes, toggleMultiSel,
@@ -437,5 +437,84 @@ describe('Error / edge cases', () => {
     expect(l.strokeWidth).toBe(3);
     expect(l.dash).toBe('4 2');
     expect(l.points).toEqual(pts);
+  });
+});
+
+// ─── Arrow node save/restore ────────────────────────────
+describe('Arrow node save/restore round-trip', () => {
+  it('saves and restores arrow nodes with all fields', () => {
+    const n = addArrow(150, 250);
+    n.bodyLen    = 200;
+    n.headLen    = 35;
+    n.headWidth  = 24;
+    n.angle      = 45;
+    n.color      = 'red';
+    n.strokeWidth = 3;
+
+    saveState();
+    loadState({ nodes: [], links: [] });
+    restoreFromStorage();
+
+    expect(S.nodes).toHaveLength(1);
+    const r = S.nodes[0];
+    expect(r.type).toBe('arrow');
+    expect(r.x).toBe(150);
+    expect(r.y).toBe(250);
+    expect(r.bodyLen).toBe(200);
+    expect(r.headLen).toBe(35);
+    expect(r.headWidth).toBe(24);
+    expect(r.angle).toBe(45);
+    expect(r.color).toBe('red');
+    expect(r.strokeWidth).toBe(3);
+  });
+
+  it('applies defaults for missing fields on restore', () => {
+    // Load a minimal arrow save (missing optional fields)
+    loadState({
+      nid: 2, lid: 1, flid: 1, taid: 1,
+      nodes: [{ id: 1, type: 'arrow', x: 0, y: 0 }],
+      links: [],
+    });
+    const n = S.nodes[0];
+    expect(n.bodyLen).toBe(160);
+    expect(n.headLen).toBe(28);
+    expect(n.headWidth).toBe(20);
+    expect(n.angle).toBe(0);
+    expect(n.color).toBe('blue');
+    expect(n.strokeWidth).toBe(2);
+  });
+
+  it('arrow node does not include w/h in saved data', () => {
+    addArrow(0, 0);
+    saveState();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const arrowData = saved.nodes[0];
+    expect(arrowData.type).toBe('arrow');
+    expect(arrowData.w).toBeUndefined();
+    expect(arrowData.h).toBeUndefined();
+    expect(arrowData.bodyLen).toBeDefined();
+  });
+
+  it('arrow survives undo', () => {
+    const n = addArrow(10, 20);
+    const origBodyLen = n.bodyLen;
+    pushUndo();
+    n.bodyLen = 300;
+    undo();
+    const restored = S.nodes.find(nn => nn.type === 'arrow');
+    expect(restored).toBeDefined();
+    expect(restored.bodyLen).toBe(origBodyLen);
+  });
+
+  it('arrow copy/paste duplicates the node with offset', () => {
+    const n = addArrow(50, 50);
+    n.angle = 30;
+    copyNodes();
+    pasteNodes();
+    expect(S.nodes.filter(n => n.type === 'arrow')).toHaveLength(2);
+    const pasted = S.nodes.find(nn => nn.type === 'arrow' && nn.id !== n.id);
+    expect(pasted).toBeDefined();
+    expect(pasted.angle).toBe(30);
+    expect(pasted.x).not.toBe(n.x); // offset applied
   });
 });

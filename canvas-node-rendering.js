@@ -84,6 +84,11 @@ export function initNodeRendering(deps) {
       el.style.setProperty('--fn-glow',       c.glow28);
       el.style.setProperty('--fn-label',      c.hexLight);
       el.style.setProperty('--fn-header-bg',  c.bgMid + 'aa');
+    } else if (n.type === 'arrow') {
+      const c = NODE_COLORS.find(c => c.id === (n.color ?? 'blue')) ?? NODE_COLORS.find(c => c.id === 'blue');
+      el.style.setProperty('--arrow-stroke',     c.hex);
+      el.style.setProperty('--arrow-stroke-sel', c.hexLight);
+      el.style.setProperty('--arrow-glow',       c.glow28);
     } else {
       const c = NODE_COLORS.find(c => c.id === (n.color ?? 'blue')) ?? NODE_COLORS.find(c => c.id === 'blue');
       el.style.setProperty('--na',        c.hex);
@@ -114,6 +119,7 @@ export function initNodeRendering(deps) {
   }
 
   function applyNodeFont(n, el) {
+    if (n.type === 'arrow') return;
     const type = nodeTypeKey(n);
     const fid = n.fontFamily ?? 'default';
     const family = fid === 'default'
@@ -565,11 +571,83 @@ export function initNodeRendering(deps) {
   }
 
   // ═══════════════════════════════════════════════════════
+  // ARROW NODE
+  // ═══════════════════════════════════════════════════════
+  function setupArrowHandleEvents(n, el) {
+    const bodyH   = el.querySelector('.arrow-body-handle');
+    const headH   = el.querySelector('.arrow-head-handle');
+    const rotateH = el.querySelector('.arrow-rotate-handle');
+    if (bodyH) {
+      bodyH.addEventListener('mousedown', e => {
+        e.stopPropagation(); e.preventDefault();
+        pushUndo();
+        S.arrowDrag = { id: n.id, handleType: 'body' };
+      });
+    }
+    if (headH) {
+      headH.addEventListener('mousedown', e => {
+        e.stopPropagation(); e.preventDefault();
+        pushUndo();
+        S.arrowDrag = { id: n.id, handleType: 'head' };
+      });
+    }
+    if (rotateH) {
+      rotateH.addEventListener('mousedown', e => {
+        e.stopPropagation(); e.preventDefault();
+        pushUndo();
+        S.arrowDrag = { id: n.id, handleType: 'rotate' };
+      });
+    }
+  }
+
+  function renderArrowContent(n, el) {
+    const H     = 40;
+    const midY  = H / 2;
+    const bLen  = n.bodyLen  ?? 160;
+    const hLen  = n.headLen  ?? 28;
+    const hW2   = (n.headWidth ?? 20) / 2;
+    const sw    = n.strokeWidth ?? 2;
+    const total = bLen + hLen;
+
+    el.style.left      = n.x + 'px';
+    el.style.top       = (n.y - midY) + 'px';
+    el.style.width     = total + 'px';
+    el.style.height    = H + 'px';
+    el.style.transform = `rotate(${n.angle ?? 0}deg)`;
+
+    const shaftD = `M 0,${midY} L ${bLen},${midY}`;
+    const headD  = `M ${bLen},${midY - hW2} L ${total},${midY} L ${bLen},${midY + hW2} Z`;
+
+    el.innerHTML = `
+      <svg class="arrow-svg" xmlns="http://www.w3.org/2000/svg">
+        <path class="arrow-shaft-glow"
+              d="${shaftD}" fill="none"
+              stroke="var(--arrow-glow)" stroke-width="${sw + 8}" stroke-linecap="round"/>
+        <path d="${shaftD}" fill="none"
+              stroke="var(--arrow-stroke)" stroke-width="${sw}" stroke-linecap="round"/>
+        <path d="${headD}" fill="var(--arrow-stroke)" stroke="none"/>
+      </svg>
+      <div class="arrow-handle arrow-body-handle"   style="left:${bLen}px;top:${midY}px;" title="Drag to resize shaft"></div>
+      <div class="arrow-handle arrow-head-handle"   style="left:${bLen + hLen * 0.5}px;top:${midY}px;" title="Drag to resize arrowhead"></div>
+      <div class="arrow-handle arrow-rotate-handle" style="left:${bLen / 2}px;top:${midY - 20}px;" title="Drag to rotate (Shift=15° snap)"></div>
+    `;
+    setupArrowHandleEvents(n, el);
+  }
+
+  // ═══════════════════════════════════════════════════════
   // MAIN RENDER
   // ═══════════════════════════════════════════════════════
   function renderNode(n, el) {
     el = el || ndEl(n.id);
     if (!el) return;
+
+    if (n.type === 'arrow') {
+      el.classList.toggle('selected',       S.sel === n.id);
+      el.classList.toggle('multi-selected', S.multiSel.has(n.id));
+      applyNodeColor(n, el);
+      renderArrowContent(n, el);
+      return;
+    }
 
     el.style.left   = n.x + 'px';
     el.style.top    = n.y + 'px';

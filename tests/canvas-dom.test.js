@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import '../canvas.js';
 const {
-  S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, loadState,
+  S, STORAGE_KEY, addNode, removeNode, selectNode, addBubble, addFrame, addText, addArrow, loadState,
   saveState, restoreFromStorage,
   createLink, toggleMultiSel,
   copyNodes, cutNodes, pasteNodes,
@@ -834,5 +834,98 @@ describe('Font size input (inp-font-size)', () => {
     const el = document.getElementById('nd-' + n.id);
     expect(el.querySelector('.inp-font-size')).not.toBeNull();
     stopEdit();
+  });
+});
+
+// ─── addArrow ──────────────────────────────────────────
+describe('addArrow', () => {
+  it('adds an entry to S.nodes with type "arrow"', () => {
+    addArrow(100, 200);
+    expect(S.nodes).toHaveLength(1);
+    expect(S.nodes[0].type).toBe('arrow');
+  });
+
+  it('stores correct position', () => {
+    addArrow(30, 40);
+    expect(S.nodes[0].x).toBe(30);
+    expect(S.nodes[0].y).toBe(40);
+  });
+
+  it('initializes default geometry fields', () => {
+    const n = addArrow(0, 0);
+    expect(n.bodyLen).toBe(160);
+    expect(n.headLen).toBe(28);
+    expect(n.headWidth).toBe(20);
+    expect(n.angle).toBe(0);
+    expect(n.strokeWidth).toBe(2);
+    expect(n.color).toBe('blue');
+  });
+
+  it('renders a div.arrow-node element in #canvas', () => {
+    const n = addArrow(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el).not.toBeNull();
+    expect(el.classList.contains('arrow-node')).toBe(true);
+  });
+
+  it('positions top at y - 20 (centers 40px div on tail point)', () => {
+    const n = addArrow(50, 100);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.left).toBe('50px');
+    expect(el.style.top).toBe('80px'); // 100 - 20
+  });
+
+  it('sets width to bodyLen + headLen', () => {
+    const n = addArrow(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.style.width).toBe(`${n.bodyLen + n.headLen}px`);
+  });
+
+  it('applies CSS rotation via transform', () => {
+    const n = addArrow(0, 0);
+    n.angle = 45;
+    const el = document.getElementById('nd-' + n.id);
+    // re-render by checking the initial angle=0 transform
+    expect(el.style.transform).toBe('rotate(0deg)');
+  });
+
+  it('contains an SVG with arrow paths', () => {
+    const n = addArrow(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    const svg = el.querySelector('svg.arrow-svg');
+    expect(svg).not.toBeNull();
+    // shaft path and head path are present
+    const paths = svg.querySelectorAll('path');
+    expect(paths.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('contains three resize/rotate handle divs', () => {
+    const n = addArrow(0, 0);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.querySelector('.arrow-body-handle')).not.toBeNull();
+    expect(el.querySelector('.arrow-head-handle')).not.toBeNull();
+    expect(el.querySelector('.arrow-rotate-handle')).not.toBeNull();
+  });
+
+  it('assigns a unique id to each arrow', () => {
+    const a = addArrow(0, 0);
+    const b = addArrow(200, 0);
+    expect(a.id).not.toBe(b.id);
+    expect(document.getElementById('nd-' + a.id)).not.toBeNull();
+    expect(document.getElementById('nd-' + b.id)).not.toBeNull();
+  });
+
+  it('selects the arrow after creation', () => {
+    const n = addArrow(0, 0);
+    expect(S.sel).toBe(n.id);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('selected')).toBe(true);
+  });
+
+  it('removeNode removes the arrow from S.nodes and DOM', () => {
+    const n = addArrow(0, 0);
+    removeNode(n.id);
+    expect(S.nodes).toHaveLength(0);
+    expect(document.getElementById('nd-' + n.id)).toBeNull();
   });
 });
