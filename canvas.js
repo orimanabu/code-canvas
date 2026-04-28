@@ -131,6 +131,7 @@ function c2s(cx, cy) {
 }
 
 function zoom(factor, mx, my) {
+  cancelVPAnim();
   const ns = Math.min(4, Math.max(0.08, S.vp.scale * factor));
   const r  = ns / S.vp.scale;
   S.vp.x  = mx - (mx - S.vp.x) * r;
@@ -138,6 +139,31 @@ function zoom(factor, mx, my) {
   S.vp.scale = ns;
   applyVP();
   setStatus(`Zoom: ${Math.round(ns * 100)}%`);
+}
+
+let _vpAnimId = null;
+
+function cancelVPAnim() {
+  if (_vpAnimId) { cancelAnimationFrame(_vpAnimId); _vpAnimId = null; }
+}
+
+function animateVP(tx, ty, tScale) {
+  cancelVPAnim();
+  const x0 = S.vp.x, y0 = S.vp.y, s0 = S.vp.scale;
+  const ts = tScale !== undefined ? tScale : s0;
+  const DURATION = 500;
+  const t0 = performance.now();
+  function step(now) {
+    const raw = Math.min(1, (now - t0) / DURATION);
+    const e = 1 - Math.pow(1 - raw, 3); // ease-out cubic
+    S.vp.x = x0 + (tx - x0) * e;
+    S.vp.y = y0 + (ty - y0) * e;
+    S.vp.scale = s0 + (ts - s0) * e;
+    applyVP();
+    if (raw < 1) _vpAnimId = requestAnimationFrame(step);
+    else _vpAnimId = null;
+  }
+  _vpAnimId = requestAnimationFrame(step);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -314,6 +340,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
   scheduleSave: () => scheduleSave(),
   setStatus,
   applyVP,
+  animateVP,
   enterLinkMode: (...a) => enterLinkMode(...a),
   exitLinkMode: () => exitLinkMode(),
   enterTailAttachMode: (...a) => enterTailAttachMode(...a),
@@ -740,6 +767,7 @@ document.addEventListener('mousemove', e => {
     return;
   }
   if (S.pan) {
+    cancelVPAnim();
     S.vp.x = e.clientX - S.pan.sx;
     S.vp.y = e.clientY - S.pan.sy;
     applyVP();
@@ -957,6 +985,7 @@ wrap.addEventListener('wheel', e => {
     zoom(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
   } else {
     // wheel = pan
+    cancelVPAnim();
     S.vp.x -= e.deltaX;
     S.vp.y -= e.deltaY;
     applyVP();

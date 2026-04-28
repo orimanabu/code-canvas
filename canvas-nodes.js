@@ -5,7 +5,7 @@ export function initNodes(deps) {
   const { S, canvas, wrap, ndEl, s2c, c2s,
     renderNode, renderLinks, renderFreeLines,
     pushUndo, suppressUndo, scheduleSave, setStatus,
-    applyVP,
+    applyVP, animateVP,
     enterLinkMode, exitLinkMode,
     enterTailAttachMode, exitTailAttachMode,
     showAnchorCtx, showTailAnchorCtx,
@@ -802,12 +802,11 @@ export function initNodes(deps) {
     const availH = vh - topPad - pad;
     const bw = maxX - minX, bh = maxY - minY;
     const ns = Math.min(4, Math.max(0.08, Math.min(availW / bw, availH / bh)));
-    S.vp.scale = ns;
     const cx = pad + availW / 2;
     const cy = topPad + availH / 2;
-    S.vp.x = cx - (minX + bw / 2) * ns;
-    S.vp.y = cy - (minY + bh / 2) * ns;
-    applyVP();
+    const tx = cx - (minX + bw / 2) * ns;
+    const ty = cy - (minY + bh / 2) * ns;
+    animateVP(tx, ty, ns);
     setStatus(`Fit: ${Math.round(ns * 100)}%`);
   }
 
@@ -815,9 +814,9 @@ export function initNodes(deps) {
     const n = S.nodes.find(n => n.id === id);
     if (!n) return;
     const vw = wrap.clientWidth, vh = wrap.clientHeight;
-    S.vp.x = vw / 2 - (n.x + n.w / 2) * S.vp.scale;
-    S.vp.y = vh / 2 - (n.y + n.h / 2) * S.vp.scale;
-    applyVP();
+    const tx = vw / 2 - (n.x + n.w / 2) * S.vp.scale;
+    const ty = vh / 2 - (n.y + n.h / 2) * S.vp.scale;
+    animateVP(tx, ty);
     selectNode(id);
   }
 

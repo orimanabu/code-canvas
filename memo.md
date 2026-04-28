@@ -35652,3 +35652,186 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Baked for 59s
 ```
+
+```
+❯ 指定したブロックに移動する操作がいくつかあります。例:Jumpボタンからシンボル選択、リンクのコンテキストメニューからGo to
+  Source/Destination、等。このとき、現在のスクリーンから移動先のスクリーンまでcanvasをスクロールしながら移動できるようにできますか
+
+⏺ jumpTo 関数と関連するナビゲーションコードを確認します。
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+⏺ initNodes の deps を確認します。
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ fitAll のコードも確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ パン操作のハンドラを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ ホイールと zoom-input ハンドラも確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ では実装します。canvas.js と canvas-nodes.js の2ファイルを変更します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 26 lines
+      131  }
+      132
+      133  function zoom(factor, mx, my) {
+      134 +  cancelVPAnim();
+      135    const ns = Math.min(4, Math.max(0.08, S.vp.scale * factor));
+      136    const r  = ns / S.vp.scale;
+      137    S.vp.x  = mx - (mx - S.vp.x) * r;
+     ...
+      141    setStatus(`Zoom: ${Math.round(ns * 100)}%`);
+      142  }
+      143
+      144 +let _vpAnimId = null;
+      145 +
+      146 +function cancelVPAnim() {
+      147 +  if (_vpAnimId) { cancelAnimationFrame(_vpAnimId); _vpAnimId = null; }
+      148 +}
+      149 +
+      150 +function animateVP(tx, ty, tScale) {
+      151 +  cancelVPAnim();
+      152 +  const x0 = S.vp.x, y0 = S.vp.y, s0 = S.vp.scale;
+      153 +  const ts = tScale !== undefined ? tScale : s0;
+      154 +  const DURATION = 380;
+      155 +  const t0 = performance.now();
+      156 +  function step(now) {
+      157 +    const raw = Math.min(1, (now - t0) / DURATION);
+      158 +    const e = 1 - Math.pow(1 - raw, 3); // ease-out cubic
+      159 +    S.vp.x = x0 + (tx - x0) * e;
+      160 +    S.vp.y = y0 + (ty - y0) * e;
+      161 +    S.vp.scale = s0 + (ts - s0) * e;
+      162 +    applyVP();
+      163 +    if (raw < 1) _vpAnimId = requestAnimationFrame(step);
+      164 +    else _vpAnimId = null;
+      165 +  }
+      166 +  _vpAnimId = requestAnimationFrame(step);
+      167 +}
+      168 +
+      169  // ═══════════════════════════════════════════════════════
+      170  // UTILS
+      171  // ═══════════════════════════════════════════════════════
+
+⏺ 次にパン操作でアニメーションをキャンセルします。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      766      return;
+      767    }
+      768    if (S.pan) {
+      769 +    cancelVPAnim();
+      770      S.vp.x = e.clientX - S.pan.sx;
+      771      S.vp.y = e.clientY - S.pan.sy;
+      772      applyVP();
+
+⏺ ホイールパン操作でもキャンセルします。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      984      zoom(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - rect.left, e.clientY - rect.top);
+      985    } else {
+      986      // wheel = pan
+      987 +    cancelVPAnim();
+      988      S.vp.x -= e.deltaX;
+      989      S.vp.y -= e.deltaY;
+      990      applyVP();
+
+⏺ 次に initNodes deps に animateVP を追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      340    scheduleSave: () => scheduleSave(),
+      341    setStatus,
+      342    applyVP,
+      343 +  animateVP,
+      344    enterLinkMode: (...a) => enterLinkMode(...a),
+      345    exitLinkMode: () => exitLinkMode(),
+      346    enterTailAttachMode: (...a) => enterTailAttachMode(...a),
+
+⏺ canvas-nodes.js の deps と jumpTo / fitAll を更新します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+       5    const { S, canvas, wrap, ndEl, s2c, c2s,
+       6      renderNode, renderLinks, renderFreeLines,
+       7      pushUndo, suppressUndo, scheduleSave, setStatus,
+       8 -    applyVP,
+       8 +    applyVP, animateVP,
+       9      enterLinkMode, exitLinkMode,
+      10      enterTailAttachMode, exitTailAttachMode,
+      11      showAnchorCtx, showTailAnchorCtx,
+
+⏺ fitAll と jumpTo を animateVP を使うように変更します。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 3 lines, removed 4 lines
+      802      const availH = vh - topPad - pad;
+      803      const bw = maxX - minX, bh = maxY - minY;
+      804      const ns = Math.min(4, Math.max(0.08, Math.min(availW / bw, availH / bh)));
+      805 -    S.vp.scale = ns;
+      805      const cx = pad + availW / 2;
+      806      const cy = topPad + availH / 2;
+      808 -    S.vp.x = cx - (minX + bw / 2) * ns;
+      809 -    S.vp.y = cy - (minY + bh / 2) * ns;
+      810 -    applyVP();
+      807 +    const tx = cx - (minX + bw / 2) * ns;
+      808 +    const ty = cy - (minY + bh / 2) * ns;
+      809 +    animateVP(tx, ty, ns);
+      810      setStatus(`Fit: ${Math.round(ns * 100)}%`);
+      811    }
+      812
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 3 lines, removed 3 lines
+      814      const n = S.nodes.find(n => n.id === id);
+      815      if (!n) return;
+      816      const vw = wrap.clientWidth, vh = wrap.clientHeight;
+      817 -    S.vp.x = vw / 2 - (n.x + n.w / 2) * S.vp.scale;
+      818 -    S.vp.y = vh / 2 - (n.y + n.h / 2) * S.vp.scale;
+      819 -    applyVP();
+      817 +    const tx = vw / 2 - (n.x + n.w / 2) * S.vp.scale;
+      818 +    const ty = vh / 2 - (n.y + n.h / 2) * S.vp.scale;
+      819 +    animateVP(tx, ty);
+      820      selectNode(id);
+      821    }
+      822
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。実装完了です。
+
+  変更内容:
+
+  - canvas.js に animateVP(tx, ty, tScale?) 関数を追加 — ease-out cubic (380ms) で viewport をスムーズに補間
+  - cancelVPAnim() を追加し、パン・ホイール・zoom() 操作の開始時にアニメーションを中断
+  - canvas-nodes.js の jumpTo と fitAll が animateVP を使うよう変更
+
+  対象操作すべて（Jumpナビゲーター、リンクの Go to Source/Destination、Fit All
+  ボタン）でスムーズなスクロールアニメーションが有効になります。途中でパンやスクロールすると即座にキャンセルできます。
+
+✻ Crunched for 2m 34s
+
+❯ 移動スピードはどこで設定していますか
+
+⏺ canvas.js の animateVP 関数内の DURATION 定数です。
+
+  const DURATION = 380;  // milliseconds
+
+  canvas.js:163 付近にあります。値を小さくすると速く、大きくすると遅くなります。
+```
