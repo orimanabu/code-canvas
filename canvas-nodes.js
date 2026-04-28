@@ -307,8 +307,8 @@ export function initNodes(deps) {
     const n = {
       id: S.nid++, type: 'arrow',
       x, y,
-      bodyLen: 160, headLen: 28, headWidth: 20,
-      angle: 0, color: 'blue', strokeWidth: 2,
+      bodyLen: 160, headLen: 40, headWidth: 30,
+      angle: 0, color: 'blue', strokeWidth: 4,
     };
     S.nodes.push(n);
     const el = document.createElement('div');
@@ -930,7 +930,7 @@ export function initNodes(deps) {
     for (const n of S.nodes) {
       if (n.type === 'arrow') {
         const rad   = (n.angle ?? 0) * Math.PI / 180;
-        const total = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+        const total = (n.bodyLen ?? 160) + (n.headLen ?? 40);
         const tipX  = n.x + total * Math.cos(rad);
         const tipY  = n.y + total * Math.sin(rad);
         minX = Math.min(minX, n.x, tipX);

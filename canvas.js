@@ -521,9 +521,9 @@ function loadState(data) {
     let n;
     if (nd.type === 'arrow') {
       n = { id: nd.id, type: 'arrow', x: nd.x, y: nd.y,
-            bodyLen: nd.bodyLen ?? 160, headLen: nd.headLen ?? 28,
-            headWidth: nd.headWidth ?? 20, angle: nd.angle ?? 0,
-            color: nd.color ?? 'blue', strokeWidth: nd.strokeWidth ?? 2 };
+            bodyLen: nd.bodyLen ?? 160, headLen: nd.headLen ?? 40,
+            headWidth: nd.headWidth ?? 30, angle: nd.angle ?? 0,
+            color: nd.color ?? 'blue', strokeWidth: nd.strokeWidth ?? 4 };
     } else if (nd.type === 'bubble') {
       n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
             text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
@@ -843,7 +843,7 @@ document.addEventListener('mousemove', e => {
       const dx = cp.x - n.x, dy = cp.y - n.y;
       if (S.arrowDrag.handleType === 'body') {
         const dot = dx * cosA + dy * sinA;
-        n.bodyLen = Math.max(20, dot - (n.headLen ?? 28));
+        n.bodyLen = Math.max(20, dot - (n.headLen ?? 40));
       } else if (S.arrowDrag.handleType === 'head') {
         const dot  = dx * cosA + dy * sinA;
         const perp = Math.abs(-dx * sinA + dy * cosA);
@@ -853,6 +853,10 @@ document.addEventListener('mousemove', e => {
         let angle = Math.atan2(dy, dx) * 180 / Math.PI;
         if (e.shiftKey) angle = Math.round(angle / 15) * 15;
         n.angle = angle;
+      } else if (S.arrowDrag.handleType === 'stroke') {
+        // Perpendicular distance from mouse to the shaft line (absolute value)
+        const perp = Math.abs(-dx * sinA + dy * cosA);
+        n.strokeWidth = Math.max(1, Math.round(perp));
       }
       const el = ndEl(n.id);
       if (el) renderNode(n, el);
@@ -958,7 +962,7 @@ document.addEventListener('mouseup', () => {
         let inMarquee;
         if (n.type === 'arrow') {
           const rad = (n.angle ?? 0) * Math.PI / 180;
-          const tot = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+          const tot = (n.bodyLen ?? 160) + (n.headLen ?? 40);
           const tx  = n.x + tot * Math.cos(rad), ty = n.y + tot * Math.sin(rad);
           const ax0 = Math.min(n.x, tx), ax1 = Math.max(n.x, tx);
           const ay0 = Math.min(n.y, ty), ay1 = Math.max(n.y, ty);

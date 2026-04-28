@@ -1059,6 +1059,13 @@ body.tail-attach-mode .bubble-node:hover {
   border: 2px solid #0d1117;
   cursor: crosshair;
 }
+.arrow-stroke-handle {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #db61a2;
+  border: 2px solid #0d1117;
+  cursor: ns-resize;
+}
 
 /* ── Arrow context menu ── */
 #arrow-ctx {

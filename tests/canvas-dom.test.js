@@ -854,10 +854,10 @@ describe('addArrow', () => {
   it('initializes default geometry fields', () => {
     const n = addArrow(0, 0);
     expect(n.bodyLen).toBe(160);
-    expect(n.headLen).toBe(28);
-    expect(n.headWidth).toBe(20);
+    expect(n.headLen).toBe(40);
+    expect(n.headWidth).toBe(30);
     expect(n.angle).toBe(0);
-    expect(n.strokeWidth).toBe(2);
+    expect(n.strokeWidth).toBe(4);
     expect(n.color).toBe('blue');
   });
 
@@ -899,12 +899,21 @@ describe('addArrow', () => {
     expect(paths.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('contains three resize/rotate handle divs', () => {
+  it('contains four resize/rotate handle divs', () => {
     const n = addArrow(0, 0);
     const el = document.getElementById('nd-' + n.id);
     expect(el.querySelector('.arrow-body-handle')).not.toBeNull();
     expect(el.querySelector('.arrow-head-handle')).not.toBeNull();
     expect(el.querySelector('.arrow-rotate-handle')).not.toBeNull();
+    expect(el.querySelector('.arrow-stroke-handle')).not.toBeNull();
+  });
+
+  it('stroke handle top tracks strokeWidth (8px above shaft edge)', () => {
+    const n = addArrow(0, 0); // strokeWidth defaults to 2
+    const el = document.getElementById('nd-' + n.id);
+    const sh = el.querySelector('.arrow-stroke-handle');
+    // top = midY - sw/2 - 8 = 20 - 1 - 8 = 11
+    expect(sh.style.top).toBe(`${20 - n.strokeWidth / 2 - 8}px`);
   });
 
   it('assigns a unique id to each arrow', () => {

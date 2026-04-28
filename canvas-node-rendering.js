@@ -577,6 +577,7 @@ export function initNodeRendering(deps) {
     const bodyH   = el.querySelector('.arrow-body-handle');
     const headH   = el.querySelector('.arrow-head-handle');
     const rotateH = el.querySelector('.arrow-rotate-handle');
+    const strokeH = el.querySelector('.arrow-stroke-handle');
     if (bodyH) {
       bodyH.addEventListener('mousedown', e => {
         e.stopPropagation(); e.preventDefault();
@@ -596,6 +597,13 @@ export function initNodeRendering(deps) {
         e.stopPropagation(); e.preventDefault();
         pushUndo();
         S.arrowDrag = { id: n.id, handleType: 'rotate' };
+      });
+    }
+    if (strokeH) {
+      strokeH.addEventListener('mousedown', e => {
+        e.stopPropagation(); e.preventDefault();
+        pushUndo();
+        S.arrowDrag = { id: n.id, handleType: 'stroke' };
       });
     }
   }
@@ -630,6 +638,7 @@ export function initNodeRendering(deps) {
       <div class="arrow-handle arrow-body-handle"   style="left:${bLen}px;top:${midY}px;" title="Drag to resize shaft"></div>
       <div class="arrow-handle arrow-head-handle"   style="left:${bLen + hLen * 0.5}px;top:${midY}px;" title="Drag to resize arrowhead"></div>
       <div class="arrow-handle arrow-rotate-handle" style="left:${bLen / 2}px;top:${midY - 20}px;" title="Drag to rotate (Shift=15° snap)"></div>
+      <div class="arrow-handle arrow-stroke-handle" style="left:${bLen * 0.25}px;top:${midY - sw / 2 - 8}px;" title="Drag to change shaft thickness"></div>
     `;
     setupArrowHandleEvents(n, el);
   }

@@ -477,11 +477,11 @@ describe('Arrow node save/restore round-trip', () => {
     });
     const n = S.nodes[0];
     expect(n.bodyLen).toBe(160);
-    expect(n.headLen).toBe(28);
-    expect(n.headWidth).toBe(20);
+    expect(n.headLen).toBe(40);
+    expect(n.headWidth).toBe(30);
     expect(n.angle).toBe(0);
     expect(n.color).toBe('blue');
-    expect(n.strokeWidth).toBe(2);
+    expect(n.strokeWidth).toBe(4);
   });
 
   it('arrow node does not include w/h in saved data', () => {

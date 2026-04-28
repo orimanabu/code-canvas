@@ -38851,3 +38851,266 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Churned for 3m 21s
 ```
+
+```
+❯ Arrowの胴体部分の太さも変えられるようにしてください
+
+⏺ Let me look at the current arrow rendering and handle setup:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Now let me check the mousemove arrowDrag block in canvas.js:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ I need to add a 4th drag handle for shaft thickness. Changes needed in 3 files:
+
+⏺ Update(canvas.css)
+  ⎿  Added 7 lines
+      1059    border: 2px solid #0d1117;
+      1060    cursor: crosshair;
+      1061  }
+      1062 +.arrow-stroke-handle {
+      1063 +  width: 10px; height: 10px;
+      1064 +  border-radius: 50%;
+      1065 +  background: #db61a2;
+      1066 +  border: 2px solid #0d1117;
+      1067 +  cursor: ns-resize;
+      1068 +}
+      1069
+      1070  /* ── Arrow context menu ── */
+      1071  #arrow-ctx {
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 8 lines
+      577      const bodyH   = el.querySelector('.arrow-body-handle');
+      578      const headH   = el.querySelector('.arrow-head-handle');
+      579      const rotateH = el.querySelector('.arrow-rotate-handle');
+      580 +    const strokeH = el.querySelector('.arrow-stroke-handle');
+      581      if (bodyH) {
+      582        bodyH.addEventListener('mousedown', e => {
+      583          e.stopPropagation(); e.preventDefault();
+     ...
+      599          S.arrowDrag = { id: n.id, handleType: 'rotate' };
+      600        });
+      601      }
+      602 +    if (strokeH) {
+      603 +      strokeH.addEventListener('mousedown', e => {
+      604 +        e.stopPropagation(); e.preventDefault();
+      605 +        pushUndo();
+      606 +        S.arrowDrag = { id: n.id, handleType: 'stroke' };
+      607 +      });
+      608 +    }
+      609    }
+      610
+      611    function renderArrowContent(n, el) {
+
+⏺ Now add the stroke handle to renderArrowContent and position it 8px above the shaft edge:
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line
+      638        <div class="arrow-handle arrow-body-handle"   style="left:${bLen}px;top:${midY}px;" title="Drag to resize shaft"></div>
+      639        <div class="arrow-handle arrow-head-handle"   style="left:${bLen + hLen * 0.5}px;top:${midY}px;" title="Drag to resize arrow
+           head"></div>
+      640        <div class="arrow-handle arrow-rotate-handle" style="left:${bLen / 2}px;top:${midY - 20}px;" title="Drag to rotate (Shift=15
+           ° snap)"></div>
+      641 +      <div class="arrow-handle arrow-stroke-handle" style="left:${bLen * 0.25}px;top:${midY - sw / 2 - 8}px;" title="Drag to chang
+          +e shaft thickness"></div>
+      642      `;
+      643      setupArrowHandleEvents(n, el);
+      644    }
+
+⏺ Now add the 'stroke' case in the canvas.js mousemove handler:
+
+⏺ Update(canvas.js)
+  ⎿  Added 4 lines
+      853          let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      854          if (e.shiftKey) angle = Math.round(angle / 15) * 15;
+      855          n.angle = angle;
+      856 +      } else if (S.arrowDrag.handleType === 'stroke') {
+      857 +        // Perpendicular distance from mouse to the shaft line (absolute value)
+      858 +        const perp = Math.abs(-dx * sinA + dy * cosA);
+      859 +        n.strokeWidth = Math.max(1, Math.round(perp));
+      860        }
+      861        const el = ndEl(n.id);
+      862        if (el) renderNode(n, el);
+
+⏺ Run tests to verify:
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (145 tests) 26ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 27ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 385ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ All tests pass. Now add a test for the new handle and update the existing DOM test:
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 10 lines, removed 1 line
+      899      expect(paths.length).toBeGreaterThanOrEqual(2);
+      900    });
+      901
+      902 -  it('contains three resize/rotate handle divs', () => {
+      902 +  it('contains four resize/rotate handle divs', () => {
+      903      const n = addArrow(0, 0);
+      904      const el = document.getElementById('nd-' + n.id);
+      905      expect(el.querySelector('.arrow-body-handle')).not.toBeNull();
+      906      expect(el.querySelector('.arrow-head-handle')).not.toBeNull();
+      907      expect(el.querySelector('.arrow-rotate-handle')).not.toBeNull();
+      908 +    expect(el.querySelector('.arrow-stroke-handle')).not.toBeNull();
+      909    });
+      910
+      911 +  it('stroke handle top tracks strokeWidth (8px above shaft edge)', () => {
+      912 +    const n = addArrow(0, 0); // strokeWidth defaults to 2
+      913 +    const el = document.getElementById('nd-' + n.id);
+      914 +    const sh = el.querySelector('.arrow-stroke-handle');
+      915 +    // top = midY - sw/2 - 8 = 20 - 1 - 8 = 11
+      916 +    expect(sh.style.top).toBe(`${20 - n.strokeWidth / 2 - 8}px`);
+      917 +  });
+      918 +
+      919    it('assigns a unique id to each arrow', () => {
+      920      const a = addArrow(0, 0);
+      921      const b = addArrow(200, 0);
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils.test.js (145 tests) 29ms
+      ✓ tests/canvas-utils-dom.test.js (21 tests) 23ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 432ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 360 tests passing.
+
+  The shaft thickness handle (pink circle) is now at position bLen × 0.25 along the shaft, 8px above the shaft edge. Dragging it:
+  - Away from the shaft → increases strokeWidth
+  - Toward the shaft → decreases strokeWidth (minimum 1px)
+
+  The handle position moves with the current thickness, giving visual feedback of the current value. The perpendicular-distance math works correctly
+   for any rotation angle.
+
+✻ Cooked for 2m 38s
+
+❯ Arrowのデフォルトをもう少し胴体は太く、頭は大きくしてください
+
+⏺ Defaults are set in two places: addArrow() and loadState() fallbacks. Let me update both:
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 2 lines, removed 2 lines
+      307      const n = {
+      308        id: S.nid++, type: 'arrow',
+      309        x, y,
+      310 -      bodyLen: 160, headLen: 28, headWidth: 20,
+      311 -      angle: 0, color: 'blue', strokeWidth: 2,
+      310 +      bodyLen: 160, headLen: 40, headWidth: 30,
+      311 +      angle: 0, color: 'blue', strokeWidth: 4,
+      312      };
+      313      S.nodes.push(n);
+      314      const el = document.createElement('div');
+
+⏺ Update(canvas.js)
+  ⎿  Error editing file
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 3 lines, removed 3 lines
+      521      let n;
+      522      if (nd.type === 'arrow') {
+      523        n = { id: nd.id, type: 'arrow', x: nd.x, y: nd.y,
+      524 -            bodyLen: nd.bodyLen ?? 160, headLen: nd.headLen ?? 28,
+      525 -            headWidth: nd.headWidth ?? 20, angle: nd.angle ?? 0,
+      526 -            color: nd.color ?? 'blue', strokeWidth: nd.strokeWidth ?? 2 };
+      524 +            bodyLen: nd.bodyLen ?? 160, headLen: nd.headLen ?? 40,
+      525 +            headWidth: nd.headWidth ?? 30, angle: nd.angle ?? 0,
+      526 +            color: nd.color ?? 'blue', strokeWidth: nd.strokeWidth ?? 4 };
+      527      } else if (nd.type === 'bubble') {
+      528        n = { id: nd.id, type: 'bubble', x: nd.x, y: nd.y, w: nd.w, h: nd.h,
+      529              text: nd.text ?? '', tailX: nd.tailX ?? nd.x + nd.w / 2, tailY: nd.tailY ?? nd.y + nd.h + 50,
+
+⏺ Also update the fallback in the bodyLen resize math and fitAll/marquee where 28 is hardcoded:
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      843        const dx = cp.x - n.x, dy = cp.y - n.y;
+      844        if (S.arrowDrag.handleType === 'body') {
+      845          const dot = dx * cosA + dy * sinA;
+      846 -        n.bodyLen = Math.max(20, dot - (n.headLen ?? 28));
+      846 +        n.bodyLen = Math.max(20, dot - (n.headLen ?? 40));
+      847        } else if (S.arrowDrag.handleType === 'head') {
+      848          const dot  = dx * cosA + dy * sinA;
+      849          const perp = Math.abs(-dx * sinA + dy * cosA);
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      962          let inMarquee;
+      963          if (n.type === 'arrow') {
+      964            const rad = (n.angle ?? 0) * Math.PI / 180;
+      965 -          const tot = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+      965 +          const tot = (n.bodyLen ?? 160) + (n.headLen ?? 40);
+      966            const tx  = n.x + tot * Math.cos(rad), ty = n.y + tot * Math.sin(rad);
+      967            const ax0 = Math.min(n.x, tx), ax1 = Math.max(n.x, tx);
+      968            const ay0 = Math.min(n.y, ty), ay1 = Math.max(n.y, ty);
+
+⏺ Same in canvas-nodes.js fitAll:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+      930      for (const n of S.nodes) {
+      931        if (n.type === 'arrow') {
+      932          const rad   = (n.angle ?? 0) * Math.PI / 180;
+      933 -        const total = (n.bodyLen ?? 160) + (n.headLen ?? 28);
+      933 +        const total = (n.bodyLen ?? 160) + (n.headLen ?? 40);
+      934          const tipX  = n.x + total * Math.cos(rad);
+      935          const tipY  = n.y + total * Math.sin(rad);
+      936          minX = Math.min(minX, n.x, tipX);
+
+⏺ Also check canvas-node-rendering.js for any hardcoded fallbacks:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Now update the tests that check defaults:
+
+⏺ Update(tests/canvas-dom.test.js)
+  ⎿  Added 3 lines, removed 3 lines
+      854    it('initializes default geometry fields', () => {
+      855      const n = addArrow(0, 0);
+      856      expect(n.bodyLen).toBe(160);
+      857 -    expect(n.headLen).toBe(28);
+      858 -    expect(n.headWidth).toBe(20);
+      857 +    expect(n.headLen).toBe(40);
+      858 +    expect(n.headWidth).toBe(30);
+      859      expect(n.angle).toBe(0);
+      860 -    expect(n.strokeWidth).toBe(2);
+      860 +    expect(n.strokeWidth).toBe(4);
+      861      expect(n.color).toBe('blue');
+      862    });
+      863
+
+⏺ Update(tests/canvas-integration.test.js)
+  ⎿  Added 3 lines, removed 3 lines
+      477      });
+      478      const n = S.nodes[0];
+      479      expect(n.bodyLen).toBe(160);
+      480 -    expect(n.headLen).toBe(28);
+      481 -    expect(n.headWidth).toBe(20);
+      480 +    expect(n.headLen).toBe(40);
+      481 +    expect(n.headWidth).toBe(30);
+      482      expect(n.angle).toBe(0);
+      483      expect(n.color).toBe('blue');
+      484 -    expect(n.strokeWidth).toBe(2);
+      484 +    expect(n.strokeWidth).toBe(4);
+      485    });
+      486
+      487    it('arrow node does not include w/h in saved data', () => {
+
+⏺ Bash(npm test 2>&1 | tail -12)
+  ⎿   ✓ tests/canvas-utils-dom.test.js (21 tests) 33ms
+      ✓ tests/canvas-dialogs.test.js (27 tests) 576ms
+      ✓ tests/canvas-interactions.test.js (22 tests) 730ms
+     … +8 lines (ctrl+o to expand)
+
+⏺ 360 tests pass. New defaults: headLen: 40, headWidth: 30, strokeWidth: 4.
+
+✻ Churned for 1m 33s
+```
