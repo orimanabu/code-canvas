@@ -248,6 +248,7 @@ let createLink, removeLink;
 let enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode;
 let showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx;
 let targetEntryPoint;
+let hideLinkTip;
 
 // openFetchDialog and openCodeSnippetdDialog are exposed as window.* by canvas-dialogs.js
 function openFetchDialog(id) { window.openFetchDialog(id); }
@@ -275,6 +276,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
   showTailAnchorCtx: (...a) => showTailAnchorCtx(...a),
   removeLink: (id) => removeLink(id),
   attachTailToText: (...a) => attachTailToText(...a),
+  hideLinkTip: () => hideLinkTip?.(),
   openFetchDialog,
   openCodeSnippetdDialog,
 }));
@@ -299,6 +301,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
    enterTailAttachMode, exitTailAttachMode,
    showAnchorCtx, hideAnchorCtx,
    showTailAnchorCtx, hideTailAnchorCtx,
+   hideLinkTip,
 } = initLinks({
   S, wrap, svgLinks, canvas, ndEl,
   linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,

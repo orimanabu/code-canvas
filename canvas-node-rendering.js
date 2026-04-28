@@ -10,6 +10,7 @@ export function initNodeRendering(deps) {
     toggleMultiSel, clearMultiSel, removeNode,
     renderLinks, renderBubbleTail, renderAnchoredBubbleTails,
     createLink, jumpTo, showAnchorCtx, showTailAnchorCtx, removeLink, attachTailToText,
+    hideLinkTip,
     openFetchDialog, openCodeSnippetdDialog,
   } = deps;
 
@@ -349,6 +350,20 @@ export function initNodeRendering(deps) {
     <div class="resize-handle"></div>`;
   }
 
+  // Walk the DOM of a bubble-text element to find the character offset of
+  // targetNode:targetOffset in terms of n.text (newlines represented by <br>).
+  function _bubbleTextOffset(targetNode, targetOffset, container) {
+    let offset = 0;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_ALL);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node === targetNode) return offset + targetOffset;
+      if (node.nodeType === Node.TEXT_NODE) offset += node.textContent.length;
+      else if (node.nodeName === 'BR') offset += 1;
+    }
+    return -1;
+  }
+
   function renderBubbleContent(n, el) {
     el.classList.toggle('is-editing', S.editing === n.id);
     if (S.editing === n.id) {
@@ -367,7 +382,29 @@ export function initNodeRendering(deps) {
       el.innerHTML = bubbleViewHTML(n);
       onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
       onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
-      el.querySelector('.bubble-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+      el.querySelector('.bubble-body').addEventListener('dblclick', e => {
+        e.stopPropagation();
+        // Capture word selection (set by browser on dblclick) before hideLinkTip clears it
+        const sel = window.getSelection();
+        let taSelStart = -1, taSelEnd = -1;
+        if (sel && sel.rangeCount > 0) {
+          const selText = sel.toString();
+          if (selText) {
+            const bubbleTextEl = e.currentTarget.querySelector('.bubble-text');
+            if (bubbleTextEl) {
+              const range = sel.getRangeAt(0);
+              taSelStart = _bubbleTextOffset(range.startContainer, range.startOffset, bubbleTextEl);
+              if (taSelStart >= 0) taSelEnd = taSelStart + selText.length;
+            }
+          }
+        }
+        hideLinkTip();
+        startEdit(n.id);
+        if (taSelStart >= 0) {
+          const ta = ndEl(n.id)?.querySelector('.bubble-textarea');
+          if (ta) ta.setSelectionRange(taSelStart, taSelEnd);
+        }
+      });
       const chk = el.querySelector('.chk-show-tail');
       chk.addEventListener('mousedown', e => e.stopPropagation());
       chk.addEventListener('change', e => {

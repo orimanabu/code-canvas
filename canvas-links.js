@@ -536,6 +536,11 @@ export function initLinks(deps) {
     window.getSelection()?.removeAllRanges();
   });
 
+  function hideLinkTip() {
+    linkTip.style.display = 'none';
+    window.getSelection()?.removeAllRanges();
+  }
+
   return {
     renderLinks, createLink, removeLink,
     targetEntryPoint,
@@ -543,5 +548,6 @@ export function initLinks(deps) {
     enterTailAttachMode: enterTailAttachModeLocal, exitTailAttachMode,
     showAnchorCtx, hideAnchorCtx,
     showTailAnchorCtx, hideTailAnchorCtx,
+    hideLinkTip,
   };
 }

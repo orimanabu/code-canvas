@@ -36003,3 +36003,262 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ⏺ canvas-nodes.js:110 の tail-handle の半径を 6 → 3 に変更しました。
 ```
+
+```
+❯ Bubbleをダブルクリックした場合、編集モードになって、かつコンテキストメニューが表示されます。コンテキストメニューは表示せず、編集モードになるだけ
+  にしてください。Bubble内の文字列を選択した場合はコンテキストメニューを表示してください(この場合は従来の動作のまま)
+
+⏺ Bubbleのダブルクリックとコンテキストメニュー処理を確認します。
+
+  Searched for 6 patterns (ctrl+o to expand)
+
+⏺ Bubbleのdblclickとcontextmenuがどこで設定されているか確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 次に、テキスト選択によるコンテキストメニュー表示処理を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ canvas-node-rendering.jsのdepsを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ canvas.jsでlinkTip周辺のwiring部分を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ canvas.jsのWIRING部分全体を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ initLinksが返すオブジェクトを確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 原因が分かりました。ダブルクリック時にブラウザが単語を選択 → mouseupでlinkTipを表示 →
+  その後dblclickでstartEditが呼ばれる、という順序になっています。
+
+  3ファイルを修正します。
+
+  1. canvas-links.js: hideLinkTip関数を追加してexport
+
+⏺ Update(canvas-links.js)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 6 lines
+      536      window.getSelection()?.removeAllRanges();
+      537    });
+      538
+      539 +  function hideLinkTip() {
+      540 +    linkTip.style.display = 'none';
+      541 +    window.getSelection()?.removeAllRanges();
+      542 +  }
+      543 +
+      544    return {
+      545      renderLinks, createLink, removeLink,
+      546      targetEntryPoint,
+     ...
+      548      enterTailAttachMode: enterTailAttachModeLocal, exitTailAttachMode,
+      549      showAnchorCtx, hideAnchorCtx,
+      550      showTailAnchorCtx, hideTailAnchorCtx,
+      551 +    hideLinkTip,
+      552    };
+      553  }
+
+⏺ 2. canvas.js: forward宣言の追加とwiring更新
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      248  let enterLinkMode, exitLinkMode, enterTailAttachMode, exitTailAttachMode;
+      249  let showAnchorCtx, hideAnchorCtx, showTailAnchorCtx, hideTailAnchorCtx;
+      250  let targetEntryPoint;
+      251 +let hideLinkTip;
+      252
+      253  // openFetchDialog and openCodeSnippetdDialog are exposed as window.* by canvas-dialogs.js
+      254  function openFetchDialog(id) { window.openFetchDialog(id); }
+
+⏺ 次にinitNodeRenderingのdepsにhideLinkTipを追加し、initLinksの返り値から代入します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      276    showTailAnchorCtx: (...a) => showTailAnchorCtx(...a),
+      277    removeLink: (id) => removeLink(id),
+      278    attachTailToText: (...a) => attachTailToText(...a),
+      279 +  hideLinkTip: () => hideLinkTip?.(),
+      280    openFetchDialog,
+      281    openCodeSnippetdDialog,
+      282  }));
+
+⏺ initLinksの返り値にhideLinkTipを追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      301     enterTailAttachMode, exitTailAttachMode,
+      302     showAnchorCtx, hideAnchorCtx,
+      303     showTailAnchorCtx, hideTailAnchorCtx,
+      304 +   hideLinkTip,
+      305  } = initLinks({
+      306    S, wrap, svgLinks, canvas, ndEl,
+      307    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+
+⏺ 3. canvas-node-rendering.js: depsにhideLinkTipを追加し、dblclickハンドラを更新
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 1 line
+      10      toggleMultiSel, clearMultiSel, removeNode,
+      11      renderLinks, renderBubbleTail, renderAnchoredBubbleTails,
+      12      createLink, jumpTo, showAnchorCtx, showTailAnchorCtx, removeLink, attachTailToText,
+      13 +    hideLinkTip,
+      14      openFetchDialog, openCodeSnippetdDialog,
+      15    } = deps;
+      16
+
+⏺ 次にbubble-bodyのdblclickハンドラを更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 5 lines, removed 1 line
+      368        el.innerHTML = bubbleViewHTML(n);
+      369        onClickStop(el.querySelector('.btn-edit'), () => startEdit(n.id));
+      370        onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      371 -      el.querySelector('.bubble-body').addEventListener('dblclick', e => { e.stopPropagation(); startEdit(n.id); });
+      371 +      el.querySelector('.bubble-body').addEventListener('dblclick', e => {
+      372 +        e.stopPropagation();
+      373 +        hideLinkTip();
+      374 +        startEdit(n.id);
+      375 +      });
+      376        const chk = el.querySelector('.chk-show-tail');
+      377        chk.addEventListener('mousedown', e => e.stopPropagation());
+      378        chk.addEventListener('change', e => {
+
+⏺ 変更を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ テストを実行して問題がないことを確認します。
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全342テストがパスしました。
+
+  修正内容のまとめ:
+  - canvas-links.js: hideLinkTip() 関数（linkTip非表示＋選択解除）を追加してexport
+  - canvas.js: forward宣言に hideLinkTip を追加し、initNodeRendering のdepsに転送クロージャを渡し、initLinks の返り値から代入
+  - canvas-node-rendering.js: bubble-bodyのdblclickハンドラで startEdit の前に hideLinkTip()
+  を呼び出し、ダブルクリック時にlinkTipが表示されないように
+
+  文字列を選択した場合は mouseup ハンドラが通常通り動作するので、コンテキストメニュー（linkTip）は従来通り表示されます。
+
+✻ Worked for 2m 32s
+
+※ recap: Suppressed the link-tip popup that was appearing on bubble double-click by routing a hideLinkTip callback through the module deps and
+  calling it in the dblclick handler. All 342 tests pass; ready for browser verification.
+
+❯ Bubbleの文字列をダブルクリックした際、マウスカーソルの下の単語が選択状態になった後編集モードに入り、単語の選択状態が解除されます。編集モードに入
+  った後も、ダブルクリックした単語を選択した状態にしてください
+
+⏺ startEditの実装を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ bubbleの編集モードのrenderを確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ bubbleViewHTMLの実装を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ ダブルクリックで選択された単語の位置をtextareaに引き継ぐ実装をします。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 18 lines
+      370        onClickStop(el.querySelector('.btn-del'), () => removeNode(n.id));
+      371        el.querySelector('.bubble-body').addEventListener('dblclick', e => {
+      372          e.stopPropagation();
+      373 +        // Capture word selection (set by browser on dblclick) before hideLinkTip clears it
+      374 +        const sel = window.getSelection();
+      375 +        let taSelStart = -1, taSelEnd = -1;
+      376 +        if (sel && sel.rangeCount > 0) {
+      377 +          const selText = sel.toString();
+      378 +          if (selText) {
+      379 +            const bubbleTextEl = e.currentTarget.querySelector('.bubble-text');
+      380 +            if (bubbleTextEl) {
+      381 +              const range = sel.getRangeAt(0);
+      382 +              taSelStart = _bubbleTextOffset(range.startContainer, range.startOffset, bubbleTextEl);
+      383 +              if (taSelStart >= 0) taSelEnd = taSelStart + selText.length;
+      384 +            }
+      385 +          }
+      386 +        }
+      387          hideLinkTip();
+      388          startEdit(n.id);
+      389 +        if (taSelStart >= 0) {
+      390 +          const ta = ndEl(n.id)?.querySelector('.bubble-textarea');
+      391 +          if (ta) ta.setSelectionRange(taSelStart, taSelEnd);
+      392 +        }
+      393        });
+      394        const chk = el.querySelector('.chk-show-tail');
+      395        chk.addEventListener('mousedown', e => e.stopPropagation());
+
+⏺ 次に _bubbleTextOffset ヘルパー関数を renderBubbleContent の直前に追加します。
+
+⏺ Update(canvas-node-rendering.js)
+  ⎿  Added 14 lines
+      350      <div class="resize-handle"></div>`;
+      351    }
+      352
+      353 +  // Walk the DOM of a bubble-text element to find the character offset of
+      354 +  // targetNode:targetOffset in terms of n.text (newlines represented by <br>).
+      355 +  function _bubbleTextOffset(targetNode, targetOffset, container) {
+      356 +    let offset = 0;
+      357 +    const walker = document.createTreeWalker(container, NodeFilter.SHOW_ALL);
+      358 +    let node;
+      359 +    while ((node = walker.nextNode())) {
+      360 +      if (node === targetNode) return offset + targetOffset;
+      361 +      if (node.nodeType === Node.TEXT_NODE) offset += node.textContent.length;
+      362 +      else if (node.nodeName === 'BR') offset += 1;
+      363 +    }
+      364 +    return -1;
+      365 +  }
+      366 +
+      367    function renderBubbleContent(n, el) {
+      368      el.classList.toggle('is-editing', S.editing === n.id);
+      369      if (S.editing === n.id) {
+
+⏺ テストを実行して確認します。
+
+⏺ Bash(npm test 2>&1 | tail -15)
+  ⎿   RUN  v2.1.9 /Users/ori/devel/src/github.com/orimanabu/code-canvas
+
+      ✓ tests/canvas-utils.test.js (145 tests) 44ms
+     … +10 lines (ctrl+o to expand)
+
+⏺ 全テストパス。変更の概要:
+
+  - _bubbleTextOffset(targetNode, targetOffset, container) を追加:
+  bubble-text要素のDOMをTreeWalkerでたどり、<br>を改行1文字として計算し、クリック位置のn.text内のオフセットを返す
+  - dblclickハンドラ:
+  hideLinkTip()を呼ぶ前に選択文字列とそのオフセットを取得し、startEdit()でtextareaが生成された後にsetSelectionRange()で同じ単語を再選択する
+
+  文字列を選択した場合のlinkTip表示は従来通り動作します。
+
+✻ Sautéed for 1m 45s
+```
