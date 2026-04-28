@@ -36262,3 +36262,54 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Sautéed for 1m 45s
 ```
+
+```
+❯ Bubbleをコピーして、コピー元が見えない場所までスクリーンを移動してからペーストしたときに、尻尾がとても長い状態でペーストされます。尻尾の長さをほ
+  どほどにしてください
+
+⏺ ペースト時のバブルの尻尾位置を調べます。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ ノードのペースト部分（695〜715行）を詳しく見ます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題が分かりました。バブルの尻尾が別のノードを指している場合（アンカー付き）、ペースト時にアンカーはクリアされますが、tailX/tailY
+  はコピー元の絶対キャンバス座標のまま offset + dx だけシフトされます。スクリーン外にある場合の dx
+  補正でノード本体は画面中央に移動しますが、尻尾の座標はコピー元から遠い位置（例:
+  5000px先）を指していた場合、新しいノードから大きくズレてしまいます。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 14 lines, removed 2 lines
+      699          oldToNewId.set(oldId, n.id);
+      700          delete n._clipType;
+      701          if (n.type === 'bubble') {
+      702 -          n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
+      703 -          n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+      702 +          const rawTailX = data.tailX ?? data.x + data.w / 2;
+      703 +          const rawTailY = data.tailY ?? data.y + data.h + 50;
+      704 +          const newTailX = rawTailX + offset + dx;
+      705 +          const newTailY = rawTailY + offset + dy;
+      706 +          // If the tail would end up too far from the node body, snap it to a sensible default
+      707 +          const MAX_TAIL = 300;
+      708 +          const tailDist = Math.hypot(newTailX - n.x - (data.w || 0) / 2, newTailY - n.y - (data.h || 0) / 2);
+      709 +          if (tailDist > MAX_TAIL) {
+      710 +            n.tailX = n.x + (data.w || 0) / 2;
+      711 +            n.tailY = n.y + (data.h || 0) + 50;
+      712 +          } else {
+      713 +            n.tailX = newTailX;
+      714 +            n.tailY = newTailY;
+      715 +          }
+      716            // Pasted bubbles start with a free tail — no anchor collision risk
+      717            n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
+      718          }
+
+⏺ 修正内容：
+
+  - ペースト後の尻尾位置とノード中心の距離を計算
+  - 300px を超える場合はノード下部中央 + 50px のデフォルト位置に上書き
+  - 近い場合（通常のコピペ、少しスクロールしただけ）は元の相対位置を維持
+
+✻ Sautéed for 46s
+```

@@ -699,8 +699,20 @@ export function initNodes(deps) {
         oldToNewId.set(oldId, n.id);
         delete n._clipType;
         if (n.type === 'bubble') {
-          n.tailX = (data.tailX ?? data.x + data.w / 2) + offset + dx;
-          n.tailY = (data.tailY ?? data.y + data.h + 50) + offset + dy;
+          const rawTailX = data.tailX ?? data.x + data.w / 2;
+          const rawTailY = data.tailY ?? data.y + data.h + 50;
+          const newTailX = rawTailX + offset + dx;
+          const newTailY = rawTailY + offset + dy;
+          // If the tail would end up too far from the node body, snap it to a sensible default
+          const MAX_TAIL = 300;
+          const tailDist = Math.hypot(newTailX - n.x - (data.w || 0) / 2, newTailY - n.y - (data.h || 0) / 2);
+          if (tailDist > MAX_TAIL) {
+            n.tailX = n.x + (data.w || 0) / 2;
+            n.tailY = n.y + (data.h || 0) + 50;
+          } else {
+            n.tailX = newTailX;
+            n.tailY = newTailY;
+          }
           // Pasted bubbles start with a free tail — no anchor collision risk
           n.tailAnchorId = null; n.tailAnchorText = null; n.tailAnchorFromId = null; n.tailAnchorLine = -1; n.tailAnchorCol = -1;
         }
