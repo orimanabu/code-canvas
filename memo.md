@@ -35312,3 +35312,174 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Worked for 57s
 ```
+
+```
+❯ リンクを右クリックしたときのコンテキストメニューで、「矢印の向きを反転する」を追加してください
+
+⏺ リンクのコンテキストメニューのコードを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 次にHTML側のlink-ctxメニュー構造を確認します。
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ 全体像が把握できました。3箇所に変更を加えます：
+
+  1. canvas.html — "Reverse direction" ボタンを追加
+  2. canvas.js — DOM要素の参照を追加、initLinksに渡す
+  3. canvas-links.js — ボタンのハンドラを実装
+
+⏺ Update(canvas.html)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.html)
+  ⎿  Added 2 lines
+      357    <button id="link-ctx-goto-from">⤴ Go to source</button>
+      358    <button id="link-ctx-goto-to">⤵ Go to destination</button>
+      359    <div class="link-ctx-sep"></div>
+      360 +  <button id="link-ctx-reverse">⇄ Reverse direction</button>
+      361 +  <div class="link-ctx-sep"></div>
+      362    <button id="link-ctx-del">🗑 Delete link</button>
+      363  </div>
+      364  <!-- Alert / Notification Dialog -->
+
+⏺ 次に canvas.js の DOM参照と initLinks 呼び出しを更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      62  const linkCtxDel     = document.getElementById('link-ctx-del');
+      63  const linkCtxGotoFrom = document.getElementById('link-ctx-goto-from');
+      64  const linkCtxGotoTo   = document.getElementById('link-ctx-goto-to');
+      65 +const linkCtxReverse  = document.getElementById('link-ctx-reverse');
+      66  const anchorCtx            = document.getElementById('anchor-ctx');
+      67  const anchorCtxLink        = document.getElementById('anchor-ctx-link');
+      68  const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
+
+⏺ 次に initLinks への受け渡しを確認・更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      276  } = initLinks({
+      277    S, wrap, svgLinks, canvas, ndEl,
+      278    linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+      279 -  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      279 +  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxReverse, linkCtxColors, linkCtxWidths, linkCtxDashes,
+      280    anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+      281    tailAnchorCtx, tailAnchorCtxDetach,
+      282    linkPreviewEl,
+
+⏺ 最後に canvas-links.js でdeps受け取りとハンドラ実装を追加します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+       4  export function initLinks(deps) {
+       5    const { S, wrap, svgLinks, canvas, ndEl,
+       6      linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
+       7 -    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       7 +    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxReverse, linkCtxColors, linkCtxWidths, linkCtxDashes,
+       8      anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+       9      tailAnchorCtx, tailAnchorCtxDetach,
+      10      linkPreviewEl,
+
+⏺ 次にハンドラを showLinkCtx に追加します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 12 lines
+      257
+      258      linkCtxGotoFrom.onclick = () => { hideLinkCtx(); jumpTo(lnk.fromId); };
+      259      linkCtxGotoTo.onclick   = () => { hideLinkCtx(); jumpTo(lnk.toId); };
+      260 +    linkCtxReverse.onclick  = () => {
+      261 +      hideLinkCtx();
+      262 +      pushUndo();
+      263 +      [lnk.fromId, lnk.toId] = [lnk.toId, lnk.fromId];
+      264 +      [lnk.anchorLine, lnk.anchorCol] = [-1, -1];
+      265 +      const from = S.nodes.find(n => n.id === lnk.fromId);
+      266 +      const to   = S.nodes.find(n => n.id === lnk.toId);
+      267 +      if (from) renderNode(from);
+      268 +      if (to)   renderNode(to);
+      269 +      renderLinks();
+      270 +      scheduleSave();
+      271 +    };
+      272      linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
+      273      positionCtxMenu(linkCtx, x, y);
+      274    }
+
+⏺ 実装を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 実装完了です。変更内容：
+
+  - canvas.html: "⇄ Reverse direction" ボタンを "Go to destination" と "Delete link" の間に追加
+  - canvas.js: linkCtxReverse DOM参照を追加し、initLinks に渡すよう更新
+  - canvas-links.js: linkCtxReverse を deps から受け取り、クリック時に fromId/toId
+  を入れ替え、アンカー位置をリセット（アンカー付きリンクの場合、反転後はソースが変わるため）、undo対応で再レンダリング・保存
+
+✻ Cooked for 1m 14s
+
+❯ Reverse directionの動きは、アンカー位置は変えずに、矢印の描画だけを反転するようにしてください
+
+⏺ renderLinks の矢印描画を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ SVGの矢印マーカー定義を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 理解しました。orient="auto" なので marker-start を使えば矢印を反転できます。fromId/toId もアンカーも変えず、reversed フラグだけ持つ実装にします。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 6 lines
+      260      linkCtxReverse.onclick  = () => {
+      261        hideLinkCtx();
+      262        pushUndo();
+      263 -      [lnk.fromId, lnk.toId] = [lnk.toId, lnk.fromId];
+      264 -      [lnk.anchorLine, lnk.anchorCol] = [-1, -1];
+      265 -      const from = S.nodes.find(n => n.id === lnk.fromId);
+      266 -      const to   = S.nodes.find(n => n.id === lnk.toId);
+      267 -      if (from) renderNode(from);
+      268 -      if (to)   renderNode(to);
+      263 +      lnk.reversed = !lnk.reversed;
+      264        renderLinks();
+      265        scheduleSave();
+      266      };
+
+⏺ 次に renderLinks の矢印描画部分を reversed フラグに対応させます。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 4 lines, removed 1 line
+      165          const dash = lnk.dash || '';
+      166
+      167          const g = svgE('g', { class: 'lk' });
+      168 -        const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+      168 +        const arrowAttrs = lnk.reversed
+      169 +          ? { 'marker-start': 'url(#arrow)' }
+      170 +          : { 'marker-end':   'url(#arrow)' };
+      171 +        const pathEl = svgE('path', { d, class: 'link-path', ...arrowAttrs });
+      172          pathEl.style.stroke = stroke;
+      173          pathEl.style.strokeWidth = strokeWidth + 'px';
+      174          if (dash) pathEl.style.strokeDasharray = dash;
+
+⏺ 実装を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 完了です。変更内容：
+
+  - canvas-links.js showLinkCtx: fromId/toId のスワップをやめ、lnk.reversed をトグルするだけにしました
+  - canvas-links.js renderLinks: lnk.reversed が true のとき marker-start、false のとき marker-end を使って矢印を描画します
+
+  アンカーハイライトもノードの再レンダリングも一切行わず、矢印の向きだけが変わります。もう一度クリックすれば元の向きに戻ります。
+
+✻ Crunched for 1m 37s
+```

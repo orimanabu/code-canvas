@@ -62,6 +62,7 @@ const linkCtx        = document.getElementById('link-ctx');
 const linkCtxDel     = document.getElementById('link-ctx-del');
 const linkCtxGotoFrom = document.getElementById('link-ctx-goto-from');
 const linkCtxGotoTo   = document.getElementById('link-ctx-goto-to');
+const linkCtxReverse  = document.getElementById('link-ctx-reverse');
 const anchorCtx            = document.getElementById('anchor-ctx');
 const anchorCtxLink        = document.getElementById('anchor-ctx-link');
 const anchorCtxNewBlock    = document.getElementById('anchor-ctx-newblock');
@@ -275,7 +276,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
 } = initLinks({
   S, wrap, svgLinks, canvas, ndEl,
   linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
-  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+  linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxReverse, linkCtxColors, linkCtxWidths, linkCtxDashes,
   anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
   tailAnchorCtx, tailAnchorCtxDetach,
   linkPreviewEl,

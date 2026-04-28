@@ -4,7 +4,7 @@ import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSid
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
     linkTip, linkTipLink, linkTipNewBlock, linkTipAttachTail, linkTipNewBubble,
-    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxColors, linkCtxWidths, linkCtxDashes,
+    linkCtx, linkCtxDel, linkCtxGotoFrom, linkCtxGotoTo, linkCtxReverse, linkCtxColors, linkCtxWidths, linkCtxDashes,
     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
     tailAnchorCtx, tailAnchorCtxDetach,
     linkPreviewEl,
@@ -165,7 +165,10 @@ export function initLinks(deps) {
         const dash = lnk.dash || '';
 
         const g = svgE('g', { class: 'lk' });
-        const pathEl = svgE('path', { d, class: 'link-path', 'marker-end': 'url(#arrow)' });
+        const arrowAttrs = lnk.reversed
+          ? { 'marker-start': 'url(#arrow)' }
+          : { 'marker-end':   'url(#arrow)' };
+        const pathEl = svgE('path', { d, class: 'link-path', ...arrowAttrs });
         pathEl.style.stroke = stroke;
         pathEl.style.strokeWidth = strokeWidth + 'px';
         if (dash) pathEl.style.strokeDasharray = dash;
@@ -257,6 +260,13 @@ export function initLinks(deps) {
 
     linkCtxGotoFrom.onclick = () => { hideLinkCtx(); jumpTo(lnk.fromId); };
     linkCtxGotoTo.onclick   = () => { hideLinkCtx(); jumpTo(lnk.toId); };
+    linkCtxReverse.onclick  = () => {
+      hideLinkCtx();
+      pushUndo();
+      lnk.reversed = !lnk.reversed;
+      renderLinks();
+      scheduleSave();
+    };
     linkCtxDel.onclick = () => { hideLinkCtx(); removeLink(linkId); };
     positionCtxMenu(linkCtx, x, y);
   }
