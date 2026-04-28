@@ -35835,3 +35835,146 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
   canvas.js:163 付近にあります。値を小さくすると速く、大きくすると遅くなります。
 ```
+
+```
+❯ 以下のコードスニペットを持つブロックに対して、まず3行目の"setns"にbubbleを紐づけ、次に12行目の"setns"に別のbubbleを紐付けようとすると、12行目では
+  なく14行目に接続してしまいます。正しく12行目の"setns"に接続するよう修正してください
+  ---
+        if (init_status->idx_pidns_to_join_immediately >= 0)
+          {
+            ret = setns (init_status->fd[init_status->idx_pidns_to_join_immediately], CLONE_NEWPID);
+            if (UNLIKELY (ret < 0))
+              return crun_make_error (err, errno, "setns to target PID namespace");
+
+            close_and_reset (&init_status->fd[init_status->idx_pidns_to_join_immediately]);
+          }
+
+        if (init_status->idx_timens_to_join_immediately >= 0)
+          {
+            ret = setns (init_status->fd[init_status->idx_timens_to_join_immediately], CLONE_NEWTIME);
+            if (UNLIKELY (ret < 0))
+              return crun_make_error (err, errno, "setns to target timens");
+
+            close_and_reset (&init_status->fd[init_status->idx_timens_to_join_immediately]);
+          }
+
+⏺ Let me look at the bubble anchoring code to understand how line/column positions are matched.
+
+  Searched for 4 patterns, read 1 file (ctrl+o to expand)
+
+⏺ Now let me look at how tailLine and tailCol are determined when the user selects text to create a bubble.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Now let me find getCodeTextOffset and getAnchorLineCol:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at how addLineNumbers works and how lines are structured in the DOM:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me check how the code block is rendered in view mode:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Let me look at the existing tests for this area to understand expected behavior:
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+⏺ Let me check how codeHtml is built and where injectTailAnchor is applied:
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Found the bug. Let me trace through what happens:
+
+  1. First bubble anchors to line 3's "setns" → the code node re-renders with <span class="tail-anchor">setns</span> for occurrence 0.
+  2. When the user selects line 12's "setns", _lineColToMatchIdx correctly computes tailMatchIdx = 2 (the 3rd occurrence in raw code: line 3=0, line
+   5=1, line 12=2).
+  3. But _injectSpans skips the already-wrapped occurrence (inside the tail-anchor span) without incrementing matchCount. So matchCount=2 hits line
+  14's "setns" (the 3rd processable occurrence) instead of line 12's.
+
+  The fix: count occurrences inside skipped spans too, so matchCount stays in sync with raw code occurrence indices.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 8 lines, removed 1 line
+      142    let insideAnchor = false;
+      143    let matchCount = 0;
+      144
+      145 +  // Count matches without replacing — keeps matchCount in sync with raw-code
+      146 +  // occurrence indices even for text inside already-anchored spans.
+      147 +  function countSegment(str) {
+      148 +    const cre = new RegExp(re.source, re.flags);
+      149 +    while (cre.exec(str) !== null) matchCount++;
+      150 +  }
+      151 +
+      152    function replaceSegment(str) {
+      153      const cre = new RegExp(re.source, re.flags);
+      154      let out = '', last = 0, m;
+     ...
+      171        else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      172        return p;
+      173      }
+      167 -    if (insideAnchor) return p;
+      174 +    if (insideAnchor) { countSegment(p); return p; }
+      175      return replaceSegment(p);
+      176    }).join('');
+      177  }
+
+⏺ Now let me verify the fix and run the tests:
+
+⏺ Bash(npm test 2>&1 | tail -40)
+  ⎿  > test
+     > vitest run
+     … +20 lines (ctrl+o to expand)
+
+⏺ All 341 tests pass. Let me also add a regression test for this specific scenario:
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 18 lines
+      534      // plain occurrences still appear in output
+      535      expect(result).toContain('alpha');
+      536    });
+      537 +
+      538 +  it('targets the correct occurrence even when an earlier one is already wrapped', () => {
+      539 +    // Simulates the second bubble attachment: occurrence 0 is already inside a
+      540 +    // tail-anchor span; targeting occurrence 2 (line 2 col 0) must not shift
+      541 +    // to occurrence 3 because the already-wrapped occurrence is skipped.
+      542 +    const code = 'foo bar foo\nfoo bar foo';
+      543 +    // occurrence 0: line 1 col 0 — pre-wrapped
+      544 +    // occurrence 1: line 1 col 8
+      545 +    // occurrence 2: line 2 col 0  ← target
+      546 +    // occurrence 3: line 2 col 8
+      547 +    const preWrapped = '<span class="tail-anchor" data-taid="1">foo</span> bar foo\nfoo bar foo';
+      548 +    const result = injectTailAnchor(preWrapped, 'foo', 2, code, 2, 0);
+      549 +    // Should wrap the 'foo' at the start of line 2, not the one at col 8
+      550 +    const wraps = [...result.matchAll(/data-taid="(\d+)"/g)].map(m => m[1]);
+      551 +    expect(wraps).toContain('2');
+      552 +    // The wrapped occurrence should be the one at the start of line 2
+      553 +    expect(result).toContain('\n<span class="tail-anchor" data-taid="2">foo</span> bar foo');
+      554 +  });
+      555  });
+      556
+      557  // ─── LINK_COLORS ─────────────────────────────────────────
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ All 342 tests pass.
+
+  Root cause: _injectSpans in canvas-utils.js was skipping already-wrapped occurrences (inside existing tail-anchor spans) without counting them.
+  This caused matchCount to fall out of sync with the raw-code occurrence indices computed by _lineColToMatchIdx. When occurrence 0 ("setns" on line
+   3) was already wrapped by the first bubble, matchCount=2 in _injectSpans was hitting line 14's "setns" (the 3rd processable occurrence) instead
+  of line 12's "setns" (the 3rd occurrence in raw code).
+
+  Fix: Added countSegment() — when a text segment is inside an existing anchor span and skipped from replacement, it still counts any matches to
+  keep matchCount aligned with the raw code occurrence index.
+
+✻ Crunched for 6m 31s
+```

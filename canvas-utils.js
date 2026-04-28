@@ -142,6 +142,13 @@ function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
   let insideAnchor = false;
   let matchCount = 0;
 
+  // Count matches without replacing — keeps matchCount in sync with raw-code
+  // occurrence indices even for text inside already-anchored spans.
+  function countSegment(str) {
+    const cre = new RegExp(re.source, re.flags);
+    while (cre.exec(str) !== null) matchCount++;
+  }
+
   function replaceSegment(str) {
     const cre = new RegExp(re.source, re.flags);
     let out = '', last = 0, m;
@@ -164,7 +171,7 @@ function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
       else if (p === '</span>' && insideAnchor) insideAnchor = false;
       return p;
     }
-    if (insideAnchor) return p;
+    if (insideAnchor) { countSegment(p); return p; }
     return replaceSegment(p);
   }).join('');
 }

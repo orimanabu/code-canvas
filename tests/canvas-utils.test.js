@@ -534,6 +534,24 @@ describe('injectTailAnchor', () => {
     // plain occurrences still appear in output
     expect(result).toContain('alpha');
   });
+
+  it('targets the correct occurrence even when an earlier one is already wrapped', () => {
+    // Simulates the second bubble attachment: occurrence 0 is already inside a
+    // tail-anchor span; targeting occurrence 2 (line 2 col 0) must not shift
+    // to occurrence 3 because the already-wrapped occurrence is skipped.
+    const code = 'foo bar foo\nfoo bar foo';
+    // occurrence 0: line 1 col 0 — pre-wrapped
+    // occurrence 1: line 1 col 8
+    // occurrence 2: line 2 col 0  ← target
+    // occurrence 3: line 2 col 8
+    const preWrapped = '<span class="tail-anchor" data-taid="1">foo</span> bar foo\nfoo bar foo';
+    const result = injectTailAnchor(preWrapped, 'foo', 2, code, 2, 0);
+    // Should wrap the 'foo' at the start of line 2, not the one at col 8
+    const wraps = [...result.matchAll(/data-taid="(\d+)"/g)].map(m => m[1]);
+    expect(wraps).toContain('2');
+    // The wrapped occurrence should be the one at the start of line 2
+    expect(result).toContain('\n<span class="tail-anchor" data-taid="2">foo</span> bar foo');
+  });
 });
 
 // ─── LINK_COLORS ─────────────────────────────────────────
