@@ -35512,3 +35512,143 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 ⏺ BubbleとTextノードをダブルクリックすると編集モードに入るようになりました。変更は1行のみで、setupNodeEvents の dblclick ハンドラの条件に n.type ===
    'bubble' を追加しました（canvas-nodes.js:425）。
 ```
+
+```
+❯ Jumpボタンを押すとプルダウンメニュー的にシンボルのリストが出てきますが、このリストの一番上にテキスト入力フォームを作って、文字列を入れるとその文
+  字列を含む候補だけ出てくるようにしたいです
+
+⏺ Jumpボタンのドロップダウンに検索フォームを追加する実装を確認します。
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 次にCSSのnavigator関連スタイルを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 実装の全体像を把握しました。次のように変更します:
+
+  1. パネル上部に検索 input を追加
+  2. 入力に応じてアイテムをフィルタリング
+  3. CSSにsearch input用のスタイルを追加
+
+⏺ Update(canvas.js)
+  ⎿  Added 46 lines, removed 14 lines
+      1186      panel = document.createElement('div');
+      1187      panel.id = 'navigator-panel';
+      1188
+      1189 +    // Search input
+      1190 +    const searchWrap = document.createElement('div');
+      1191 +    searchWrap.className = 'nav-search-wrap';
+      1192 +    const searchInput = document.createElement('input');
+      1193 +    searchInput.type = 'text';
+      1194 +    searchInput.className = 'nav-search';
+      1195 +    searchInput.placeholder = 'Filter…';
+      1196 +    searchInput.setAttribute('autocomplete', 'off');
+      1197 +    searchWrap.appendChild(searchInput);
+      1198 +    panel.appendChild(searchWrap);
+      1199 +
+      1200 +    const listContainer = document.createElement('div');
+      1201 +    panel.appendChild(listContainer);
+      1202 +
+      1203      const cmp = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+      1204      const blocks = S.nodes.filter(n => !n.type)
+      1205        .sort((a, b) => cmp(a.title || a.filePath || '', b.title || b.filePath || ''));
+     ...
+      1221        return div;
+      1222      }
+      1223
+      1210 -    function addSection(title, nodes, icon, labelFn, pathFn, subFn) {
+      1224 +    function addSection(container, title, nodes, icon, labelFn, pathFn, subFn) {
+      1225        const sec = document.createElement('div');
+      1226        sec.className = 'nav-section';
+      1227        sec.textContent = title;
+      1214 -      panel.appendChild(sec);
+      1228 +      container.appendChild(sec);
+      1229        if (nodes.length === 0) {
+      1230          const empty = document.createElement('div');
+      1231          empty.className = 'nav-empty';
+      1232          empty.textContent = 'None';
+      1219 -        panel.appendChild(empty);
+      1233 +        container.appendChild(empty);
+      1234        } else {
+      1221 -        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
+      1235 +        nodes.forEach(n => container.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
+      1236        }
+      1237      }
+      1238
+      1225 -    addSection('Blocks', blocks, '▣',
+      1226 -      n => n.title || '(Untitled)',
+      1227 -      n => n.filePath || '',
+      1228 -      n => n.lang || '');
+      1229 -    const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
+      1230 -    addSection('Bubbles', bubbles, '💬',
+      1231 -      n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
+      1232 -    const div2 = document.createElement('div'); div2.className = 'nav-divider'; panel.appendChild(div2);
+      1233 -    addSection('Frames', frames, '⬜',
+      1234 -      n => n.label || '(Untitled)');
+      1239 +    function renderList(query) {
+      1240 +      listContainer.innerHTML = '';
+      1241 +      const q = query.trim().toLowerCase();
+      1242 +      function matches(...texts) {
+      1243 +        if (!q) return true;
+      1244 +        return texts.some(t => t && t.toLowerCase().includes(q));
+      1245 +      }
+      1246
+      1247 +      const filteredBlocks = blocks.filter(n => matches(n.title, n.filePath, n.lang));
+      1248 +      const filteredBubbles = bubbles.filter(n => matches((n.text || '').replace(/\s+/g, ' ').trim()));
+      1249 +      const filteredFrames = frames.filter(n => matches(n.label));
+      1250 +
+      1251 +      addSection(listContainer, 'Blocks', filteredBlocks, '▣',
+      1252 +        n => n.title || '(Untitled)',
+      1253 +        n => n.filePath || '',
+      1254 +        n => n.lang || '');
+      1255 +      const div1 = document.createElement('div'); div1.className = 'nav-divider'; listContainer.appendChild(div1);
+      1256 +      addSection(listContainer, 'Bubbles', filteredBubbles, '💬',
+      1257 +        n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
+      1258 +      const div2 = document.createElement('div'); div2.className = 'nav-divider'; listContainer.appendChild(div2);
+      1259 +      addSection(listContainer, 'Frames', filteredFrames, '⬜',
+      1260 +        n => n.label || '(Untitled)');
+      1261 +    }
+      1262 +
+      1263 +    renderList('');
+      1264 +    searchInput.addEventListener('input', () => renderList(searchInput.value));
+      1265 +    searchInput.addEventListener('keydown', e => { if (e.key === 'Escape') closeNavigator(); });
+      1266 +
+      1267      // Position below the button
+      1268      const rect = btn.getBoundingClientRect();
+      1269      panel.style.top = (rect.bottom + 6) + 'px';
+      1270      panel.style.left = rect.left + 'px';
+      1271      document.body.appendChild(panel);
+      1272 +    searchInput.focus();
+      1273
+      1274      // Close on outside click
+      1275      setTimeout(() => {
+
+⏺ 次にCSSにsearch inputのスタイルを追加します。
+
+⏺ Update(canvas.css)
+  ⎿  Added 8 lines
+      486  .nav-item .nav-sub { color: #484f58; font-size: 11px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+      487  .nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
+      488  .nav-divider { height: 1px; background: #21262d; margin: 4px 0; }
+      489 +.nav-search-wrap { padding: 6px 10px 6px; border-bottom: 1px solid #21262d; }
+      490 +.nav-search {
+      491 +  width: 100%; box-sizing: border-box;
+      492 +  background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+      493 +  color: #c9d1d9; font-size: 12px; padding: 4px 8px;
+      494 +  outline: none;
+      495 +}
+      496 +.nav-search:focus { border-color: #58a6ff; }
+      497
+      498  .zoom-ctrl {
+      499    display: flex; align-items: center; gap: 2px;
+
+⏺ 実装完了です。変更内容:
+
+  - Jumpパネル上部に検索フォーム (Filter… プレースホルダー) を追加
+  - 文字を入力するとBlocks/Bubbles/Framesそれぞれを同時フィルタリング（title・filePath・lang・textなど対象）
+  - パネルを開くと自動でフォーカス、Escapeキーでパネルを閉じる
+  - 検索フォームのスタイルはナビゲーターパネルのデザインに合わせた
+
+✻ Baked for 59s
+```

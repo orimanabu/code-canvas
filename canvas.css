@@ -486,6 +486,14 @@ kbd {
 .nav-item .nav-sub { color: #484f58; font-size: 11px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
 .nav-empty { padding: 4px 14px 6px; font-size: 12px; color: #484f58; font-style: italic; }
 .nav-divider { height: 1px; background: #21262d; margin: 4px 0; }
+.nav-search-wrap { padding: 6px 10px 6px; border-bottom: 1px solid #21262d; }
+.nav-search {
+  width: 100%; box-sizing: border-box;
+  background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+  color: #c9d1d9; font-size: 12px; padding: 4px 8px;
+  outline: none;
+}
+.nav-search:focus { border-color: #58a6ff; }
 
 .zoom-ctrl {
   display: flex; align-items: center; gap: 2px;

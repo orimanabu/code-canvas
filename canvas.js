@@ -1186,6 +1186,20 @@ document.getElementById('btn-clear').addEventListener('click', () => {
     panel = document.createElement('div');
     panel.id = 'navigator-panel';
 
+    // Search input
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'nav-search-wrap';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'nav-search';
+    searchInput.placeholder = 'Filter…';
+    searchInput.setAttribute('autocomplete', 'off');
+    searchWrap.appendChild(searchInput);
+    panel.appendChild(searchWrap);
+
+    const listContainer = document.createElement('div');
+    panel.appendChild(listContainer);
+
     const cmp = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
     const blocks = S.nodes.filter(n => !n.type)
       .sort((a, b) => cmp(a.title || a.filePath || '', b.title || b.filePath || ''));
@@ -1207,37 +1221,55 @@ document.getElementById('btn-clear').addEventListener('click', () => {
       return div;
     }
 
-    function addSection(title, nodes, icon, labelFn, pathFn, subFn) {
+    function addSection(container, title, nodes, icon, labelFn, pathFn, subFn) {
       const sec = document.createElement('div');
       sec.className = 'nav-section';
       sec.textContent = title;
-      panel.appendChild(sec);
+      container.appendChild(sec);
       if (nodes.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'nav-empty';
         empty.textContent = 'None';
-        panel.appendChild(empty);
+        container.appendChild(empty);
       } else {
-        nodes.forEach(n => panel.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
+        nodes.forEach(n => container.appendChild(makeItem(n, icon, labelFn(n), pathFn?.(n), subFn?.(n))));
       }
     }
 
-    addSection('Blocks', blocks, '▣',
-      n => n.title || '(Untitled)',
-      n => n.filePath || '',
-      n => n.lang || '');
-    const div1 = document.createElement('div'); div1.className = 'nav-divider'; panel.appendChild(div1);
-    addSection('Bubbles', bubbles, '💬',
-      n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
-    const div2 = document.createElement('div'); div2.className = 'nav-divider'; panel.appendChild(div2);
-    addSection('Frames', frames, '⬜',
-      n => n.label || '(Untitled)');
+    function renderList(query) {
+      listContainer.innerHTML = '';
+      const q = query.trim().toLowerCase();
+      function matches(...texts) {
+        if (!q) return true;
+        return texts.some(t => t && t.toLowerCase().includes(q));
+      }
+
+      const filteredBlocks = blocks.filter(n => matches(n.title, n.filePath, n.lang));
+      const filteredBubbles = bubbles.filter(n => matches((n.text || '').replace(/\s+/g, ' ').trim()));
+      const filteredFrames = frames.filter(n => matches(n.label));
+
+      addSection(listContainer, 'Blocks', filteredBlocks, '▣',
+        n => n.title || '(Untitled)',
+        n => n.filePath || '',
+        n => n.lang || '');
+      const div1 = document.createElement('div'); div1.className = 'nav-divider'; listContainer.appendChild(div1);
+      addSection(listContainer, 'Bubbles', filteredBubbles, '💬',
+        n => (n.text || '').replace(/\s+/g, ' ').trim().slice(0, 40) || '(Empty)');
+      const div2 = document.createElement('div'); div2.className = 'nav-divider'; listContainer.appendChild(div2);
+      addSection(listContainer, 'Frames', filteredFrames, '⬜',
+        n => n.label || '(Untitled)');
+    }
+
+    renderList('');
+    searchInput.addEventListener('input', () => renderList(searchInput.value));
+    searchInput.addEventListener('keydown', e => { if (e.key === 'Escape') closeNavigator(); });
 
     // Position below the button
     const rect = btn.getBoundingClientRect();
     panel.style.top = (rect.bottom + 6) + 'px';
     panel.style.left = rect.left + 'px';
     document.body.appendChild(panel);
+    searchInput.focus();
 
     // Close on outside click
     setTimeout(() => {
