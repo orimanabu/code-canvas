@@ -280,6 +280,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
   tailAnchorCtx, tailAnchorCtxDetach,
   linkPreviewEl,
   renderNode: (n, el) => renderNode(n, el),
+  autoFitNode: (n) => autoFitNode(n),
   addNode: (...a) => addNode(...a),
   addBubble: (...a) => addBubble(...a),
   selectNode: (id) => selectNode(id),

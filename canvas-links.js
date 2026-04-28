@@ -8,7 +8,7 @@ export function initLinks(deps) {
     anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
     tailAnchorCtx, tailAnchorCtxDetach,
     linkPreviewEl,
-    renderNode, addNode, addBubble, selectNode, startEdit,
+    renderNode, autoFitNode, addNode, addBubble, selectNode, startEdit,
     renderBubbleTail, attachTailToText,
     pushUndo, scheduleSave, setStatus,
     s2c, c2s,
@@ -27,7 +27,9 @@ export function initLinks(deps) {
     }
     pushUndo();
     S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorLine, anchorCol });
-    renderNode(S.nodes.find(n => n.id === fromId));
+    const fromNode = S.nodes.find(n => n.id === fromId);
+    renderNode(fromNode);
+    autoFitNode(fromNode);
     renderLinks();
     scheduleSave();
   }
@@ -36,7 +38,11 @@ export function initLinks(deps) {
     pushUndo();
     const lnk = S.links.find(l => l.id === id);
     S.links = S.links.filter(l => l.id !== id);
-    if (lnk) renderNode(S.nodes.find(n => n.id === lnk.fromId));
+    if (lnk) {
+      const fromNode = S.nodes.find(n => n.id === lnk.fromId);
+      renderNode(fromNode);
+      autoFitNode(fromNode);
+    }
     renderLinks();
     scheduleSave();
   }

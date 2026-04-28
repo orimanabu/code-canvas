@@ -35224,3 +35224,91 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Cooked for 8m 2s
 ```
+
+```
+❯ リンクアンカーからリンクを作成すると、リンクアンカー周辺に少しスペースが追加されますか？それによってブロック内のコードが改行する場合があります。
+  修正したいです(リンクを作成したらブロックの大きさを再計算するのがよいでしょうか)
+
+⏺ リンクアンカー注入後にノードのサイズを再計算する方法を調べます。
+
+  Searched for 3 patterns, read 2 files (ctrl+o to expand)
+
+⏺ 問題が分かりました。createLink() と removeLink() で renderNode() は呼ぶが autoFitNode() を呼んでいません。アンカー <span>
+  が追加されると幅が変わり折り返しが発生します。
+
+  canvas-links.js の依存関係注入を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ autoFitNode が deps に含まれていないので、まず canvas.js の wiring を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 修正方針が明確です。canvas-links.js の createLink / removeLink で renderNode() の後に autoFitNode() を呼ぶ必要があります。autoFitNode を deps
+  に追加して使います。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+       8      anchorCtx, anchorCtxLink, anchorCtxNewBlock, anchorCtxAttachTail, anchorCtxDelAll,
+       9      tailAnchorCtx, tailAnchorCtxDetach,
+      10      linkPreviewEl,
+      11 -    renderNode, addNode, addBubble, selectNode, startEdit,
+      11 +    renderNode, autoFitNode, addNode, addBubble, selectNode, startEdit,
+      12      renderBubbleTail, attachTailToText,
+      13      pushUndo, scheduleSave, setStatus,
+      14      s2c, c2s,
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 8 lines, removed 2 lines
+      27      }
+      28      pushUndo();
+      29      S.links.push({ id: S.lid++, fromId, text, toId, stroke: '#388bfd', strokeWidth: 1.5, dash: '', anchorLine, anchorCol });
+      30 -    renderNode(S.nodes.find(n => n.id === fromId));
+      30 +    const fromNode = S.nodes.find(n => n.id === fromId);
+      31 +    renderNode(fromNode);
+      32 +    autoFitNode(fromNode);
+      33      renderLinks();
+      34      scheduleSave();
+      35    }
+     ...
+      38      pushUndo();
+      39      const lnk = S.links.find(l => l.id === id);
+      40      S.links = S.links.filter(l => l.id !== id);
+      39 -    if (lnk) renderNode(S.nodes.find(n => n.id === lnk.fromId));
+      41 +    if (lnk) {
+      42 +      const fromNode = S.nodes.find(n => n.id === lnk.fromId);
+      43 +      renderNode(fromNode);
+      44 +      autoFitNode(fromNode);
+      45 +    }
+      46      renderLinks();
+      47      scheduleSave();
+      48    }
+
+⏺ 次に canvas.js の initLinks 呼び出しに autoFitNode を追加します。
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line
+      280    tailAnchorCtx, tailAnchorCtxDetach,
+      281    linkPreviewEl,
+      282    renderNode: (n, el) => renderNode(n, el),
+      283 +  autoFitNode: (n) => autoFitNode(n),
+      284    addNode: (...a) => addNode(...a),
+      285    addBubble: (...a) => addBubble(...a),
+      286    selectNode: (id) => selectNode(id),
+
+⏺ 変更を確認します。
+
+⏺ Bash(npm test 2>&1 | tail -20)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 全テスト通過。修正内容:
+
+  - canvas-links.js の createLink / removeLink で renderNode() 後に autoFitNode() を呼ぶように変更
+  - canvas.js の initLinks deps に autoFitNode のフォワーディングクロージャを追加
+
+  これでリンクアンカー追加/削除時にノード幅が自動再計算され、折り返しが防止されます。
+
+✻ Worked for 57s
+```
