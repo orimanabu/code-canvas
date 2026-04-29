@@ -39114,3 +39114,95 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Churned for 1m 33s
 ```
+
+```
+❯ リンクを右クリックしたときのコンテキストメニューで、"Go to source", "Go to destination", "Reverse
+  direction"のボタンの色が白になっています。この色を別の色にすることを検討してください
+
+⏺ コンテキストメニューのCSSを確認します。
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+⏺ 現在 link-ctx-goto-from、link-ctx-goto-to、link-ctx-reverse にはスタイルが未定義でブラウザデフォルト（白背景）が適用されています。link-ctx-del
+  と同じ text-button スタイルをベースに、役割に合った色を付けます：
+
+  - Go to source / destination: 青 (#58a6ff) → ナビゲーション
+  - Reverse direction: 琥珀 (#e3b341) → 操作系
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.css)
+  ⎿  Added 11 lines, removed 1 line
+      366  .link-ctx-sep {
+      367    height: 1px; background: #30363d; margin: 6px 0;
+      368  }
+      369 +#link-ctx button#link-ctx-goto-from,
+      370 +#link-ctx button#link-ctx-goto-to,
+      371 +#link-ctx button#link-ctx-reverse,
+      372  #link-ctx button#link-ctx-del {
+      373    display: block; width: 100%;
+      371 -  background: none; border: none; color: #e6edf3;
+      374 +  background: none; border: none;
+      375    padding: 6px 10px; font-size: 13px; text-align: left;
+      376    border-radius: 4px; cursor: pointer; white-space: nowrap;
+      377  }
+      378 +#link-ctx button#link-ctx-goto-from,
+      379 +#link-ctx button#link-ctx-goto-to { color: #58a6ff; }
+      380 +#link-ctx button#link-ctx-goto-from:hover,
+      381 +#link-ctx button#link-ctx-goto-to:hover { background: #1f3a5f; color: #79c0ff; }
+      382 +#link-ctx button#link-ctx-reverse { color: #e3b341; }
+      383 +#link-ctx button#link-ctx-reverse:hover { background: #3d2e00; color: #f0c84a; }
+      384 +#link-ctx button#link-ctx-del { color: #e6edf3; }
+      385  #link-ctx button#link-ctx-del:hover { background: #da3633; color: #fff; }
+      386
+      387  /* ── Free lines ── */
+
+⏺ 変更しました。色の意図：
+
+  ┌────────────────────────────┬────────────────┬─────────────────────┐
+  │           ボタン           │     通常時     │       ホバー        │
+  ├────────────────────────────┼────────────────┼─────────────────────┤
+  │ Go to source / destination │ 青 #58a6ff     │ 濃青背景 + 明青文字 │
+  ├────────────────────────────┼────────────────┼─────────────────────┤
+  │ Reverse direction          │ 琥珀 #e3b341   │ 濃茶背景 + 明黄文字 │
+  ├────────────────────────────┼────────────────┼─────────────────────┤
+  │ Delete link                │ 既存（白文字） │ 既存（赤背景）      │
+  └────────────────────────────┴────────────────┴─────────────────────┘
+
+  気に入らなければ色を変えますのでお気軽にどうぞ。
+
+✻ Sautéed for 43s
+
+❯ Reverse directionの色もGo to source/destinationと同じにしてください
+
+⏺ Update(canvas.css)
+  ⎿  Added 2 lines, removed 2 lines
+      379  #link-ctx button#link-ctx-goto-to { color: #58a6ff; }
+      380  #link-ctx button#link-ctx-goto-from:hover,
+      381  #link-ctx button#link-ctx-goto-to:hover { background: #1f3a5f; color: #79c0ff; }
+      382 -#link-ctx button#link-ctx-reverse { color: #e3b341; }
+      383 -#link-ctx button#link-ctx-reverse:hover { background: #3d2e00; color: #f0c84a; }
+      382 +#link-ctx button#link-ctx-reverse { color: #58a6ff; }
+      383 +#link-ctx button#link-ctx-reverse:hover { background: #1f3a5f; color: #79c0ff; }
+      384  #link-ctx button#link-ctx-del { color: #e6edf3; }
+      385  #link-ctx button#link-ctx-del:hover { background: #da3633; color: #fff; }
+      386
+
+⏺ 3つのボタンすべて同じ青色になりました。セレクタもまとめられますね：
+
+⏺ Update(canvas.css)
+  ⎿  Added 3 lines, removed 3 lines
+      376    border-radius: 4px; cursor: pointer; white-space: nowrap;
+      377  }
+      378  #link-ctx button#link-ctx-goto-from,
+      379 -#link-ctx button#link-ctx-goto-to { color: #58a6ff; }
+      380 -#link-ctx button#link-ctx-goto-from:hover,
+      381 -#link-ctx button#link-ctx-goto-to:hover { background: #1f3a5f; color: #79c0ff; }
+      379 +#link-ctx button#link-ctx-goto-to,
+      380  #link-ctx button#link-ctx-reverse { color: #58a6ff; }
+      381 +#link-ctx button#link-ctx-goto-from:hover,
+      382 +#link-ctx button#link-ctx-goto-to:hover,
+      383  #link-ctx button#link-ctx-reverse:hover { background: #1f3a5f; color: #79c0ff; }
+      384  #link-ctx button#link-ctx-del { color: #e6edf3; }
+      385  #link-ctx button#link-ctx-del:hover { background: #da3633; color: #fff; }
+```

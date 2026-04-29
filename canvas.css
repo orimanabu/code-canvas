@@ -366,12 +366,22 @@ body {
 .link-ctx-sep {
   height: 1px; background: #30363d; margin: 6px 0;
 }
+#link-ctx button#link-ctx-goto-from,
+#link-ctx button#link-ctx-goto-to,
+#link-ctx button#link-ctx-reverse,
 #link-ctx button#link-ctx-del {
   display: block; width: 100%;
-  background: none; border: none; color: #e6edf3;
+  background: none; border: none;
   padding: 6px 10px; font-size: 13px; text-align: left;
   border-radius: 4px; cursor: pointer; white-space: nowrap;
 }
+#link-ctx button#link-ctx-goto-from,
+#link-ctx button#link-ctx-goto-to,
+#link-ctx button#link-ctx-reverse { color: #58a6ff; }
+#link-ctx button#link-ctx-goto-from:hover,
+#link-ctx button#link-ctx-goto-to:hover,
+#link-ctx button#link-ctx-reverse:hover { background: #1f3a5f; color: #79c0ff; }
+#link-ctx button#link-ctx-del { color: #e6edf3; }
 #link-ctx button#link-ctx-del:hover { background: #da3633; color: #fff; }
 
 /* ── Free lines ── */
