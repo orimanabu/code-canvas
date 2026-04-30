@@ -5,7 +5,7 @@ import {
   LINK_COLORS, LINK_WIDTHS, LINK_DASHES,
   injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
   makeDashSvg, makeWidthSvg,
-  matchIdxToLineCol,
+  matchIdxToLineCol, charToLineCol,
   roundedRectRayHit, anchorFpFromSide, edgePoint,
 } from '../canvas-utils.js';
 
@@ -380,6 +380,38 @@ describe('matchIdxToLineCol', () => {
       expect(lc.line).toBeGreaterThan(0);
       expect(lc.col).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+// ─── charToLineCol ─────────────────────────────────────
+describe('charToLineCol', () => {
+  it('returns line 1 col 0 for character index 0', () => {
+    expect(charToLineCol('hello', 0)).toEqual({ line: 1, col: 0 });
+  });
+
+  it('returns correct col for single-line string', () => {
+    expect(charToLineCol('hello world', 6)).toEqual({ line: 1, col: 6 });
+  });
+
+  it('returns line 2 col 0 after first newline', () => {
+    expect(charToLineCol('hello\nworld', 6)).toEqual({ line: 2, col: 0 });
+  });
+
+  it('returns correct line and col for multi-line string', () => {
+    const code = 'line1\nline2\nline3';
+    // index 11 is the newline after line2, so it's at line 2 col 5
+    expect(charToLineCol(code, 11)).toEqual({ line: 2, col: 5 });
+  });
+
+  it('handles index at end of string', () => {
+    const code = 'ab\ncd';
+    expect(charToLineCol(code, 5)).toEqual({ line: 2, col: 2 });
+  });
+
+  it('handles multiple newlines', () => {
+    const code = 'a\n\nb';
+    expect(charToLineCol(code, 2)).toEqual({ line: 2, col: 0 });
+    expect(charToLineCol(code, 3)).toEqual({ line: 3, col: 0 });
   });
 });
 

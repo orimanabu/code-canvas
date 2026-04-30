@@ -6,7 +6,7 @@ const {
   saveState, restoreFromStorage,
   createLink, toggleMultiSel,
   copyNodes, cutNodes, pasteNodes,
-  addFreeLine, removeFreeLine,
+  addFreeLine, removeFreeLine, renderFreeLines,
   pushUndo, undo,
   startEdit, stopEdit,
   s2c, zoom,
@@ -411,6 +411,33 @@ describe('addFreeLine / removeFreeLine', () => {
     addFreeLine([{ x: 0, y: 0 }, { x: 10, y: 10 }]);
     expect(() => removeFreeLine(9999)).not.toThrow();
     expect(S.freeLines).toHaveLength(1);
+  });
+
+  it('addFreeLine defaults to polyline lineStyle', () => {
+    const line = addFreeLine([{ x: 0, y: 0 }, { x: 10, y: 10 }]);
+    expect(line.lineStyle).toBe('polyline');
+  });
+
+  it('addFreeLine accepts custom lineStyle (curve)', () => {
+    const line = addFreeLine([{ x: 0, y: 0 }, { x: 10, y: 10 }], 'curve');
+    expect(line.lineStyle).toBe('curve');
+  });
+
+  it('addFreeLine accepts custom lineStyle (straight)', () => {
+    const line = addFreeLine([{ x: 0, y: 0 }, { x: 10, y: 10 }], 'straight');
+    expect(line.lineStyle).toBe('straight');
+  });
+
+  it('addFreeLine stores stroke and strokeWidth properties', () => {
+    const line = addFreeLine([{ x: 0, y: 0 }, { x: 10, y: 10 }]);
+    expect(line.stroke).toBeDefined();
+    expect(line.strokeWidth).toBeDefined();
+  });
+
+  it('renderFreeLines handles missing DOM element gracefully', () => {
+    addFreeLine([{ x: 0, y: 0 }, { x: 50, y: 50 }, { x: 100, y: 0 }]);
+    // renderFreeLines should not throw even if #free-lines-layer doesn't exist in test env
+    expect(() => renderFreeLines()).not.toThrow();
   });
 });
 

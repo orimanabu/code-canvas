@@ -1406,7 +1406,7 @@ if (typeof globalThis !== 'undefined' && typeof process !== 'undefined') {
     saveState, restoreFromStorage,
     createLink, removeLink,
     copyNodes, cutNodes, pasteNodes, toggleMultiSel,
-    addFreeLine, removeFreeLine,
+    addFreeLine, removeFreeLine, renderFreeLines,
     pushUndo, undo,
     startEdit, stopEdit,
     s2c, zoom };

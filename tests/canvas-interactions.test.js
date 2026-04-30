@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event';
 
 import '../canvas.js';
 const {
-  S, addNode, selectNode, toggleMultiSel, loadState,
-  pushUndo, copyNodes, stopEdit,
+  S, addNode, addText, addFrame, selectNode, toggleMultiSel, loadState,
+  pushUndo, copyNodes, stopEdit, startEdit,
 } = globalThis.__canvasApp;
 
 function resetState() {
@@ -289,5 +289,45 @@ describe('renderNode edit/view cycle', () => {
     await user.click(el.querySelector('.btn-done'));
     expect(S.editing).toBeNull();
     expect(S.nodes.length).toBe(countBefore); // should not have deleted the node
+  });
+
+  it('text node edit/view cycle preserves text content', async () => {
+    const user = userEvent.setup();
+    const n = addText(100, 100);
+    stopEdit();
+    n.text = 'Initial text';
+    const el = document.getElementById('nd-' + n.id);
+
+    await user.click(el.querySelector('.btn-edit'));
+
+    const ta = el.querySelector('textarea');
+    expect(ta).not.toBeNull();
+    expect(ta.value).toBe('Initial text');
+
+    await user.clear(ta);
+    await user.type(ta, 'Updated text');
+    await user.click(el.querySelector('.btn-done'));
+
+    expect(S.editing).toBeNull();
+    expect(n.text).toBe('Updated text');
+  });
+
+  it('frame node edit/view cycle preserves label', async () => {
+    const user = userEvent.setup();
+    const n = addFrame(50, 50, 300, 200, 'Frame Label');
+    const el = document.getElementById('nd-' + n.id);
+
+    await user.click(el.querySelector('.btn-edit'));
+
+    const input = el.querySelector('.inp-title');
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('Frame Label');
+
+    await user.clear(input);
+    await user.type(input, 'New Label');
+    await user.click(el.querySelector('.btn-done'));
+
+    expect(S.editing).toBeNull();
+    expect(n.label).toBe('New Label');
   });
 });
