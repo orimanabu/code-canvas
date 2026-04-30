@@ -40686,3 +40686,428 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Cooked for 13m 10s
 ```
+
+```
+❯ 次のフェーズに進んでください
+
+⏺ Phase 3に進みます。計画の実行順序に従って、まず2.3の startPan ヘルパーを実施してから、Phase 3の項目に取り組みます。
+
+  Phase 2.3: startPan ヘルパー抽出
+
+  canvas-nodes.js内の3箇所（setupFrameEvents, setupArrowEvents, setupNodeEvents）に手動パンモード開始コードがあります。これを共通化します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 3箇所すべてが同じパターンです。initNodes関数内にローカルヘルパー startPan を作成します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 9 lines
+      15    } = deps;
+      16
+      17    // ═══════════════════════════════════════════════════════
+      18 +  // SHARED HELPERS
+      19 +  // ═══════════════════════════════════════════════════════
+      20 +  function startPan(e) {
+      21 +    e.preventDefault();
+      22 +    S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+      23 +    wrap.style.cursor = 'grabbing';
+      24 +  }
+      25 +
+      26 +  // ═══════════════════════════════════════════════════════
+      27    // BUBBLE TAIL
+      28    // ═══════════════════════════════════════════════════════
+      29    function renderBubbleTail(n) {
+
+⏺ 次に、3箇所でこのヘルパーを使います。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 3 lines
+      207        if (e.button !== 0) return;
+      208        if (e.ctrlKey || e.metaKey) return;
+      209        if (S.mode === 'hand' || S.spaceDown) {
+      210 -        e.preventDefault();
+      211 -        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+      212 -        wrap.style.cursor = 'grabbing';
+      210 +        startPan(e);
+      211          return;
+      212        }
+      213        if (e.shiftKey) {
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 3 lines
+      337        if (S.linkMode || S.tailAttachMode) { e.stopPropagation(); return; }
+      338        if (e.ctrlKey || e.metaKey) return;
+      339        if (S.mode === 'hand' || S.spaceDown) {
+      340 -        e.preventDefault();
+      341 -        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+      342 -        wrap.style.cursor = 'grabbing';
+      340 +        startPan(e);
+      341          return;
+      342        }
+      343        if (e.shiftKey) {
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 3 lines
+      495
+      496        // Hand mode + Space: pan from node too
+      497        if (S.mode === 'hand' || S.spaceDown) {
+      498 -        e.preventDefault();
+      499 -        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+      500 -        wrap.style.cursor = 'grabbing';
+      498 +        startPan(e);
+      499          return;
+      500        }
+      501
+
+⏺ startPan ヘルパーの抽出が完了しました。テストを実行します。
+
+⏺ Bash(npm test 2>&1 | head -100)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 素晴らしい！次はPhase 3.4のイベントセットアップ ディスパッチ共通化に進みます。
+
+  Phase 3.4: イベントセットアップ ディスパッチ共通化
+
+  3箇所に if (n.type === 'frame') setupFrameEvents のパターンがあります。これを共通化します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 3箇所を確認しました。canvas-nodes.js内にヘルパーを作成し、exportしてcanvas.jsからも使えるようにします。
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 6 lines
+      23      wrap.style.cursor = 'grabbing';
+      24    }
+      25
+      26 +  function dispatchSetupEvents(n, el) {
+      27 +    if (n.type === 'frame')      setupFrameEvents(n, el);
+      28 +    else if (n.type === 'arrow') setupArrowEvents(n, el);
+      29 +    else                         setupNodeEvents(n, el);
+      30 +  }
+      31 +
+      32    // ═══════════════════════════════════════════════════════
+      33    // BUBBLE TAIL
+      34    // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 3 lines
+      862          el.className = nodeClassForType(n.type);
+      863          el.id = 'nd-' + n.id;
+      864          canvas.appendChild(el);
+      865 -        if (n.type === 'frame')      setupFrameEvents(n, el);
+      866 -        else if (n.type === 'arrow') setupArrowEvents(n, el);
+      867 -        else                         setupNodeEvents(n, el);
+      865 +        dispatchSetupEvents(n, el);
+      866          renderNode(n, el);
+      867          S.multiSel.add(n.id);
+      868          ndEl(n.id)?.classList.add('multi-selected');
+
+⏺ 次に、dispatchSetupEvents をexportするためにreturnステートメントに追加します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Update(canvas-nodes.js)
+  ⎿  Added 1 line, removed 1 line
+       995      addNode, addBubble, addFrame, addText, addArrow, removeNode,
+       996      selectNode, toggleMultiSel, clearMultiSel,
+       997      startEdit, stopEdit, autoFitNode,
+       998 -    setupNodeEvents, setupFrameEvents, setupArrowEvents,
+       998 +    setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents,
+       999      renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
+      1000      getSelectedIds, copyNodes, cutNodes, pasteNodes,
+      1001      fitAll, jumpTo,
+
+⏺ 次に、canvas.jsでこれを受け取って使います。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      235  let startEdit, stopEdit, autoFitNode;
+      236  let selectNode, toggleMultiSel, clearMultiSel, removeNode;
+      237  let addNode, addBubble, addFrame, addText, addArrow;
+      238 -let setupNodeEvents, setupFrameEvents, setupArrowEvents;
+      238 +let setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents;
+      239  let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
+      240  let getSelectedIds, copyNodes, cutNodes, pasteNodes;
+      241  let fitAll, jumpTo;
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas.js)
+  ⎿  Added 1 line, removed 1 line
+      327  ({ addNode, addBubble, addFrame, addText, addArrow, removeNode,
+      328     selectNode, toggleMultiSel, clearMultiSel,
+      329     startEdit, stopEdit, autoFitNode,
+      330 -   setupNodeEvents, setupFrameEvents, setupArrowEvents,
+      330 +   setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents,
+      331     renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
+
+⏺ 次に、canvas.jsの2箇所（undo関数とloadState関数）でこのヘルパーを使います。
+
+⏺ Update(canvas.js)
+  ⎿  Added 2 lines, removed 6 lines
+      214      el.className = nodeClassForType(n.type);
+      215      el.id = 'nd-' + n.id;
+      216      canvas.appendChild(el);
+      217 -    if (n.type === 'frame')      setupFrameEvents(n, el);
+      218 -    else if (n.type === 'arrow') setupArrowEvents(n, el);
+      219 -    else                         setupNodeEvents(n, el);
+      217 +    dispatchSetupEvents(n, el);
+      218      renderNode(n, el);
+      219    }
+      220    renderLinks();
+     ...
+      548      el.className = nodeClassForType(n.type);
+      549      el.id = 'nd-' + n.id;
+      550      canvas.appendChild(el);
+      553 -    if (n.type === 'frame')      setupFrameEvents(n, el);
+      554 -    else if (n.type === 'arrow') setupArrowEvents(n, el);
+      555 -    else                         setupNodeEvents(n, el);
+      551 +    dispatchSetupEvents(n, el);
+      552      renderNode(n, el);
+      553    }
+      554    S.freeLines = (data.freeLines ?? []).map(l => ({
+
+⏺ Phase 3.4完了です。テストを実行します。
+
+⏺ Bash(npm test 2>&1 | head -100)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 素晴らしい！次はPhase 3.3のダイアログdismissボイラープレート共通化に進みます。
+
+  Phase 3.3: ダイアログdismissボイラープレート共通化
+
+  canvas-dialogs.jsの6箇所に同じdismissパターンがあります。共通ヘルパーを作成します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ DIALOG HELPERSセクションに新しいヘルパーを追加します。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 13 lines
+      34    };
+      35  }
+      36
+      37 +// Sets up standard dialog dismiss handlers: overlay click, Escape key, cancel button
+      38 +function setupDialogDismiss(overlay, closeFn, cancelBtn) {
+      39 +  if (cancelBtn) {
+      40 +    cancelBtn.addEventListener('click', closeFn);
+      41 +  }
+      42 +  overlay.addEventListener('click', e => {
+      43 +    if (e.target === overlay) closeFn();
+      44 +  });
+      45 +  document.addEventListener('keydown', e => {
+      46 +    if (e.key === 'Escape' && overlay.style.display !== 'none') closeFn();
+      47 +  });
+      48 +}
+      49 +
+      50  // ═══════════════════════════════════════════════════════
+      51  // GIT UTILITIES
+      52  // ═══════════════════════════════════════════════════════
+
+⏺ 次に、各ダイアログ初期化関数でこのヘルパーを使います。まず initRepoDialog から始めます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      207      close();
+      208    }
+      209
+      210 -  cancelBtn.addEventListener('click', close);
+      211 -  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      212 -  document.addEventListener('keydown', e => {
+      213 -    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+      214 -  });
+      210 +  setupDialogDismiss(overlay, close, cancelBtn);
+      211  }
+      212
+      213  // ═══════════════════════════════════════════════════════
+
+⏺ 次に initGlobalConfigDialog を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      295      setStatus('Global config saved');
+      296    });
+      297
+      298 -  cancelBtn.addEventListener('click', close);
+      299 -  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      300 -  document.addEventListener('keydown', e => {
+      301 -    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+      302 -  });
+      298 +  setupDialogDismiss(overlay, close, cancelBtn);
+      299
+      300    document.getElementById('btn-add-bubble').addEventListener('click', () => {
+      301      const vw = wrap.clientWidth, vh = wrap.clientHeight;
+
+⏺ 次に initGroupFrameDialog を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 3 lines
+      372      setStatus('Frame created');
+      373    });
+      374
+      375 -  cancelBtn.addEventListener('click', closeDialog);
+      376 -  overlay.addEventListener('click', e => { if (e.target === overlay) closeDialog(); });
+      375 +  setupDialogDismiss(overlay, closeDialog, cancelBtn);
+      376    labelInput.addEventListener('keydown', e => {
+      377      if (e.key === 'Enter') okBtn.click();
+      379 -    if (e.key === 'Escape') closeDialog();
+      378    });
+      379
+      380    document.getElementById('btn-group').addEventListener('click', openGroupDialog);
+
+⏺ 次に initFetchDialog を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      483      okBtn.disabled = false;
+      484    });
+      485
+      486 -  cancelBtn.addEventListener('click', close);
+      487 -  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      488 -  document.addEventListener('keydown', e => {
+      489 -    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
+      490 -  });
+      486 +  setupDialogDismiss(overlay, close, cancelBtn);
+      487  }
+      488
+      489  // ═══════════════════════════════════════════════════════
+
+⏺ 次に initCodeSnippetdDialog を更新します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 3 lines
+      859    wasmCancelBtn.addEventListener('click', close);
+      860    backBtn.addEventListener('click', showMain);
+      861    resultsCancelBtn.addEventListener('click', close);
+      862 -  cancelBtn.addEventListener('click', close);
+      863 -  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+      862 +  setupDialogDismiss(overlay, close, cancelBtn);
+      863    document.addEventListener('keydown', e => {
+      865 -    if (e.key === 'Escape' && overlay.style.display !== 'none') { close(); return; }
+      864      if (e.key === 'Enter' && mainForm.style.display !== 'none') fetchBtn.click();
+      865    });
+      866  }
+
+⏺ 次に initHelpDialog と initAlertDialog を更新します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 3 lines, removed 5 lines
+      879    const overlay = document.getElementById('help-dialog-overlay');
+      880    const closeBtn = document.getElementById('help-close');
+      881
+      882 +  function close() { overlay.style.display = 'none'; }
+      883 +
+      884    document.getElementById('btn-help').addEventListener('click', () => {
+      885      overlay.style.display = 'flex';
+      886    });
+      885 -  closeBtn.addEventListener('click', () => { overlay.style.display = 'none'; });
+      886 -  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
+      887 -  document.addEventListener('keydown', e => {
+      888 -    if (e.key === 'Escape' && overlay.style.display !== 'none') overlay.style.display = 'none';
+      889 -  });
+      887 +  setupDialogDismiss(overlay, close, closeBtn);
+      888  }
+      889
+      890  // ═══════════════════════════════════════════════════════
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 1 line, removed 5 lines
+      898    const okBtn   = document.getElementById('alert-dialog-ok');
+      899
+      900    function close() { _alertOverlay.style.display = 'none'; }
+      901 -  okBtn.addEventListener('click', close);
+      902 -  _alertOverlay.addEventListener('click', e => { if (e.target === _alertOverlay) close(); });
+      903 -  document.addEventListener('keydown', e => {
+      904 -    if (e.key === 'Escape' && _alertOverlay.style.display !== 'none') close();
+      905 -  });
+      901 +  setupDialogDismiss(_alertOverlay, close, okBtn);
+      902  }
+      903
+      904  export function showAlert(message, type) {
+
+⏺ Phase 3.3完了です。テストを実行します。
+
+⏺ Bash(npm test 2>&1 | head -100)
+  ⎿  > test
+     > vitest run
+     … +14 lines (ctrl+o to expand)
+
+⏺ 完璧です！Phase 2.3, 3.3, 3.4が完了しました。現在の進捗をコミットします。
+
+⏺ Bash(git status)
+  ⎿  On branch refactoring2
+     Changes not staged for commit:
+       (use "git add <file>..." to update what will be committed)
+     … +6 lines (ctrl+o to expand)
+
+⏺ Bash(git add canvas-dialogs.js canvas-nodes.js canvas.js)
+  ⎿  (No output)
+
+⏺ Bash(git commit -m "$(cat <<'EOF'
+      refactor: extract shared helpers for event setup and dialog dismissal…)
+  ⎿  [refactoring2 d7166b2] refactor: extract shared helpers for event setup and dialog dismissal
+      3 files changed, 46 insertions(+), 52 deletions(-)
+
+⏺ Phase 2 & 3 完了！
+
+  Phase 2とPhase 3の改善がすべて完了しました。
+
+  完了した改善
+
+  ✅ Phase 1: バグ修正（前回コミット済み）
+  - undo関数のtext-nodeクラス欠落バグ修正
+  - 全ノードタイプのundoテスト追加
+
+  ✅ Phase 2: 低リスクの重複排除（すべて完了）
+  - 2.1: nodeClassForType(type) ヘルパー → 8箇所の重複を一元化
+  - 2.2: charToLineCol 重複排除 → canvas-links.jsの重複コード削除
+  - 2.3: startPan(e) ヘルパー → 3箇所の手動パン初期化コードを共通化
+  - 2.4: 未使用import整理 → canvas.jsから14シンボル削除
+
+  ✅ Phase 3: 中規模の重複排除（一部完了）
+  - 3.3: setupDialogDismiss ヘルパー → 6つのダイアログ初期化関数のボイラープレート削減
+  - 3.4: dispatchSetupEvents ヘルパー → 3箇所のイベントセットアップディスパッチを共通化
+
+  成果サマリー
+
+  コード削減: 約70行の重複コード削除
+  テスト: 全365テストがパス（+5個の新規テスト）
+  保守性向上: 共通ロジックを一元化し、将来のバグを防止
+
+  残りのフェーズ
+
+  Phase 3（未完了）:
+  - 3.1: Shift+クリック マルチセレクト共通化（中リスク）
+  - 3.2: マルチセレクト グループドラッグ共通化（中リスク）
+
+  Phase 4: テストカバレッジ向上（リンク、フリーライン、ダイアログ等）
+
+  Phase 5: 大規模リファクタ（巨大関数の分割等）
+
+  Phase 3.1と3.2は中程度のリスクがあるため、計画では「十分なテストカバレッジ後に実施」となっています。次のステップとして、Phase
+  4のテストカバレッジ向上に進むことをお勧めします。
+
+  続行しますか？
+
+✻ Brewed for 4m 46s
+```
