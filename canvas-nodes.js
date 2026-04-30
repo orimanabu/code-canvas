@@ -29,6 +29,48 @@ export function initNodes(deps) {
     else                         setupNodeEvents(n, el);
   }
 
+  function handleShiftSelect(e, nodeId, guardFn, statusFn) {
+    // guardFn returns true if we should proceed with selection
+    if (guardFn && !guardFn(e)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Auto-include the currently selected node into multiSel
+    if (S.sel !== null && !S.multiSel.has(S.sel)) {
+      S.multiSel.add(S.sel);
+      ndEl(S.sel)?.classList.add('multi-selected');
+    }
+
+    toggleMultiSel(nodeId);
+    const count = S.multiSel.size;
+    setStatus(statusFn ? statusFn(count) : (count > 0 ? `${count} object(s) selected` : 'Ready'));
+  }
+
+  function startGroupDrag(e, n, guardCondition, includeTail) {
+    // guardCondition is a boolean — if false, don't start drag
+    if (guardCondition === false) return;
+
+    e.preventDefault();
+    const allIds = new Set(S.multiSel);
+    if (S.sel !== null) allIds.add(S.sel);
+    const multiOrigins = new Map();
+    allIds.forEach(id => {
+      const mn = S.nodes.find(nn => nn.id === id);
+      if (mn) {
+        const origin = { ox: mn.x, oy: mn.y };
+        if (includeTail !== false) {
+          origin.otailX = mn.tailX;
+          origin.otailY = mn.tailY;
+        }
+        multiOrigins.set(id, origin);
+      }
+    });
+    pushUndo();
+    S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
+    allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
+  }
+
   // ═══════════════════════════════════════════════════════
   // BUBBLE TAIL
   // ═══════════════════════════════════════════════════════
@@ -217,35 +259,18 @@ export function initNodes(deps) {
         return;
       }
       if (e.shiftKey) {
-        if (!e.target.closest('.node-btn') && !e.target.closest('input')) {
-          e.preventDefault();
-          e.stopPropagation();
-          if (S.sel !== null && !S.multiSel.has(S.sel)) {
-            S.multiSel.add(S.sel);
-            ndEl(S.sel)?.classList.add('multi-selected');
-          }
-          toggleMultiSel(n.id);
-          const count = S.multiSel.size;
-          setStatus(count > 0 ? `${count} block(s) selected` : 'Ready');
-        }
+        handleShiftSelect(
+          e,
+          n.id,
+          e => !e.target.closest('.node-btn') && !e.target.closest('input'),
+          count => count > 0 ? `${count} block(s) selected` : 'Ready'
+        );
         return;
       }
       const onHeader = e.target.closest('.frame-header') && !e.target.closest('.node-btn') && !e.target.closest('input');
       if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
         S.sel = n.id;
-        if (onHeader) {
-          e.preventDefault();
-          const allIds = new Set(S.multiSel);
-          if (S.sel !== null) allIds.add(S.sel);
-          const multiOrigins = new Map();
-          allIds.forEach(id => {
-            const mn = S.nodes.find(nn => nn.id === id);
-            if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y, otailX: mn.tailX, otailY: mn.tailY });
-          });
-          pushUndo();
-          S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
-          allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
-        }
+        startGroupDrag(e, n, onHeader, true);
         return;
       }
       clearMultiSel();
@@ -347,28 +372,17 @@ export function initNodes(deps) {
         return;
       }
       if (e.shiftKey) {
-        e.preventDefault(); e.stopPropagation();
-        if (S.sel !== null && !S.multiSel.has(S.sel)) {
-          S.multiSel.add(S.sel);
-          ndEl(S.sel)?.classList.add('multi-selected');
-        }
-        toggleMultiSel(n.id);
-        setStatus(S.multiSel.size > 0 ? `${S.multiSel.size} object(s) selected` : 'Ready');
+        handleShiftSelect(
+          e,
+          n.id,
+          null, // no guard condition
+          count => count > 0 ? `${count} object(s) selected` : 'Ready'
+        );
         return;
       }
       if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
         S.sel = n.id;
-        e.preventDefault();
-        const allIds = new Set(S.multiSel);
-        if (S.sel !== null) allIds.add(S.sel);
-        const multiOrigins = new Map();
-        allIds.forEach(id => {
-          const mn = S.nodes.find(nn => nn.id === id);
-          if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y });
-        });
-        pushUndo();
-        S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
-        allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
+        startGroupDrag(e, n, true, false); // no guard, no tail
         return;
       }
       clearMultiSel();
@@ -507,18 +521,12 @@ export function initNodes(deps) {
 
       // Shift+click: toggle multi-selection
       if (e.shiftKey) {
-        if (!e.target.closest('.node-btn') && !e.target.closest('input') && !e.target.closest('textarea')) {
-          e.preventDefault();
-          e.stopPropagation();
-          // Auto-include the currently selected node (S.sel) into multiSel
-          if (S.sel !== null && !S.multiSel.has(S.sel)) {
-            S.multiSel.add(S.sel);
-            ndEl(S.sel)?.classList.add('multi-selected');
-          }
-          toggleMultiSel(n.id);
-          const count = S.multiSel.size;
-          setStatus(count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | right-click link to delete');
-        }
+        handleShiftSelect(
+          e,
+          n.id,
+          e => !e.target.closest('.node-btn') && !e.target.closest('input') && !e.target.closest('textarea'),
+          count => count > 0 ? `${count} block(s) selected — drag header to move all` : 'Ready — double-click to add block | select text to create link | right-click link to delete'
+        );
         return;
       }
 
@@ -530,20 +538,7 @@ export function initNodes(deps) {
       // If clicking a node already in multi-selection: keep selection, start group drag
       if (S.multiSel.size >= 1 && S.multiSel.has(n.id)) {
         S.sel = n.id;
-        if (onHeader) {
-          e.preventDefault();
-          const allIds = new Set(S.multiSel);
-          if (S.sel !== null) allIds.add(S.sel);
-          const multiOrigins = new Map();
-          allIds.forEach(id => {
-            const mn = S.nodes.find(nn => nn.id === id);
-            if (mn) multiOrigins.set(id, { ox: mn.x, oy: mn.y,
-              otailX: mn.tailX, otailY: mn.tailY });
-          });
-          pushUndo();
-          S.drag = { id: n.id, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y, multiOrigins };
-          allIds.forEach(id => ndEl(id)?.classList.add('dragging'));
-        }
+        startGroupDrag(e, n, onHeader, true);
         return;
       }
 
