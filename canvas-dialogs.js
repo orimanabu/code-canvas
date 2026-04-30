@@ -34,6 +34,19 @@ function makeSetNote(el) {
   };
 }
 
+// Sets up standard dialog dismiss handlers: overlay click, Escape key, cancel button
+function setupDialogDismiss(overlay, closeFn, cancelBtn) {
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeFn);
+  }
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeFn();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') closeFn();
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 // GIT UTILITIES
 // ═══════════════════════════════════════════════════════
@@ -194,11 +207,7 @@ function initRepoDialog() {
     close();
   }
 
-  cancelBtn.addEventListener('click', close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
-  });
+  setupDialogDismiss(overlay, close, cancelBtn);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -286,11 +295,7 @@ function initGlobalConfigDialog() {
     setStatus('Global config saved');
   });
 
-  cancelBtn.addEventListener('click', close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
-  });
+  setupDialogDismiss(overlay, close, cancelBtn);
 
   document.getElementById('btn-add-bubble').addEventListener('click', () => {
     const vw = wrap.clientWidth, vh = wrap.clientHeight;
@@ -367,11 +372,9 @@ function initGroupFrameDialog() {
     setStatus('Frame created');
   });
 
-  cancelBtn.addEventListener('click', closeDialog);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeDialog(); });
+  setupDialogDismiss(overlay, closeDialog, cancelBtn);
   labelInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') okBtn.click();
-    if (e.key === 'Escape') closeDialog();
   });
 
   document.getElementById('btn-group').addEventListener('click', openGroupDialog);
@@ -480,11 +483,7 @@ function initFetchDialog() {
     okBtn.disabled = false;
   });
 
-  cancelBtn.addEventListener('click', close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') close();
-  });
+  setupDialogDismiss(overlay, close, cancelBtn);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -860,10 +859,8 @@ function initCodeSnippetdDialog() {
   wasmCancelBtn.addEventListener('click', close);
   backBtn.addEventListener('click', showMain);
   resultsCancelBtn.addEventListener('click', close);
-  cancelBtn.addEventListener('click', close);
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  setupDialogDismiss(overlay, close, cancelBtn);
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') { close(); return; }
     if (e.key === 'Enter' && mainForm.style.display !== 'none') fetchBtn.click();
   });
 }
@@ -882,14 +879,12 @@ function initHelpDialog() {
   const overlay = document.getElementById('help-dialog-overlay');
   const closeBtn = document.getElementById('help-close');
 
+  function close() { overlay.style.display = 'none'; }
+
   document.getElementById('btn-help').addEventListener('click', () => {
     overlay.style.display = 'flex';
   });
-  closeBtn.addEventListener('click', () => { overlay.style.display = 'none'; });
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') overlay.style.display = 'none';
-  });
+  setupDialogDismiss(overlay, close, closeBtn);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -903,11 +898,7 @@ function initAlertDialog() {
   const okBtn   = document.getElementById('alert-dialog-ok');
 
   function close() { _alertOverlay.style.display = 'none'; }
-  okBtn.addEventListener('click', close);
-  _alertOverlay.addEventListener('click', e => { if (e.target === _alertOverlay) close(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && _alertOverlay.style.display !== 'none') close();
-  });
+  setupDialogDismiss(_alertOverlay, close, okBtn);
 }
 
 export function showAlert(message, type) {

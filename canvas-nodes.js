@@ -15,6 +15,21 @@ export function initNodes(deps) {
   } = deps;
 
   // ═══════════════════════════════════════════════════════
+  // SHARED HELPERS
+  // ═══════════════════════════════════════════════════════
+  function startPan(e) {
+    e.preventDefault();
+    S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
+    wrap.style.cursor = 'grabbing';
+  }
+
+  function dispatchSetupEvents(n, el) {
+    if (n.type === 'frame')      setupFrameEvents(n, el);
+    else if (n.type === 'arrow') setupArrowEvents(n, el);
+    else                         setupNodeEvents(n, el);
+  }
+
+  // ═══════════════════════════════════════════════════════
   // BUBBLE TAIL
   // ═══════════════════════════════════════════════════════
   function renderBubbleTail(n) {
@@ -198,9 +213,7 @@ export function initNodes(deps) {
       if (e.button !== 0) return;
       if (e.ctrlKey || e.metaKey) return;
       if (S.mode === 'hand' || S.spaceDown) {
-        e.preventDefault();
-        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
-        wrap.style.cursor = 'grabbing';
+        startPan(e);
         return;
       }
       if (e.shiftKey) {
@@ -330,9 +343,7 @@ export function initNodes(deps) {
       if (S.linkMode || S.tailAttachMode) { e.stopPropagation(); return; }
       if (e.ctrlKey || e.metaKey) return;
       if (S.mode === 'hand' || S.spaceDown) {
-        e.preventDefault();
-        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
-        wrap.style.cursor = 'grabbing';
+        startPan(e);
         return;
       }
       if (e.shiftKey) {
@@ -490,9 +501,7 @@ export function initNodes(deps) {
 
       // Hand mode + Space: pan from node too
       if (S.mode === 'hand' || S.spaceDown) {
-        e.preventDefault();
-        S.pan = { sx: e.clientX - S.vp.x, sy: e.clientY - S.vp.y };
-        wrap.style.cursor = 'grabbing';
+        startPan(e);
         return;
       }
 
@@ -853,9 +862,7 @@ export function initNodes(deps) {
         el.className = nodeClassForType(n.type);
         el.id = 'nd-' + n.id;
         canvas.appendChild(el);
-        if (n.type === 'frame')      setupFrameEvents(n, el);
-        else if (n.type === 'arrow') setupArrowEvents(n, el);
-        else                         setupNodeEvents(n, el);
+        dispatchSetupEvents(n, el);
         renderNode(n, el);
         S.multiSel.add(n.id);
         ndEl(n.id)?.classList.add('multi-selected');
@@ -988,7 +995,7 @@ export function initNodes(deps) {
     addNode, addBubble, addFrame, addText, addArrow, removeNode,
     selectNode, toggleMultiSel, clearMultiSel,
     startEdit, stopEdit, autoFitNode,
-    setupNodeEvents, setupFrameEvents, setupArrowEvents,
+    setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents,
     renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
     getSelectedIds, copyNodes, cutNodes, pasteNodes,
     fitAll, jumpTo,

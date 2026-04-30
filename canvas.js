@@ -214,9 +214,7 @@ function undo() {
     el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
-    if (n.type === 'frame')      setupFrameEvents(n, el);
-    else if (n.type === 'arrow') setupArrowEvents(n, el);
-    else                         setupNodeEvents(n, el);
+    dispatchSetupEvents(n, el);
     renderNode(n, el);
   }
   renderLinks();
@@ -235,7 +233,7 @@ let renderNode, renderLinks, renderFreeLines;
 let startEdit, stopEdit, autoFitNode;
 let selectNode, toggleMultiSel, clearMultiSel, removeNode;
 let addNode, addBubble, addFrame, addText, addArrow;
-let setupNodeEvents, setupFrameEvents, setupArrowEvents;
+let setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents;
 let renderBubbleTail, renderAnchoredBubbleTails, attachTailToText;
 let getSelectedIds, copyNodes, cutNodes, pasteNodes;
 let fitAll, jumpTo;
@@ -327,7 +325,7 @@ function openCodeSnippetdDialog(id, kw) { window.openCodeSnippetdDialog(id, kw);
 ({ addNode, addBubble, addFrame, addText, addArrow, removeNode,
    selectNode, toggleMultiSel, clearMultiSel,
    startEdit, stopEdit, autoFitNode,
-   setupNodeEvents, setupFrameEvents, setupArrowEvents,
+   setupNodeEvents, setupFrameEvents, setupArrowEvents, dispatchSetupEvents,
    renderBubbleTail, renderAnchoredBubbleTails, attachTailToText,
    getSelectedIds, copyNodes, cutNodes, pasteNodes,
    fitAll, jumpTo,
@@ -550,9 +548,7 @@ function loadState(data) {
     el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
-    if (n.type === 'frame')      setupFrameEvents(n, el);
-    else if (n.type === 'arrow') setupArrowEvents(n, el);
-    else                         setupNodeEvents(n, el);
+    dispatchSetupEvents(n, el);
     renderNode(n, el);
   }
   S.freeLines = (data.freeLines ?? []).map(l => ({
