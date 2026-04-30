@@ -319,6 +319,61 @@ describe('pushUndo / undo', () => {
     expect(S.links).toHaveLength(0);
     expect(S.nodes).toHaveLength(2);
   });
+
+  it('undo restores correct class for code nodes', () => {
+    const n = addNode(0, 0, '// code');
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('node')).toBe(true);
+    n.code = 'changed';
+    pushUndo();
+    undo();
+    const restoredEl = document.getElementById('nd-' + n.id);
+    expect(restoredEl.classList.contains('node')).toBe(true);
+  });
+
+  it('undo restores correct class for bubble nodes', () => {
+    const n = addBubble(0, 0, 'bubble text');
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('bubble-node')).toBe(true);
+    n.text = 'changed';
+    pushUndo();
+    undo();
+    const restoredEl = document.getElementById('nd-' + n.id);
+    expect(restoredEl.classList.contains('bubble-node')).toBe(true);
+  });
+
+  it('undo restores correct class for text nodes', () => {
+    const n = addText(0, 0, 'plain text');
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('text-node')).toBe(true);
+    n.text = 'changed';
+    pushUndo();
+    undo();
+    const restoredEl = document.getElementById('nd-' + n.id);
+    expect(restoredEl.classList.contains('text-node')).toBe(true);
+  });
+
+  it('undo restores correct class for frame nodes', () => {
+    const n = addFrame(0, 0, 400, 300, 'Frame Label');
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('frame-node')).toBe(true);
+    n.label = 'changed';
+    pushUndo();
+    undo();
+    const restoredEl = document.getElementById('nd-' + n.id);
+    expect(restoredEl.classList.contains('frame-node')).toBe(true);
+  });
+
+  it('undo restores correct class for arrow nodes', () => {
+    const n = addArrow(100, 100);
+    const el = document.getElementById('nd-' + n.id);
+    expect(el.classList.contains('arrow-node')).toBe(true);
+    n.angle = 45;
+    pushUndo();
+    undo();
+    const restoredEl = document.getElementById('nd-' + n.id);
+    expect(restoredEl.classList.contains('arrow-node')).toBe(true);
+  });
 });
 
 // ─── addFreeLine / removeFreeLine ──────────────────────

@@ -1,5 +1,5 @@
 // No local imports — all deps injected via initNodes(deps)
-import { roundedRectRayHit, anchorFpFromSide, NODE_COLORS, svgE, buildMenuItems, positionCtxMenu } from './canvas-utils.js';
+import { roundedRectRayHit, anchorFpFromSide, NODE_COLORS, svgE, buildMenuItems, positionCtxMenu, nodeClassForType } from './canvas-utils.js';
 
 export function initNodes(deps) {
   const { S, canvas, wrap, ndEl, s2c, c2s,
@@ -151,7 +151,7 @@ export function initNodes(deps) {
     };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'node bubble-node';
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupNodeEvents(n, el);
@@ -263,7 +263,7 @@ export function initNodes(deps) {
     };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'text-node';
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupNodeEvents(n, el);
@@ -288,7 +288,7 @@ export function initNodes(deps) {
     };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'frame-node';
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupFrameEvents(n, el);
@@ -312,7 +312,7 @@ export function initNodes(deps) {
     };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'arrow-node';
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupArrowEvents(n, el);
@@ -447,7 +447,7 @@ export function initNodes(deps) {
     };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = 'node';
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     setupNodeEvents(n, el);
@@ -850,10 +850,7 @@ export function initNodes(deps) {
         }
         S.nodes.push(n);
         const el = document.createElement('div');
-        el.className = n.type === 'frame' ? 'frame-node'
-                     : n.type === 'arrow' ? 'arrow-node'
-                     : n.type === 'text'  ? 'text-node'
-                     : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+        el.className = nodeClassForType(n.type);
         el.id = 'nd-' + n.id;
         canvas.appendChild(el);
         if (n.type === 'frame')      setupFrameEvents(n, el);

@@ -1,7 +1,4 @@
-import { DATA_VERSION, esc, EXT_LANG, langFromPath, NODE_COLORS, FONT_PRESETS, FONT_SIZES,
-         injectAnchor, injectTailAnchor, splitHtmlLines, addLineNumbers,
-         roundedRectRayHit, anchorFpFromSide, edgePoint, matchIdxToLineCol,
-         svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES } from './canvas-utils.js';
+import { DATA_VERSION, esc, matchIdxToLineCol, nodeClassForType } from './canvas-utils.js';
 import { initDialogs, showAlert } from './canvas-dialogs.js';
 import { initNodeRendering } from './canvas-node-rendering.js';
 import { initFreeLines } from './canvas-free-lines.js';
@@ -214,9 +211,7 @@ function undo() {
     const n = { ...nd };
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = n.type === 'frame' ? 'frame-node'
-                 : n.type === 'arrow' ? 'arrow-node'
-                 : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     if (n.type === 'frame')      setupFrameEvents(n, el);
@@ -552,10 +547,7 @@ function loadState(data) {
     }
     S.nodes.push(n);
     const el = document.createElement('div');
-    el.className = n.type === 'frame' ? 'frame-node'
-                 : n.type === 'arrow' ? 'arrow-node'
-                 : n.type === 'text'  ? 'text-node'
-                 : 'node' + (n.type === 'bubble' ? ' bubble-node' : '');
+    el.className = nodeClassForType(n.type);
     el.id = 'nd-' + n.id;
     canvas.appendChild(el);
     if (n.type === 'frame')      setupFrameEvents(n, el);

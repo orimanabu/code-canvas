@@ -187,7 +187,7 @@ export function matchIdxToLineCol(code, rawText, matchIdx) {
   const re = new RegExp(prefix + pat + suffix, 'g');
   let idx = 0, m;
   while ((m = re.exec(code)) !== null) {
-    if (idx === matchIdx) return _charToLineCol(code, m.index);
+    if (idx === matchIdx) return charToLineCol(code, m.index);
     idx++;
   }
   return { line: -1, col: -1 };
@@ -195,7 +195,7 @@ export function matchIdxToLineCol(code, rawText, matchIdx) {
 
 // Returns {line, col} (1-based line, 0-based col within the line) for
 // the character at charIdx in code.
-function _charToLineCol(code, charIdx) {
+export function charToLineCol(code, charIdx) {
   let line = 1, col = 0;
   for (let i = 0; i < charIdx; i++) {
     if (code[i] === '\n') { line++; col = 0; }
@@ -215,7 +215,7 @@ function _lineColToMatchIdx(code, rawText, targetLine, targetCol) {
   const re = new RegExp(prefix + pat + suffix, 'g');
   let idx = 0, m;
   while ((m = re.exec(code)) !== null) {
-    const { line, col } = _charToLineCol(code, m.index);
+    const { line, col } = charToLineCol(code, m.index);
     if (line === targetLine && col === targetCol) return idx;
     idx++;
   }
@@ -496,4 +496,16 @@ export function edgePoint(from, to) {
     const x = fcx + dx / (Math.abs(dy) || 1) * hh;
     return { x, y };
   }
+}
+
+/**
+ * Returns the appropriate CSS class name for a given node type.
+ * @param {string} type - Node type: 'frame', 'arrow', 'text', 'bubble', or default (code)
+ * @returns {string} CSS class name
+ */
+export function nodeClassForType(type) {
+  if (type === 'frame') return 'frame-node';
+  if (type === 'arrow') return 'arrow-node';
+  if (type === 'text')  return 'text-node';
+  return 'node' + (type === 'bubble' ? ' bubble-node' : '');
 }

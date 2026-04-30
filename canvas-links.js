@@ -1,5 +1,5 @@
 import { svgE, LINK_COLORS, LINK_WIDTHS, LINK_DASHES, edgePoint, anchorFpFromSide,
-         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems } from './canvas-utils.js';
+         makeDashSvg, makeWidthSvg, positionCtxMenu, READY_STATUS, buildMenuItems, charToLineCol } from './canvas-utils.js';
 
 export function initLinks(deps) {
   const { S, wrap, svgLinks, canvas, ndEl,
@@ -430,20 +430,11 @@ export function initLinks(deps) {
     const re = new RegExp(prefix + pat + suffix, 'g');
     let m, lastMatchIdx = -1;
     while ((m = re.exec(code)) !== null) {
-      if (charOffset < m.index + text.length) return _charToLineCol(code, m.index);
+      if (charOffset < m.index + text.length) return charToLineCol(code, m.index);
       lastMatchIdx = m.index;
     }
-    if (lastMatchIdx >= 0) return _charToLineCol(code, lastMatchIdx);
+    if (lastMatchIdx >= 0) return charToLineCol(code, lastMatchIdx);
     return { line: -1, col: -1 };
-  }
-
-  function _charToLineCol(code, charIdx) {
-    let line = 1, col = 0;
-    for (let i = 0; i < charIdx; i++) {
-      if (code[i] === '\n') { line++; col = 0; }
-      else { col++; }
-    }
-    return { line, col };
   }
 
   // Text selection → link tip popup
