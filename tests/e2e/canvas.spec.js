@@ -41,10 +41,24 @@ test('clicking "💬 Bubble" creates a bubble node', async ({ page }) => {
   await expect(page.locator('.bubble-node')).toHaveCount(1);
 });
 
+// ─── Add text node ────────────────────────────────────────────────────────────
+test('clicking "T Text" creates a text node', async ({ page }) => {
+  await page.locator('#btn-add-text').click();
+  const node = page.locator('.text-node').first();
+  await expect(node).toBeVisible();
+  await expect(node.locator('textarea')).toBeVisible();
+});
+
 // ─── Add frame node ───────────────────────────────────────────────────────────
 test('clicking "⬜ Group" opens the group dialog', async ({ page }) => {
   await page.locator('#btn-group').click();
   await expect(page.locator('#group-dialog-overlay')).toBeVisible();
+});
+
+// ─── Add arrow node ───────────────────────────────────────────────────────────
+test('clicking "Arrow" creates an arrow node', async ({ page }) => {
+  await page.locator('#btn-add-arrow').click();
+  await expect(page.locator('.arrow-node')).toHaveCount(1);
 });
 
 // ─── Delete selected node ─────────────────────────────────────────────────────
@@ -205,4 +219,62 @@ test('selecting text in a code block shows the link tooltip', async ({ page }) =
 
   // Link tooltip should appear after mouseup with text selected
   await expect(page.locator('#link-tip')).toBeVisible({ timeout: 2000 });
+});
+
+test('link tooltip can complete a link to another block', async ({ page }) => {
+  await page.locator('#btn-add').click();
+  await page.keyboard.press('Escape');
+  await page.locator('.node .btn-edit').click();
+  await page.locator('.node textarea').fill('first line\nhello_target()');
+  await page.locator('.node .btn-done').click();
+
+  await page.locator('#btn-add').click();
+  await page.keyboard.press('Escape');
+
+  await page.evaluate(() => {
+    const walker = document.createTreeWalker(
+      document.querySelector('#nd-1 code'),
+      NodeFilter.SHOW_TEXT,
+    );
+    let textNode = null;
+    while (walker.nextNode()) {
+      if (walker.currentNode.textContent.includes('hello_target')) {
+        textNode = walker.currentNode;
+        break;
+      }
+    }
+    const start = textNode.textContent.indexOf('hello_target');
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + 'hello_target'.length);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  });
+
+  await expect(page.locator('#link-tip')).toBeVisible({ timeout: 2000 });
+  await page.locator('#link-tip-link').click();
+  await page.locator('#nd-2').click();
+  await expect(page.locator('.node-link-svg .lk')).toHaveCount(1);
+});
+
+// ─── Global config ────────────────────────────────────────────────────────────
+test('global config saves title and description', async ({ page }) => {
+  await page.locator('#btn-global-config').click();
+  await expect(page.locator('#global-config-overlay')).toBeVisible();
+
+  await page.locator('#gc-canvas-title').fill('Canvas From E2E');
+  await page.locator('#gc-description').fill('Saved via Playwright');
+  await page.locator('#gc-save').click();
+
+  await expect(page.locator('#canvas-title')).toHaveValue('Canvas From E2E');
+  await expect(page.locator('#status')).toContainText('Global config saved');
+
+  const saved = await page.evaluate(() => {
+    const key = Object.keys(localStorage).find(k => k.startsWith('code-canvas-v1-'));
+    return JSON.parse(localStorage.getItem(key));
+  });
+  expect(saved.canvasTitle).toBe('Canvas From E2E');
+  expect(saved.globalConfig.description).toBe('Saved via Playwright');
 });

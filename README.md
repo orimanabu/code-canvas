@@ -13,6 +13,8 @@ A browser-based tool for reading and understanding source code. Visually organiz
 - **Links**: Select a string (e.g. a function name) inside a code block and connect it to another block with an arrow. All occurrences of the linked text are highlighted and clickable to jump to the target. The arrow starts from the specific occurrence you selected. Right-click a highlighted occurrence to create additional links or delete all links from that text. Right-click an arrow to change its color, width, and dash style.
 - **Bubbles**: Add comment bubbles with a movable tail. The tail can be shown or hidden via the bubble header checkbox. The tail tip can also be anchored to selected text inside a code block — select the text and choose "Attach bubble tail here" from the tooltip. Font family and size can be changed per bubble via the edit menu (`•••`).
 - **Frames**: Group related nodes visually with a labeled frame rectangle. Font family and size can be changed per frame via the edit menu (`•••`).
+- **Text nodes**: Add lightweight text notes directly to the canvas for headings, labels, and free-form annotations. Text color, font family, and font size can be changed per node.
+- **Arrow nodes**: Add standalone directional arrows that are separate from text links. Arrow length, head geometry, rotation, color, and stroke width can be adjusted interactively.
 - **Freehand lines**: Draw polyline, smooth curve, or straight line strokes on the canvas. Each line's shape, color, width, and dash style are configurable via right-click menu.
 - **Jump**: The "☰ Jump" toolbar button opens a navigator panel listing all code blocks, bubbles, and frames. Click an entry to scroll the canvas to that node.
 - **Undo**: Cmd/Ctrl+Z undoes the last action (snapshot-based, up to 10 steps).
@@ -77,7 +79,7 @@ When a JSON file is specified, its contents are loaded into the canvas on startu
 |---|---|---|
 | `dataVersion` | string | Format version (currently `"3.2"`) |
 | `canvasTitle` | string | Title of the entire canvas |
-| `nodes` | Node[] | Array of code blocks, bubbles, and frames |
+| `nodes` | Node[] | Array of code blocks, bubbles, frames, text nodes, and arrow nodes |
 | `links` | Link[] | Array of links |
 | `freeLines` | FreeLine[] | Array of freehand line objects |
 | `nid` | number | Counter for the next node ID to assign |
@@ -150,6 +152,40 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
 | `fontSize` | number | Font size in px (6–96). Can be typed directly or chosen from presets (10–32 px). Defaults to `12` |
 
+## Node object (text)
+
+A node is a text node when `type` is `"text"`.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | number | Unique node ID |
+| `type` | string | Fixed value `"text"` |
+| `x` | number | X coordinate of the text node's top-left corner |
+| `y` | number | Y coordinate of the text node's top-left corner |
+| `w` | number | Width of the text node |
+| `h` | number | Height of the text node |
+| `text` | string | Text content |
+| `textColor` | string | Text color ID (e.g. `"white"`, `"yellow"`, `"blue"`) |
+| `fontFamily` | string | Font family preset ID. Same options as code blocks. Defaults to `"default"` |
+| `fontSize` | number | Font size in px. Defaults to `20` |
+
+## Node object (arrow)
+
+A node is an arrow node when `type` is `"arrow"`.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | number | Unique node ID |
+| `type` | string | Fixed value `"arrow"` |
+| `x` | number | X coordinate of the arrow origin |
+| `y` | number | Y coordinate of the arrow origin |
+| `bodyLen` | number | Shaft length in canvas pixels |
+| `headLen` | number | Arrowhead length in canvas pixels |
+| `headWidth` | number | Arrowhead width in canvas pixels |
+| `angle` | number | Rotation angle in radians |
+| `color` | string | Color theme ID (e.g. `"blue"`, `"green"`, `"red"`) |
+| `strokeWidth` | number | Arrow shaft thickness in pixels |
+
 ## Link object
 
 | Field | Type | Description |
@@ -163,6 +199,8 @@ A node is a frame when `type` is `"frame"`. Frames are used to visually group ot
 | `dash` | string | SVG stroke-dasharray value (`""` = solid, `"8 4"` = dashed, `"16 6"` = long dash) |
 | `anchorLine` | number | 1-based line number in the source block's raw text that identifies the arrow origin occurrence. `-1` means unset (no specific occurrence highlighted as primary). |
 | `anchorCol` | number | 0-based column number within `anchorLine` that identifies the arrow origin occurrence. `-1` means unset. |
+
+Older exports may instead store `anchorMatchIdx`. On load, the app migrates that legacy occurrence index into `anchorLine` and `anchorCol`.
 
 ## FreeLine object
 
