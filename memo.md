@@ -41855,3 +41855,105 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ⏺ Done. Added favicon link to canvas.html:7. The browser will now display favicon.ico in the page tab.
 ```
+
+```
+❯ Git Repository Settingsのダイアログにおいて、各パラメータを次のようにしてください
+  - nicname: 必須
+  - Repository URL: 必須でない
+  - Branch name: 必須でない
+  - Tag name: 必須でない
+  - local source tree: 必須でない
+  - universal ctags tags file: 必須でない
+  - branch nameもtag nameも空の場合は、commit hashも空にする
+
+⏺ Git Repository Settingsダイアログのバリデーションルールを変更します。まず現在の実装を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Git Repository Settingsダイアログのバリデーションルールを変更します。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Added 5 lines, removed 1 line
+      166      const tagsFile  = tagsFileEl.value.trim();
+      167
+      168      if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
+      169 -    if (!url)      { setNote('⚠ Please enter a repository URL.', 'warn'); return; }
+      169
+      170 +    // If neither branch nor tag is specified, clear commit hash
+      171 +    if (!branch && !tag) {
+      172 +      commit = '';
+      173 +    }
+      174 +
+      175      if (branch && tag) {
+      176        setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
+      177        return;
+      174 +
+      175      if (branch && tag) {
+      176        setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
+      177        return;
+
+⏺ 変更を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Git Repository Settingsダイアログのバリデーションルールを変更しました。
+
+  変更内容
+
+  canvas-dialogs.js:159-178
+  - Repository URL の必須チェックを削除
+  - branch と tag の両方が空の場合、commit hash を空文字列にする処理を追加
+
+  変更後の動作
+
+  1. nickname: 必須（変更なし）
+  2. Repository URL: 必須でない（必須チェックを削除）
+  3. Branch name: 必須でない（元々必須チェックなし）
+  4. Tag name: 必須でない（元々必須チェックなし）
+  5. local source tree: 必須でない（元々必須チェックなし）
+  6. universal ctags tags file: 必須でない（元々必須チェックなし）
+  7. branch と tag が両方空の場合: commit hash を空にする（新規追加）
+
+  ブラウザで canvas.html を開いて、Global Config → Add Repository から動作を確認してください。
+
+✻ Crunched for 50s
+
+❯ すみません方針変更で、「branch と tag が両方空の場合: commit hash を空にする（新規追加）」はrevertしてください。代わりに「branch もしくは tag
+  が空の場合、commit hashの取得はしない」としてください
+
+⏺ 了解しました。追加した処理をrevertします。
+
+⏺ Update(canvas-dialogs.js)
+  ⎿  Removed 5 lines
+      167
+      168      if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
+      169
+      170 -    // If neither branch nor tag is specified, clear commit hash
+      171 -    if (!branch && !tag) {
+      172 -      commit = '';
+      173 -    }
+      174 -
+      170      if (branch && tag) {
+      171        setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
+      172        return;
+
+⏺ 変更を確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ revert完了しました。
+
+  最終的な動作
+
+  canvas-dialogs.js:168-175
+
+  1. nickname: 必須
+  2. Repository URL: 必須でない
+  3. Branch name: 必須でない
+  4. Tag name: 必須でない
+  5. local source tree: 必須でない
+  6. universal ctags tags file: 必須でない
+  7. commit hash の自動解決: branch または tag が設定されている場合のみ実行（const needResolve = (branch || tag) && !commit;）
+
+  branch も tag も空の場合は、commit hash の自動取得は行われません。
+```

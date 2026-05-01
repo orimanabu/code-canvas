@@ -166,7 +166,6 @@ function initRepoDialog() {
     const tagsFile  = tagsFileEl.value.trim();
 
     if (!nickname) { setNote('⚠ Please enter a nickname.', 'warn'); return; }
-    if (!url)      { setNote('⚠ Please enter a repository URL.', 'warn'); return; }
 
     if (branch && tag) {
       setNote('⚠ Both branch and tag are filled. Please specify only one.', 'warn');
