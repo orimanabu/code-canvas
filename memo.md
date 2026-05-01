@@ -41833,3 +41833,25 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
 ✻ Cogitated for 3m 11s
 ```
+
+```
+❯ favicon.icoをfaviconに設定してください
+
+⏺ favicon.icoをHTMLに設定します。まず現在のcanvas.htmlを確認します。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ faviconリンクを<head>セクションに追加します。
+
+⏺ Update(canvas.html)
+  ⎿  Added 1 line
+       4  <meta charset="UTF-8">
+       5  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       6  <title>∞ Code Canvas</title>
+       7 +<link rel="icon" href="favicon.ico" type="image/x-icon">
+       8  <link rel="preconnect" href="https://fonts.googleapis.com">
+       9  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      10  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,400;0,600;1,400&display=swap">
+
+⏺ Done. Added favicon link to canvas.html:7. The browser will now display favicon.ico in the page tab.
+```
