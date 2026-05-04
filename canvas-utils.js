@@ -137,16 +137,106 @@ export const TEXT_COLORS = [
 // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
 // When `targetIdx >= 0`, only the occurrence at that index is wrapped; all
 // others are emitted as plain text. Pass -1 to wrap every occurrence.
+// Inject spans that can match text across HTML tags (e.g., when highlight.js splits "n->poll" into multiple spans).
+// Used by injectTailAnchor and injectAnchor when targetIdx is specified (precise positioning).
+function _injectSpansAcrossTags(html, re, insidePattern, buildSpan, targetIdx = -1) {
+  const parts = html.split(/(<[^>]*>)/);
+  let insideAnchor = false;
+  let globalMatchIdx = 0;
+
+  // Build a plain-text view (tags removed) with a mapping back to HTML parts
+  let plainText = '';
+  const partMap = []; // partMap[plainTextIdx] = { partIdx, offsetInPart }
+
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (i % 2 === 1) { // tag segment
+      if (insidePattern.test(p)) insideAnchor = true;
+      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      continue;
+    }
+    if (insideAnchor) {
+      // Text inside existing anchor: count matches but don't map to plain text
+      const cre = new RegExp(re.source, re.flags);
+      let m;
+      while ((m = cre.exec(p)) !== null) {
+        globalMatchIdx++;
+      }
+      continue;
+    }
+    // Text segment outside anchor: add to plainText and build mapping
+    for (let j = 0; j < p.length; j++) {
+      partMap.push({ partIdx: i, offsetInPart: j });
+      plainText += p[j];
+    }
+  }
+
+  // Find all matches in plainText
+  const matches = [];
+  const cre = new RegExp(re.source, re.flags);
+  let m;
+  while ((m = cre.exec(plainText)) !== null) {
+    matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], idx: globalMatchIdx++ });
+  }
+
+  if (matches.length === 0) {
+    // No matches: return unchanged
+    return html;
+  }
+
+  // Determine which matches to wrap
+  const matchesToWrap = targetIdx < 0 ? matches : matches.filter(m => m.idx === targetIdx);
+
+  if (matchesToWrap.length === 0) {
+    return html;
+  }
+
+  // Process matches in reverse order to avoid offset adjustments
+  for (let i = matchesToWrap.length - 1; i >= 0; i--) {
+    const match = matchesToWrap[i];
+
+    // Map match positions back to HTML parts
+    const startMap = partMap[match.start];
+    const endMap = partMap[match.end - 1];
+
+    if (!startMap || !endMap) {
+      continue;
+    }
+
+    // Build the span wrapper
+    const fullSpan = buildSpan(match.idx);
+    // Extract opening tag
+    const openMatch = fullSpan.match(/^<span[^>]*>/);
+    const openTag = openMatch ? openMatch[0] : '<span>';
+
+    // Insert opening tag at start position
+    const startPartText = parts[startMap.partIdx];
+    parts[startMap.partIdx] = startPartText.slice(0, startMap.offsetInPart) +
+                              openTag +
+                              startPartText.slice(startMap.offsetInPart);
+
+    // Insert closing tag at end position
+    // Adjust offset if start and end are in the same part
+    const adjustment = (startMap.partIdx === endMap.partIdx) ? openTag.length : 0;
+    const endPartText = parts[endMap.partIdx];
+    parts[endMap.partIdx] = endPartText.slice(0, endMap.offsetInPart + 1 + adjustment) +
+                            '</span>' +
+                            endPartText.slice(endMap.offsetInPart + 1 + adjustment);
+  }
+
+  return parts.join('');
+}
+
 function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
   const parts = html.split(/(<[^>]*>)/);
   let insideAnchor = false;
-  let matchCount = 0;
+  let globalMatchIdx = 0; // Tracks occurrence index in raw code (includes skipped matches)
 
-  // Count matches without replacing — keeps matchCount in sync with raw-code
+  // Count matches without replacing — keeps globalMatchIdx in sync with raw-code
   // occurrence indices even for text inside already-anchored spans.
   function countSegment(str) {
     const cre = new RegExp(re.source, re.flags);
-    while (cre.exec(str) !== null) matchCount++;
+    while (cre.exec(str) !== null) globalMatchIdx++;
   }
 
   function replaceSegment(str) {
@@ -154,12 +244,12 @@ function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
     let out = '', last = 0, m;
     while ((m = cre.exec(str)) !== null) {
       out += str.slice(last, m.index);
-      if (targetIdx < 0 || matchCount === targetIdx) {
-        out += buildSpan(matchCount);
+      if (targetIdx < 0 || globalMatchIdx === targetIdx) {
+        out += buildSpan(globalMatchIdx);
       } else {
         out += m[0]; // emit original text unchanged
       }
-      matchCount++;
+      globalMatchIdx++;
       last = m.index + m[0].length;
     }
     return out + str.slice(last);
@@ -236,12 +326,15 @@ export function injectAnchor(html, rawText, linkId, code = null, anchorLine = -1
   const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
   const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
   const re = new RegExp(prefix + pat + suffix, 'g');
-  return _injectSpans(html, re,
+
+  // Always use cross-tag injection to handle highlight.js splitting text
+  return _injectSpansAcrossTags(html, re,
     /^<span[^>]+class="[^"]*\blink-anchor\b/,
     idx => {
       const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
       return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
     },
+    -1, // Wrap all occurrences
   );
 }
 
@@ -258,7 +351,11 @@ export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1
   const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
   const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
   const re = new RegExp(prefix + pat + suffix, 'g');
-  return _injectSpans(html, re,
+
+  // Use cross-tag injection when targetIdx is specified (handles highlight.js splitting text)
+  const injectFn = tailMatchIdx >= 0 ? _injectSpansAcrossTags : _injectSpans;
+
+  return injectFn(html, re,
     /^<span[^>]+class="[^"]*\btail-anchor\b/,
     () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
     tailMatchIdx,

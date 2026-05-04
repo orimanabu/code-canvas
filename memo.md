@@ -41957,3 +41957,1792 @@ Block"をクリックするとできるブロックにおいて、Deleteボタ�
 
   branch も tag も空の場合は、commit hash の自動取得は行われません。
 ```
+
+```
+❯ /Users/ori/devel/src/gitlab.com/redhat/rhel/src/kernel/rhel-9/net/core/dev.c の __napi_poll() をブロックとして作成し、dev.cの6729行目にある"n->po
+  ll"をBubbleに接続しましたが、描画されるBubbleの尻尾は6735行目のn->pollに接続してしまいます。6729行目に接続するよう修正してください
+
+⏺ 6729行目の "n->poll" にBubbleの尻尾を接続するよう修正します。
+
+  まず、現在の状態を確認するために、Export機能でデータを取得してください。その後、該当するBubble nodeの tailAnchorLine を修正します。
+
+  現在のtail anchor設定のコードを確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ I'll check how the tail anchoring works to understand why line 6735 is being targeted instead of 6729.
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ The tail anchor line is set when the bubble is created. To fix the existing bubble that's pointing to line 6735 instead of 6729, you need to
+  modify the saved data:
+
+  Solution steps:
+
+  1. Export current state: Click the Export button in the toolbar and save the JSON file
+  2. Edit the JSON file:
+    - Find the bubble node that has tailAnchorText: "n->poll" connected to the __napi_poll() code block
+    - Change tailAnchorLine from 6735 to 6729
+    - The bubble node should look like:
+  {
+    "id": ...,
+    "type": "bubble",
+    "tailAnchorText": "n->poll",
+    "tailAnchorLine": 6729,  // Change this value
+    "tailAnchorCol": ...,
+    ...
+  }
+  3. Import the fixed data: Click the Import button and load the edited JSON file
+
+  Alternative approach (if you want to recreate the connection):
+
+  1. Right-click on the bubble's tail anchor (the highlighted "n->poll" in the code block)
+  2. Select "Detach tail from text"
+  3. Select "n->poll" on line 6729 in the code block
+  4. Click "📌 Attach tail" from the popup tooltip
+
+  The issue occurs because the selection-based line detection uses character offset matching, and if there are multiple occurrences of "n->poll", it
+   picks the one closest to your selection range. Make sure you select the exact text on line 6729 when creating the attachment.
+
+✻ Crunched for 57s
+
+❯ Exportしたデータの該当するBubbleは下記のようになっています
+      {
+        "id": 50,
+        "type": "bubble",
+        "x": 2923.3908583653088,
+        "y": -2025.9712606959613,
+        "w": 916.6279201282157,
+        "h": 100,
+        "text": "デバイス固有関数e1000_clean()を呼ぶ",
+        "tailX": 2329.257985057261,
+        "tailY": -1521.7657407503807,
+        "color": "green",
+        "fontFamily": "default",
+        "fontSize": 50,
+        "showTail": true,
+        "tailAnchorId": 8,
+        "tailAnchorText": "n->poll",
+        "tailAnchorFromId": 36,
+        "tailAnchorLine": 15,
+        "tailAnchorCol": 9
+      },
+
+⏺ このBubbleノードのtailAnchorLine: 15は、コードブロック内での相対的な行番号（1-based）を示しています。
+
+  コードブロック（id: 36）のlineNumberStartの値によって、実際の表示行番号が決まります。現在6735行目に接続されているということは：
+
+  実際の行番号 = lineNumberStart + tailAnchorLine - 1
+
+  6729行目に接続するには、コードブロックのlineNumberStartの値を確認してから、正しいtailAnchorLineの値を計算する必要があります。
+
+  エクスポートしたJSONファイルで、"id": 36のコードブロックを探してください。そのブロックにlineNumberStartというプロパティがあるはずです。
+
+  例えば：
+  - もしlineNumberStart: 6721なら、6729行目に接続するにはtailAnchorLine: 9に変更
+  - もしlineNumberStart: 6715なら、6729行目に接続するにはtailAnchorLine: 15のまま（すでに正しい）
+
+  該当するコードブロック（id: 36）のJSONデータを教えていただけますか？ そうすれば正確なtailAnchorLineの値を計算できます。
+
+❯     {
+        "id": 36,
+        "fromId": 16,
+        "text": "napi_threaded_poll",
+        "toId": 33,
+        "stroke": "#388bfd",
+        "strokeWidth": 1.5,
+        "dash": "",
+        "anchorLine": 9,
+        "anchorCol": 25
+      },
+
+⏺ それはLinkのデータです。必要なのはNodeのデータです。
+
+  エクスポートしたJSONファイルの構造は以下のようになっているはずです：
+
+  {
+    "nodes": [ ... ],
+    "links": [ ... ],
+    "freeLines": [ ... ],
+    ...
+  }
+
+  nodes配列の中から"id": 36のオブジェクトを探してください。
+
+  それがBubbleの尻尾が接続されているコードブロックのデータです。そのノードには以下のようなプロパティがあるはずです：
+
+  {
+    "id": 36,
+    "code": "...",
+    "filePath": "/Users/ori/devel/src/gitlab.com/.../dev.c",
+    "lineNumberStart": <数値>,  // ← この値が重要
+    ...
+  }
+
+  このlineNumberStartの値を教えていただければ、正しいtailAnchorLineを計算できます。
+
+❯     {
+        "id": 36,
+        "x": 2129.5488469421457,
+        "y": -1800.0299275825353,
+        "w": 833,
+        "h": 1182,
+        "code": "static int __napi_poll(struct napi_struct *n, bool *repoll)\n{\n\tint work, weight;\n\n\tweight = n->weight;\n\n\t/* This
+  NAPI_STATE_SCHED test is for avoiding a race\n\t * with netpoll's poll_napi().  Only the entity which\n\t * obtains the lock and sees
+  NAPI_STATE_SCHED set will\n\t * actually make the ->poll() call.  Therefore we avoid\n\t * accidentally calling ->poll() when NAPI is not
+  scheduled.\n\t */\n\twork = 0;\n\tif (napi_is_scheduled(n)) {\n\t\twork = n->poll(n, weight);\n\t\ttrace_napi_poll(n, work, weight);\n\t}\n\n\tif
+   (unlikely(work > weight))\n\t\tnetdev_err_once(n->dev, \"NAPI poll function %pS returned %d, exceeding its budget of %d.\\n\",\n\t\t\t\tn->poll,
+   work, weight);\n\n\tif (likely(work < weight))\n\t\treturn work;\n\n\t/* Drivers must not modify the NAPI state if they\n\t * consume the entire
+   weight.  In such cases this code\n\t * still \"owns\" the NAPI instance and therefore can\n\t * move the instance around on the list
+  at-will.\n\t */\n\tif (unlikely(napi_disable_pending(n))) {\n\t\tnapi_complete(n);\n\t\treturn work;\n\t}\n\n\t/* The NAPI context has more
+  processing work, but busy-polling\n\t * is preferred. Exit early.\n\t */\n\tif (napi_prefer_busy_poll(n)) {\n\t\tif (napi_complete_done(n, work))
+   {\n\t\t\t/* If timeout is not set, we need to make sure\n\t\t\t * that the NAPI is re-scheduled.\n\t\t\t
+  */\n\t\t\tnapi_schedule(n);\n\t\t}\n\t\treturn work;\n\t}\n\n\tif (n->gro_bitmask) {\n\t\t/* flush too old packets\n\t\t * If HZ < 1000, flush
+  all packets.\n\t\t */\n\t\tnapi_gro_flush(n, HZ >= 1000);\n\t}\n\n\tgro_normal_list(n);\n\n\t/* Some drivers may have called napi_schedule\n\t *
+  prior to exhausting their budget.\n\t */\n\tif (unlikely(!list_empty(&n->poll_list))) {\n\t\tpr_warn_once(\"%s: Budget exhausted after napi
+  rescheduled\\n\",\n\t\t\t     n->dev ? n->dev->name : \"backlog\");\n\t\treturn work;\n\t}\n\n\t*repoll = true;\n\n\treturn work;\n}",
+        "lang": "cpp",
+        "title": "__napi_poll",
+        "filePath": "net/core/dev.c",
+        "showLineNumbers": true,
+        "lineNumberStart": 6715,
+        "color": "blue",
+        "fontFamily": "default",
+        "fontSize": 12.5
+      },
+
+⏺ ありがとうございます！計算してみます。
+
+  現在の設定：
+  - lineNumberStart: 6715
+  - tailAnchorLine: 15
+  - 実際の行番号 = 6715 + 15 - 1 = 6729
+
+  理論上はすでに6729行目を指しているはずです。しかし、実際に6735行目に描画されているということは、tailAnchorCol（列位置）の値が原因かもしれません。
+
+  コード内のn->pollの出現箇所を確認すると：
+  - Line 15 (6729行目): work = n->poll(n, weight); ← 接続したい場所
+  - Line 21 (6735行目): n->poll, work, weight); ← 現在接続されている場所
+
+  修正方法：
+
+  Bubbleノードのデータを以下のように変更してください：
+
+  {
+    "id": 50,
+    "type": "bubble",
+    ...
+    "tailAnchorLine": 15,
+    "tailAnchorCol": 15  // 9 から 15 に変更
+  }
+
+  tailAnchorColを調整することで、line 15の正しいn->pollの位置（work = n->pollの部分）を指すようになるはずです。
+
+  変更後、JSONファイルをImportして確認してください。それでも6735行目に接続される場合は、tailAnchorLineとtailAnchorColの両方を-1にリセットしてから、
+  再度テキスト選択で接続し直す方が確実です：
+
+  "tailAnchorLine": -1,
+  "tailAnchorCol": -1
+
+✻ Worked for 38s
+
+❯ データを修正するのではなく、code canvas側のロジックに不具合がないかを見直してください。今の状態で、6735行目のn->pollを"Detach bubble
+  tail"し、再度6729行目のn->pollに対して"Attach bubble tail here"しても、該当Bubbleのtailは6735行目のn->pollに接続してしまいます
+
+⏺ 了解しました。コードのロジックの問題を調査します。
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 問題の原因を特定します。canvas-links.jsのgetCodeTextOffsetとgetAnchorLineColのロジックを詳しく調べます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題の原因を特定するために、実際のコードの構造を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 問題の本質を理解するために、コード内の"n->poll"の出現箇所を確認します。
+
+⏺ Searching for 1 pattern… (ctrl+o to expand)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  tailAnchorColを調整することで、line 15の正しいn->pollの位置（work = n->pollの部分）を指すようになるはずです。
+
+  変更後、JSONファイルをImportして確認してください。それでも6735行目に接続される場合は、tailAnchorLineとtailAnchorColの両方を-1にリセットしてから、
+  再度テキスト選択で接続し直す方が確実です：
+
+  "tailAnchorLine": -1,
+  "tailAnchorCol": -1
+
+✻ Worked for 38s
+
+❯ データを修正するのではなく、code canvas側のロジックに不具合がないかを見直してください。今の状態で、6735行目のn->pollを"Detach bubble
+  tail"し、再度6729行目のn->pollに対して"Attach bubble tail here"しても、該当Bubbleのtailは6735行目のn->pollに接続してしまいます
+
+⏺ 了解しました。コードのロジックの問題を調査します。
+
+  Searched for 3 patterns, read 1 file (ctrl+o to expand)
+
+⏺ 問題の原因を特定します。canvas-links.jsのgetCodeTextOffsetとgetAnchorLineColのロジックを詳しく調べます。
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題の原因を特定するために、実際のコードの構造を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 問題の本質を理解するために、コード内の"n->poll"の出現箇所を確認します。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ 問題を発見しました。canvas-links.jsのgetAnchorLineCol関数（426-438行）の条件式に問題があります。
+
+  現在のコード：
+  if (charOffset < m.index + text.length) return charToLineCol(code, m.index);
+
+  この条件は、選択位置（charOffset）が現在のマッチの終端より前にある場合のみマッチします。
+
+  問題：
+  - 15行目（6729行目）の"n->poll"の範囲内で選択しても、charOffsetがちょうどマッチの終端位置になる場合、条件がfalseになり、次のマッチ（21行目/6735行
+  目）に進んでしまいます。
+
+  修正：
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 1 line
+      430      const re = new RegExp(prefix + pat + suffix, 'g');
+      431      let m, lastMatchIdx = -1;
+      432      while ((m = re.exec(code)) !== null) {
+      433 -      if (charOffset < m.index + text.length) return charToLineCol(code, m.index);
+      433 +      if (charOffset <= m.index + text.length) return charToLineCol(code, m.index);
+      434        lastMatchIdx = m.index;
+      435      }
+      436      if (lastMatchIdx >= 0) return charToLineCol(code, lastMatchIdx);
+
+⏺ 修正しましたが、さらに正確な修正が必要かもしれません。現在の修正では選択位置がマッチの終端と同じ場合も対応しますが、より厳密には選択位置がマッチの
+  範囲内にあるかをチェックすべきです。
+
+  追加の修正を行います：
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 33 lines, removed 9 lines
+      419    }
+      420
+      421    // Returns {line, col} (1-based line, 0-based col) of the occurrence of text
+      422 -  // in code that contains charOffset, using the same word-boundary rules as
+      423 -  // injectAnchor. Tolerates charOffset landing just before the match (e.g.
+      424 -  // when leading whitespace was trimmed from the selection). Returns
+      425 -  // {line: -1, col: -1} if no match found.
+      422 +  // in code that contains or is nearest to charOffset, using the same word-boundary
+      423 +  // rules as injectAnchor. Returns the match that contains charOffset, or if none,
+      424 +  // the closest match. Returns {line: -1, col: -1} if no match found.
+      425    function getAnchorLineCol(code, text, charOffset) {
+      426      const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      427      const prefix = /\w/.test(text[0])               ? '\\b' : '';
+      428      const suffix = /\w/.test(text[text.length - 1]) ? '\\b' : '';
+      429      const re = new RegExp(prefix + pat + suffix, 'g');
+      431 -    let m, lastMatchIdx = -1;
+      430 +
+      431 +    // Collect all matches with their positions
+      432 +    const matches = [];
+      433 +    let m;
+      434      while ((m = re.exec(code)) !== null) {
+      433 -      if (charOffset <= m.index + text.length) return charToLineCol(code, m.index);
+      434 -      lastMatchIdx = m.index;
+      435 +      matches.push({ index: m.index, endIndex: m.index + text.length });
+      436      }
+      436 -    if (lastMatchIdx >= 0) return charToLineCol(code, lastMatchIdx);
+      437 -    return { line: -1, col: -1 };
+      437 +
+      438 +    if (matches.length === 0) return { line: -1, col: -1 };
+      439 +
+      440 +    // Find the match that contains charOffset (within or at boundaries)
+      441 +    for (const match of matches) {
+      442 +      if (charOffset >= match.index && charOffset <= match.endIndex) {
+      443 +        return charToLineCol(code, match.index);
+      444 +      }
+      445 +    }
+      446 +
+      447 +    // If no match contains charOffset, find the closest one
+      448 +    let closest = matches[0];
+      449 +    let minDist = Math.abs(charOffset - matches[0].index);
+      450 +    for (const match of matches) {
+      451 +      const dist = Math.min(
+      452 +        Math.abs(charOffset - match.index),
+      453 +        Math.abs(charOffset - match.endIndex)
+      454 +      );
+      455 +      if (dist < minDist) {
+      456 +        minDist = dist;
+      457 +        closest = match;
+      458 +      }
+      459 +    }
+      460 +
+      461 +    return charToLineCol(code, closest.index);
+      462    }
+      463
+      464    // Text selection → link tip popup
+
+⏺ 修正完了しました。変更内容：
+
+  問題の原因：
+  getAnchorLineCol関数の条件式 charOffset < m.index + text.length が、選択位置が複数のマッチのうちどれに該当するかを正確に判定できていませんでした。
+
+  修正内容：
+  1. すべての"n->poll"のマッチ箇所を収集
+  2. 選択開始位置（charOffset）が各マッチの範囲内（開始位置から終了位置まで）に含まれるかをチェック
+  3. 範囲内に含まれるマッチを優先的に返す
+  4. 含まれない場合は、最も近いマッチを返す（フォールバック）
+
+  これにより、6729行目の"n->poll"を選択した場合、その範囲内の文字位置が正しく6729行目のマッチとして認識されるようになります。
+
+  確認方法：
+  1. ブラウザでcanvas.htmlをリロード
+  2. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  3. "📌 Attach tail"をクリック
+  4. Bubbleをクリック
+  5. 尻尾が6729行目に接続されることを確認してください
+
+✻ Cooked for 2m 37s
+
+❯ ブラウザをリロードしましたが、動きは変わりません(6729行目のn->pollにattach tailしても6735行目に接続してしまいます)。もう一度見直してください
+
+⏺ ブラウザのデベロッパーツールを使ってデバッグしましょう。問題の原因を特定するために、実際の値を確認します。
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line
+      526
+      527      linkTipAttachTail.style.display = '';
+      528      linkTipAttachTail.onclick = () => {
+      529 +      console.log('[DEBUG] Attach tail clicked:', { fromId, text, anchorLine, anchorCol });
+      530        sel.removeAllRanges();
+      531        linkTip.style.display = 'none';
+      532        enterTailAttachMode(fromId, text, anchorLine, anchorCol);
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 5 lines, removed 1 line
+      412          total += 1;
+      413        }
+      414        lastCodeLine = codeLine;
+      415 -      if (node === startNode) return total + startOffset;
+      415 +      if (node === startNode) {
+      416 +        const result = total + startOffset;
+      417 +        console.log('[DEBUG] getCodeTextOffset result:', result);
+      418 +        return result;
+      419 +      }
+      420        total += node.textContent.length;
+      421      }
+      422      return -1;
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 13 lines, removed 2 lines
+      439        matches.push({ index: m.index, endIndex: m.index + text.length });
+      440      }
+      441
+      442 +    console.log('[DEBUG] getAnchorLineCol - text:', text, 'charOffset:', charOffset);
+      443 +    console.log('[DEBUG] getAnchorLineCol - all matches:', matches.map(m => ({
+      444 +      index: m.index,
+      445 +      endIndex: m.endIndex,
+      446 +      lineCol: charToLineCol(code, m.index)
+      447 +    })));
+      448 +
+      449      if (matches.length === 0) return { line: -1, col: -1 };
+      450
+      451      // Find the match that contains charOffset (within or at boundaries)
+      452      for (const match of matches) {
+      453        if (charOffset >= match.index && charOffset <= match.endIndex) {
+      447 -        return charToLineCol(code, match.index);
+      454 +        const result = charToLineCol(code, match.index);
+      455 +        console.log('[DEBUG] getAnchorLineCol - matched by contains:', result);
+      456 +        return result;
+      457        }
+      458      }
+      459
+     ...
+      471        }
+      472      }
+      473
+      465 -    return charToLineCol(code, closest.index);
+      474 +    const result = charToLineCol(code, closest.index);
+      475 +    console.log('[DEBUG] getAnchorLineCol - matched by closest:', result);
+      476 +    return result;
+      477    }
+      478
+      479    // Text selection → link tip popup
+
+⏺ デバッグログを追加しました。ブラウザをリロードして、以下の手順で確認してください：
+
+
+⏺ デバッグログを追加しました。ブラウザをリロードして、以下の手順で確認してください：
+
+  1. ブラウザをリロード
+  2. デベロッパーツール（F12）を開いてConsoleタブを表示
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  コンソールに以下のようなデバッグ情報が表示されるはずです：
+  - getCodeTextOffset result: - DOM選択位置から計算された文字オフセット
+  - getAnchorLineCol - all matches: - コード内の全ての"n->poll"の位置とline/col
+  - getAnchorLineCol - matched by contains/closest: - 選択された位置に対応するline/col
+  - Attach tail clicked: - 最終的に渡されるanchorLine, anchorCol
+
+  この情報を教えていただけますか？ それを見れば、どこで間違った行番号が計算されているかが分かります。
+
+✻ Churned for 1m 59s
+
+※ recap: Debugging why bubble tails attach to line 6735 instead of 6729 when selecting "n->poll". Added console logging to getAnchorLineCol and
+  related functions in canvas-links.js to trace where the wrong line calculation happens. Please reload the browser, open dev console, select the
+  n->poll on line 6729, click attach tail, and share the console output.
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}
+
+⏺ 良い情報です！デバッグログを見ると：
+  - anchorLine: 15, anchorCol: 9 が正しく計算されている（15行目 = 6715 + 15 - 1 = 6729行目）
+  - Attach tail clickedまで正しい値が渡されている
+
+  ということは、問題はBubbleをクリックした後の処理にあります。canvas-nodes.jsでBubbleのクリックイベントを確認しましょう。
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Bubbleクリック時の処理は正しいように見えます。attachTailToTextの実装を再確認します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 問題はinjectTailAnchorが使う_lineColToMatchIdx関数にあるはずです。この関数を確認しましょう：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ _lineColToMatchIdx関数にデバッグログを追加して、何が起きているかを確認します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 7 lines, removed 1 line
+      214    const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      215    const re = new RegExp(prefix + pat + suffix, 'g');
+      216    let idx = 0, m;
+      217 +  const allMatches = [];
+      218    while ((m = re.exec(code)) !== null) {
+      219      const { line, col } = charToLineCol(code, m.index);
+      219 -    if (line === targetLine && col === targetCol) return idx;
+      220 +    allMatches.push({ idx, line, col, charIndex: m.index });
+      221 +    if (line === targetLine && col === targetCol) {
+      222 +      console.log('[DEBUG] _lineColToMatchIdx - FOUND match:', { rawText, targetLine, targetCol, returnIdx: idx, allMatches });
+      223 +      return idx;
+      224 +    }
+      225      idx++;
+      226    }
+      227 +  console.log('[DEBUG] _lineColToMatchIdx - NOT FOUND:', { rawText, targetLine, targetCol, allMatches });
+      228    return -1;
+      229  }
+      230
+
+⏺ もう一つ、injectTailAnchorにもデバッグログを追加します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 2 lines
+      256  // When code=null or tailLine=-1, all occurrences are wrapped (backward compat).
+      257  // Uses class="tail-anchor" / data-taid.
+      258  export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1, tailCol = -1) {
+      259 +  console.log('[DEBUG] injectTailAnchor called:', { rawText, taid, tailLine, tailCol, hasCode: code != null });
+      260    const tailMatchIdx = (code != null && tailLine >= 0)
+      261      ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+      262      : -1;
+      263 +  console.log('[DEBUG] injectTailAnchor - tailMatchIdx:', tailMatchIdx);
+      264    const escapedText = esc(rawText);
+      265    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      266    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+
+⏺ さらに、コードブロックの生のコードの一部を出力して確認します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 4 lines, removed 1 line
+      217    const allMatches = [];
+      218    while ((m = re.exec(code)) !== null) {
+      219      const { line, col } = charToLineCol(code, m.index);
+      220 -    allMatches.push({ idx, line, col, charIndex: m.index });
+      220 +    const lineStart = code.lastIndexOf('\n', m.index) + 1;
+      221 +    const lineEnd = code.indexOf('\n', m.index);
+      222 +    const codeLine = code.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      223 +    allMatches.push({ idx, line, col, charIndex: m.index, codeLine });
+      224      if (line === targetLine && col === targetCol) {
+      225        console.log('[DEBUG] _lineColToMatchIdx - FOUND match:', { rawText, targetLine, targetCol, returnIdx: idx, allMatches });
+      226        return idx;
+
+⏺ デバッグログを追加しました。ブラウザをリロードして、もう一度以下の手順を実行してください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツール（F12）のConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);の方）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は以下の情報がコンソールに出力されるはずです：
+  - injectTailAnchor called: - 引数の確認
+  - _lineColToMatchIdx - NOT FOUND or FOUND: - 全てのマッチの位置情報（line, col, codeLine）
+  - injectTailAnchor - tailMatchIdx: - どのマッチ（0番目か1番目か）が選ばれたか
+
+  特に重要なのは_lineColToMatchIdxの出力です。allMatches配列を展開して、以下の情報を教えてください：
+  - マッチ0: { idx: 0, line: ?, col: ?, codeLine: "..." }
+  - マッチ1: { idx: 1, line: ?, col: ?, codeLine: "..." }
+  - どちらが選ばれたか（tailMatchIdxの値）
+
+✻ Sautéed for 1m 52s
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'gro_normal_list', targetLine: 56, targetCol: 1, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'napi_gro_flush', targetLine: 53, targetCol: 2, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] injectTailAnchor called: {rawText: 'n->poll', taid: 13, tailLine: 15, tailCol: 9, hasCode: true}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'n->poll', targetLine: 15, targetCol: 9, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] injectTailAnchor - tailMatchIdx: 0
+
+⏺ 重要な発見です！デバッグログのallMatches: Array(1)に注目してください。これは1つのマッチしか見つかっていないことを意味します。
+
+  しかし、コード全体には"n->poll"が2箇所あるはずです。つまり、_lineColToMatchIdxに渡されているcodeパラメータが完全なコードではない可能性があります。
+
+  injectTailAnchorを呼び出している箇所を確認します：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ allMatches配列を詳しく見る必要があります。コンソールでallMatches: Array(1)の部分を展開して、その中身を確認してください。
+
+  でも待ってください。デバッグログの構造から、もう一つ重要なことに気づきました。_lineColToMatchIdxは一致を見つけたら即座にreturnするので、allMatches
+  にはその時点までのマッチしか含まれていません。つまり、15行目で一致が見つかった場合、21行目のマッチはallMatchesに追加されません。
+
+  本当の問題は_injectSpans関数にあるかもしれません。_injectSpansに渡されるtargetIdx: 0が正しく処理されているか確認しましょう：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 3 lines, removed 1 line
+      154      let out = '', last = 0, m;
+      155      while ((m = cre.exec(str)) !== null) {
+      156        out += str.slice(last, m.index);
+      157 -      if (targetIdx < 0 || matchCount === targetIdx) {
+      157 +      const willReplace = targetIdx < 0 || matchCount === targetIdx;
+      158 +      console.log('[DEBUG] _injectSpans - match:', { text: m[0], matchCount, targetIdx, willReplace });
+      159 +      if (willReplace) {
+      160          out += buildSpan(matchCount);
+      161        } else {
+      162          out += m[0]; // emit original text unchanged
+
+⏺ デバッグログを追加しました。ブラウザをリロードして、もう一度試してください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツールのConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は_injectSpansのデバッグログで、以下の情報が表示されるはずです：
+  [DEBUG] _injectSpans - match: { text: "n->poll", matchCount: 0, targetIdx: 0, willReplace: true }
+  [DEBUG] _injectSpans - match: { text: "n->poll", matchCount: 1, targetIdx: 0, willReplace: false }
+
+  もしmatchCount: 1の方でwillReplace: trueになっていたら、それが問題の原因です。その出力を教えてください。
+
+✻ Crunched for 48s
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'gro_normal_list', targetLine: 56, targetCol: 1, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] _injectSpans - match: {text: 'gro_normal_list', matchCount: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'napi_gro_flush', targetLine: 53, targetCol: 2, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] _injectSpans - match: {text: 'napi_gro_flush', matchCount: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] injectTailAnchor called: {rawText: 'n->poll', taid: 14, tailLine: 15, tailCol: 9, hasCode: true}
+  [DEBUG] _lineColToMatchIdx - FOUND match: {rawText: 'n->poll', targetLine: 15, targetCol: 9, returnIdx: 0, allMatches: Array(1)}
+  [DEBUG] injectTailAnchor - tailMatchIdx: 0
+  [DEBUG] _injectSpans - match: {text: 'n-&gt;poll', matchCount: 0, targetIdx: 0, willReplace: true}
+
+⏺ 問題が見えてきました！_injectSpansのログが1回しか出力されていないことに注目してください。つまり、HTML内には"n->poll"（エスケープ済みn-&gt;poll）が
+  1つしかマッチしていないということです。
+
+  これは、最初の"n->poll"が既に別のspan（おそらくlink-anchor）で囲まれている可能性があります。_injectSpansのinsideAnchorフラグの動作を確認しましょう
+  。
+
+  デバッグログを追加して、カウントだけされたマッチも表示するようにします：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 5 lines, removed 1 line
+      146    // occurrence indices even for text inside already-anchored spans.
+      147    function countSegment(str) {
+      148      const cre = new RegExp(re.source, re.flags);
+      149 -    while (cre.exec(str) !== null) matchCount++;
+      149 +    let m;
+      150 +    while ((m = cre.exec(str)) !== null) {
+      151 +      console.log('[DEBUG] _injectSpans - SKIPPED match (insideAnchor):', { text: m[0], matchCount, targetIdx });
+      152 +      matchCount++;
+      153 +    }
+      154    }
+      155
+      156    function replaceSegment(str) {
+
+⏺ さらに、_lineColToMatchIdxに渡されているcodeの内容を確認します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 16 lines, removed 8 lines
+      219    const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      220    const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      221    const re = new RegExp(prefix + pat + suffix, 'g');
+      222 -  let idx = 0, m;
+      223 -  const allMatches = [];
+      222 +
+      223 +  // First, collect ALL matches to see the full picture
+      224 +  const allMatchesComplete = [];
+      225 +  let m;
+      226    while ((m = re.exec(code)) !== null) {
+      227      const { line, col } = charToLineCol(code, m.index);
+      228      const lineStart = code.lastIndexOf('\n', m.index) + 1;
+      229      const lineEnd = code.indexOf('\n', m.index);
+      230      const codeLine = code.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      229 -    allMatches.push({ idx, line, col, charIndex: m.index, codeLine });
+      230 -    if (line === targetLine && col === targetCol) {
+      231 -      console.log('[DEBUG] _lineColToMatchIdx - FOUND match:', { rawText, targetLine, targetCol, returnIdx: idx, allMatches });
+      232 -      return idx;
+      231 +    allMatchesComplete.push({ idx: allMatchesComplete.length, line, col, charIndex: m.index, codeLine });
+      232 +  }
+      233 +
+      234 +  console.log('[DEBUG] _lineColToMatchIdx - ALL matches in code:', { rawText, totalMatches: allMatchesComplete.length, allMatchesC
+          +omplete });
+      235 +
+      236 +  // Now find the target match
+      237 +  for (const match of allMatchesComplete) {
+      238 +    if (match.line === targetLine && match.col === targetCol) {
+      239 +      console.log('[DEBUG] _lineColToMatchIdx - FOUND target match:', { rawText, targetLine, targetCol, returnIdx: match.idx });
+      240 +      return match.idx;
+      241      }
+      234 -    idx++;
+      242    }
+      236 -  console.log('[DEBUG] _lineColToMatchIdx - NOT FOUND:', { rawText, targetLine, targetCol, allMatches });
+      243 +
+      244 +  console.log('[DEBUG] _lineColToMatchIdx - NOT FOUND:', { rawText, targetLine, targetCol, allMatchesComplete });
+      245    return -1;
+      246  }
+      247
+
+⏺ ブラウザをリロードして、もう一度試してください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツールのConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は以下の情報が出力されるはずです：
+
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: { rawText: "n->poll", totalMatches: ?, allMatchesComplete: [...] }
+
+  このallMatchesComplete配列を展開して、以下を確認してください：
+  - totalMatchesの値（2であるべき）
+  - 各マッチのline, col, codeLine
+
+  もしtotalMatches: 1なら、渡されているコードが不完全です。
+  もしtotalMatches: 2なら、HTML処理の問題です。
+
+  その情報を教えてください。
+
+✻ Baked for 53s
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'gro_normal_list', totalMatches: 1, allMatchesComplete: Array(1)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'gro_normal_list', targetLine: 56, targetCol: 1, returnIdx: 0}
+  [DEBUG] _injectSpans - match: {text: 'gro_normal_list', matchCount: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'napi_gro_flush', totalMatches: 1, allMatchesComplete: Array(1)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'napi_gro_flush', targetLine: 53, targetCol: 2, returnIdx: 0}
+  [DEBUG] _injectSpans - match: {text: 'napi_gro_flush', matchCount: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] injectTailAnchor called: {rawText: 'n->poll', taid: 15, tailLine: 15, tailCol: 9, hasCode: true}
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'n->poll', totalMatches: 2, allMatchesComplete: Array(2)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'n->poll', targetLine: 15, targetCol: 9, returnIdx: 0}
+  [DEBUG] injectTailAnchor - tailMatchIdx: 0
+  [DEBUG] _injectSpans - match: {text: 'n-&gt;poll', matchCount: 0, targetIdx: 0, willReplace: true}
+
+⏺ 重要な発見です！
+
+  - 生のコード内にはtotalMatches: 2で正しく2つの"n->poll"がある
+  - targetLine: 15に対してreturnIdx: 0（0番目）を返している
+  - しかし_injectSpansでは1回しかマッチしていない
+
+  これは、15行目の"n->poll"が既に別のspan（link-anchorやtail-anchor）で囲まれているため、HTMLの処理でスキップされている可能性があります。
+
+  _injectSpansのinsideAnchor判定部分にログを追加します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 13 lines, removed 3 lines
+      171      return out + str.slice(last);
+      172    }
+      173
+      174 -  return parts.map((p, i) => {
+      174 +  const result = parts.map((p, i) => {
+      175      if (i % 2 === 1) { // tag segment
+      176 +      const wasInside = insideAnchor;
+      177        if (insidePattern.test(p)) insideAnchor = true;
+      178        else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      179 +      if (wasInside !== insideAnchor) {
+      180 +        console.log('[DEBUG] _injectSpans - anchor state changed:', { tag: p, wasInside, nowInside: insideAnchor });
+      181 +      }
+      182        return p;
+      183      }
+      180 -    if (insideAnchor) { countSegment(p); return p; }
+      184 +    if (insideAnchor) {
+      185 +      console.log('[DEBUG] _injectSpans - segment INSIDE anchor, will countOnly:', { segment: p.slice(0, 50) });
+      186 +      countSegment(p);
+      187 +      return p;
+      188 +    }
+      189      return replaceSegment(p);
+      182 -  }).join('');
+      190 +  });
+      191 +  console.log('[DEBUG] _injectSpans - final matchCount:', matchCount);
+      192 +  return result.join('');
+      193  }
+      194
+      195  // Converts a 0-based occurrence index of rawText in code to {line, col}.
+
+⏺ ブラウザをリロードして、もう一度試してください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツールのConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は以下のようなログが出るはずです：
+
+  [DEBUG] _injectSpans - anchor state changed: { tag: "...", wasInside: false, nowInside: true }
+  [DEBUG] _injectSpans - segment INSIDE anchor, will countOnly: { segment: "..." }
+  [DEBUG] _injectSpans - SKIPPED match (insideAnchor): { text: "n->poll", matchCount: 0, targetIdx: 0 }
+  [DEBUG] _injectSpans - match: { text: 'n-&gt;poll', matchCount: 1, targetIdx: 0, willReplace: false }
+  [DEBUG] _injectSpans - final matchCount: 2
+
+  もしこのようなログが出れば、15行目の"n->poll"が既にspanで囲まれており、カウントだけされてmatchCount=0に割り当てられ、実際に置換されるのは21行目のm
+  atchCount=1の方、しかしtargetIdx=0なので置換されない...
+
+  いや待って、この場合は逆です。15行目がmatchCount=0でスキップされ、21行目がmatchCount=1で処理される。targetIdx=0なので21行目は置換されないはずです
+  が、実際には置換されている...
+
+  コンソールの完全な出力を教えてください。特に"n->poll"に関する全てのログを見たいです。
+
+✻ Cogitated for 45s
+
+※ recap: Debugging why bubble tail anchors connect to line 6735 instead of the selected line 6729 for "n->poll" text. Debug logs show the correct
+  line 15 is calculated but only one HTML match occurs instead of two, suggesting the first occurrence is already inside an anchor span and gets
+  skipped. Need the complete console output to confirm if the first match is being counted but not replaced.
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]0: endIndex: 449index: 442lineCol: {line: 15, col: 9}[[Prototype]]: Object1: endIndex:
+  638index: 631lineCol: {line: 21, col: 4}[[Prototype]]: Objectlength: 2[[Prototype]]: Array(0)at: ƒ at()concat: ƒ concat()constructor: ƒ
+  Array()copyWithin: ƒ copyWithin()entries: ƒ entries()every: ƒ every()fill: ƒ fill()filter: ƒ filter()find: ƒ find()findIndex: ƒ
+  findIndex()findLast: ƒ findLast()findLastIndex: ƒ findLastIndex()flat: ƒ flat()flatMap: ƒ flatMap()forEach: ƒ forEach()includes: ƒ
+  includes()indexOf: ƒ indexOf()join: ƒ join()keys: ƒ keys()lastIndexOf: ƒ lastIndexOf()length: 0map: ƒ map()pop: ƒ pop()push: ƒ push()reduce: ƒ
+  reduce()reduceRight: ƒ reduceRight()reverse: ƒ reverse()shift: ƒ shift()slice: ƒ slice()some: ƒ some()sort: ƒ sort()splice: ƒ
+  splice()toLocaleString: ƒ toLocaleString()toReversed: ƒ toReversed()toSorted: ƒ toSorted()toSpliced: ƒ toSpliced()toString: ƒ toString()unshift:
+  ƒ unshift()values: ƒ values()with: ƒ with()Symbol(Symbol.iterator): ƒ values()Symbol(Symbol.unscopables): {at: true, copyWithin: true, entries:
+  true, fill: true, find: true, …}[[Prototype]]: Object
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}col: 9line: 15[[Prototype]]: Object
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]0: endIndex: 449index: 442lineCol: {line: 15, col: 9}[[Prototype]]: Object1: endIndex:
+  638index: 631lineCol: {line: 21, col: 4}col: 4line: 21[[Prototype]]: Object[[Prototype]]: Objectlength: 2[[Prototype]]: Array(0)
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}col: 9line: 15[[Prototype]]: Object
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}anchorCol: 9anchorLine: 15fromId: 36text:
+  "n->poll"[[Prototype]]: Object
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'gro_normal_list', totalMatches: 1, allMatchesComplete: Array(1)}allMatchesComplete:
+  [{…}]rawText: "gro_normal_list"totalMatches: 1[[Prototype]]: Object
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'gro_normal_list', targetLine: 56, targetCol: 1, returnIdx: 0}rawText:
+  "gro_normal_list"returnIdx: 0targetCol: 1targetLine: 56[[Prototype]]: Object
+  [DEBUG] _injectSpans - match: {text: 'gro_normal_list', matchCount: 0, targetIdx: -1, willReplace: true}matchCount: 0targetIdx: -1text:
+  "gro_normal_list"willReplace: true[[Prototype]]: Object
+  [DEBUG] _injectSpans - final matchCount: 1
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'napi_gro_flush', totalMatches: 1, allMatchesComplete: Array(1)}allMatchesComplete:
+  [{…}]rawText: "napi_gro_flush"totalMatches: 1[[Prototype]]: Object
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'napi_gro_flush', targetLine: 53, targetCol: 2, returnIdx: 0}rawText:
+  "napi_gro_flush"returnIdx: 0targetCol: 2targetLine: 53[[Prototype]]: Object
+  [DEBUG] _injectSpans - match: {text: 'napi_gro_flush', matchCount: 0, targetIdx: -1, willReplace: true}matchCount: 0targetIdx: -1text:
+  "napi_gro_flush"willReplace: true[[Prototype]]: Object
+  [DEBUG] _injectSpans - anchor state changed: {tag: '<span class="link-anchor" data-lid="28" data-lid-primary="1">', wasInside: false, nowInside:
+  true}nowInside: truetag: "<span class=\"link-anchor\" data-lid=\"28\" data-lid-primary=\"1\">"wasInside: false[[Prototype]]: Object
+  [DEBUG] _injectSpans - segment INSIDE anchor, will countOnly: {segment: 'gro_normal_list'}
+  [DEBUG] _injectSpans - anchor state changed: {tag: '</span>', wasInside: true, nowInside: false}nowInside: falsetag: "</span>"wasInside:
+  true[[Prototype]]: Object
+  [DEBUG] _injectSpans - final matchCount: 1
+  [DEBUG] injectTailAnchor called: {rawText: 'n->poll', taid: 16, tailLine: 15, tailCol: 9, hasCode: true}hasCode: truerawText: "n->poll"taid:
+  16tailCol: 9tailLine: 15[[Prototype]]: Object
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'n->poll', totalMatches: 2, allMatchesComplete: Array(2)}allMatchesComplete:
+  (2) [{…}, {…}]rawText: "n->poll"totalMatches: 2[[Prototype]]: Object
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'n->poll', targetLine: 15, targetCol: 9, returnIdx: 0}rawText: "n->poll"returnIdx:
+  0targetCol: 9targetLine: 15[[Prototype]]: Object
+  [DEBUG] injectTailAnchor - tailMatchIdx: 0
+  [DEBUG] _injectSpans - match: {text: 'n-&gt;poll', matchCount: 0, targetIdx: 0, willReplace: true}matchCount: 0targetIdx: 0text:
+  "n-&gt;poll"willReplace: true[[Prototype]]: Object
+  [DEBUG] _injectSpans - final matchCount: 1
+
+⏺ 完璧です！問題が明確になりました。
+
+  ログを見ると：
+  - final matchCount: 1 - HTML内には"n->poll"が1つしかマッチしていない
+  - しかしコード内にはtotalMatches: 2で2つ存在する
+
+  これは、15行目の"n->poll"が既にlink-anchorで囲まれているため、HTML処理でスキップされているということです。
+
+  15行目の"n->poll"を確認すると：
+  [DEBUG] _injectSpans - anchor state changed: {tag: '<span class="link-anchor" data-lid="28" ...
+
+  おそらく15行目には既にlink（id=28）が接続されているのでしょう。
+
+  問題の本質：
+  - コード内のインデックス: 0番目=15行目、1番目=21行目
+  - HTML内のマッチ: matchCount 0番目=21行目（15行目はlink-anchorで囲まれているためスキップされる）
+  - targetIdx: 0を指定すると、HTML内の0番目（=コード内の1番目=21行目）が置換される
+
+  解決策：
+
+  _injectSpansを修正して、insideAnchorでスキップされたマッチもカウントに含めるのではなく、実際に置換可能なマッチだけをカウントし、それとは別にコード
+  内のオカレンスインデックスを追跡する必要があります。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 9 lines, removed 9 lines
+      140  function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
+      141    const parts = html.split(/(<[^>]*>)/);
+      142    let insideAnchor = false;
+      143 -  let matchCount = 0;
+      143 +  let globalMatchIdx = 0; // Tracks occurrence index in raw code (includes skipped matches)
+      144
+      145 -  // Count matches without replacing — keeps matchCount in sync with raw-code
+      145 +  // Count matches without replacing — keeps globalMatchIdx in sync with raw-code
+      146    // occurrence indices even for text inside already-anchored spans.
+      147    function countSegment(str) {
+      148      const cre = new RegExp(re.source, re.flags);
+      149      let m;
+      150      while ((m = cre.exec(str)) !== null) {
+      151 -      console.log('[DEBUG] _injectSpans - SKIPPED match (insideAnchor):', { text: m[0], matchCount, targetIdx });
+      152 -      matchCount++;
+      151 +      console.log('[DEBUG] _injectSpans - SKIPPED match (insideAnchor):', { text: m[0], globalMatchIdx, targetIdx });
+      152 +      globalMatchIdx++;
+      153      }
+      154    }
+      155
+     ...
+      158      let out = '', last = 0, m;
+      159      while ((m = cre.exec(str)) !== null) {
+      160        out += str.slice(last, m.index);
+      161 -      const willReplace = targetIdx < 0 || matchCount === targetIdx;
+      162 -      console.log('[DEBUG] _injectSpans - match:', { text: m[0], matchCount, targetIdx, willReplace });
+      161 +      const willReplace = targetIdx < 0 || globalMatchIdx === targetIdx;
+      162 +      console.log('[DEBUG] _injectSpans - match:', { text: m[0], globalMatchIdx, targetIdx, willReplace });
+      163        if (willReplace) {
+      164 -        out += buildSpan(matchCount);
+      164 +        out += buildSpan(globalMatchIdx);
+      165        } else {
+      166          out += m[0]; // emit original text unchanged
+      167        }
+      168 -      matchCount++;
+      168 +      globalMatchIdx++;
+      169        last = m.index + m[0].length;
+      170      }
+      171      return out + str.slice(last);
+     ...
+      188      }
+      189      return replaceSegment(p);
+      190    });
+      191 -  console.log('[DEBUG] _injectSpans - final matchCount:', matchCount);
+      191 +  console.log('[DEBUG] _injectSpans - final globalMatchIdx:', globalMatchIdx);
+      192    return result.join('');
+      193  }
+      194
+
+⏺ 変数名をmatchCountからglobalMatchIdxに変更しました。これで、既にanchorで囲まれてスキップされたマッチもカウントに含めることで、生のコード内のオカレ
+  ンスインデックスとの同期が取れます。
+
+  ブラウザをリロードして、もう一度試してください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツールのConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は以下のようなログが出るはずです：
+
+  [DEBUG] _injectSpans - SKIPPED match (insideAnchor): { text: "n-&gt;poll", globalMatchIdx: 0, targetIdx: 0 }
+  [DEBUG] _injectSpans - match: { text: "n-&gt;poll", globalMatchIdx: 1, targetIdx: 0, willReplace: false }
+  [DEBUG] _injectSpans - final globalMatchIdx: 2
+
+  もしこのログが出れば、15行目（globalMatchIdx=0）がスキップされ、21行目（globalMatchIdx=1）はtargetIdx:
+  0と一致しないため置換されず、問題は解決...しませんね。
+
+  実は、別の可能性があります。15行目の"n->poll"がHTML内に存在しないか、またはHTMLが分割されている（highlight.jsがnと->pollを別々のspanで囲んでいる）
+  可能性があります。
+
+  HTMLの一部を出力して確認しましょう：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 12 lines
+      288      ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+      289      : -1;
+      290    console.log('[DEBUG] injectTailAnchor - tailMatchIdx:', tailMatchIdx);
+      291 +
+      292 +  // Debug: Find all occurrences of the escaped text in HTML
+      293    const escapedText = esc(rawText);
+      294 +  const htmlLines = html.split('\n');
+      295 +  console.log('[DEBUG] injectTailAnchor - searching for escaped text:', escapedText);
+      296 +  console.log('[DEBUG] injectTailAnchor - HTML lines containing escaped text:');
+      297 +  htmlLines.forEach((line, idx) => {
+      298 +    if (line.includes(escapedText)) {
+      299 +      console.log(`  Line ${idx + 1}: ${line.slice(0, 200)}`);
+      300 +    }
+      301 +  });
+      302 +
+      303    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      304    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      305    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      306    const re = new RegExp(prefix + pat + suffix, 'g');
+      307 +  console.log('[DEBUG] injectTailAnchor - regex pattern:', re.source);
+      308    return _injectSpans(html, re,
+      309      /^<span[^>]+class="[^"]*\btail-anchor\b/,
+      310      () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+
+⏺ ブラウザをリロードして、もう一度試してください。今回は"n-&gt;poll"を含むHTML行が全て出力されるはずです。
+
+✻ Brewed for 1m 40s
+
+❯ [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] getCodeTextOffset result: 440
+  [DEBUG] getAnchorLineCol - text: n->poll charOffset: 440
+  [DEBUG] getAnchorLineCol - all matches: (2) [{…}, {…}]
+  [DEBUG] getAnchorLineCol - matched by closest: {line: 15, col: 9}
+  [DEBUG] Attach tail clicked: {fromId: 36, text: 'n->poll', anchorLine: 15, anchorCol: 9}
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'gro_normal_list', totalMatches: 1, allMatchesComplete: Array(1)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'gro_normal_list', targetLine: 56, targetCol: 1, returnIdx: 0}
+  [DEBUG] _injectSpans - match: {text: 'gro_normal_list', globalMatchIdx: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] _injectSpans - final globalMatchIdx: 1
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'napi_gro_flush', totalMatches: 1, allMatchesComplete: Array(1)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'napi_gro_flush', targetLine: 53, targetCol: 2, returnIdx: 0}
+  [DEBUG] _injectSpans - match: {text: 'napi_gro_flush', globalMatchIdx: 0, targetIdx: -1, willReplace: true}
+  [DEBUG] _injectSpans - anchor state changed: {tag: '<span class="link-anchor" data-lid="28" data-lid-primary="1">', wasInside: false, nowInside:
+  true}
+  [DEBUG] _injectSpans - segment INSIDE anchor, will countOnly: {segment: 'gro_normal_list'}
+  [DEBUG] _injectSpans - anchor state changed: {tag: '</span>', wasInside: true, nowInside: false}
+  [DEBUG] _injectSpans - final globalMatchIdx: 1
+  [DEBUG] injectTailAnchor called: {rawText: 'n->poll', taid: 17, tailLine: 15, tailCol: 9, hasCode: true}
+  [DEBUG] _lineColToMatchIdx - ALL matches in code: {rawText: 'n->poll', totalMatches: 2, allMatchesComplete: Array(2)}
+  [DEBUG] _lineColToMatchIdx - FOUND target match: {rawText: 'n->poll', targetLine: 15, targetCol: 9, returnIdx: 0}
+  [DEBUG] injectTailAnchor - tailMatchIdx: 0
+  [DEBUG] injectTailAnchor - searching for escaped text: n-&gt;poll
+  [DEBUG] injectTailAnchor - HTML lines containing escaped text:
+    Line 21:                 n-&gt;poll, work, weight);
+    Line 61:     <span class="hljs-keyword">if</span> (<span class="hljs-built_in">unlikely</span>(!<span
+  class="hljs-built_in">list_empty</span>(&amp;n-&gt;poll_list))) {
+  [DEBUG] injectTailAnchor - regex pattern: \bn-&gt;poll\b
+  [DEBUG] _injectSpans - match: {text: 'n-&gt;poll', globalMatchIdx: 0, targetIdx: 0, willReplace: true}
+  [DEBUG] _injectSpans - final globalMatchIdx: 1
+
+⏺ 完璧です！問題が明確になりました。
+
+  HTMLログを見ると：
+  - Line 21: n-&gt;poll, work, weight); - これは21行目（6735行目）
+  - 15行目（6729行目）のwork = n->poll(n, weight);の"n->poll"がHTML内に見つかっていない
+
+  これは、highlight.jsが15行目のn->poll(n, weight)をシンタックスハイライトのために複数の<span>に分割しているためです。例えば：
+  <span class="hljs-variable">n</span><span class="hljs-operator">-&gt;</span><span class="hljs-function">poll</span>
+
+  そのため、連続したテキストとしてn-&gt;pollが存在せず、正規表現がマッチしません。
+
+  一方、21行目のn->poll, work, weightはコメント文字列内なので、1つのテキストノードとして存在しています。
+
+  解決策：
+
+  15行目付近のHTMLを確認します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 5 lines
+      300      }
+      301    });
+      302
+      303 +  // Also show the target line (tailLine) to see if it's fragmented
+      304 +  if (tailLine > 0 && tailLine <= htmlLines.length) {
+      305 +    console.log(`[DEBUG] injectTailAnchor - Target line ${tailLine}:`, htmlLines[tailLine - 1].slice(0, 300));
+      306 +  }
+      307 +
+      308    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      309    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      310    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+
+⏺ ブラウザをリロードして、15行目のHTMLを確認してください。デバッグログに以下が出力されるはずです：
+
+  [DEBUG] injectTailAnchor - Target line 15: <html content>
+
+  この情報を教えていただけますか？15行目のHTMLが、highlight.jsによって複数の<span>に分割されている可能性が高いです。
+
+  一方で、より根本的な解決策を実装します。問題は、highlight.jsが15行目のn->poll(n, weight)を以下のように分割していることです：
+
+  <span class="hljs-variable">n</span><span class="hljs-operator">-&gt;</span><span class="hljs-function">poll</span>
+
+  そのため、連続したテキストとしてn-&gt;pollが存在せず、正規表現がマッチしません。
+
+  21行目のn->pollは文字列リテラル内なので、highlight.jsが分割せず、1つのテキストノードとして存在しています。
+
+  解決策：
+
+  _injectSpansを改良して、HTMLタグを跨いだマッチも検出できるようにします：
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ 新しいヘルパー関数_injectSpansAcrossTagsを作成します。これはHTMLタグを跨いでマッチを検出できます：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 84 lines
+      137  // `buildSpan(idx)` returns the replacement HTML string for the idx-th match.
+      138  // When `targetIdx >= 0`, only the occurrence at that index is wrapped; all
+      139  // others are emitted as plain text. Pass -1 to wrap every occurrence.
+      140 +// Inject spans that can match text across HTML tags (e.g., when highlight.js splits "n->poll" into multiple spans).
+      141 +// Used by injectTailAnchor and injectAnchor when targetIdx is specified (precise positioning).
+      142 +function _injectSpansAcrossTags(html, re, insidePattern, buildSpan, targetIdx = -1) {
+      143 +  const parts = html.split(/(<[^>]*>)/);
+      144 +  let insideAnchor = false;
+      145 +  let globalMatchIdx = 0;
+      146 +
+      147 +  // Build a plain-text view (tags removed) with a mapping back to HTML parts
+      148 +  let plainText = '';
+      149 +  const partMap = []; // partMap[plainTextIdx] = { partIdx, offsetInPart }
+      150 +
+      151 +  for (let i = 0; i < parts.length; i++) {
+      152 +    const p = parts[i];
+      153 +    if (i % 2 === 1) { // tag segment
+      154 +      if (insidePattern.test(p)) insideAnchor = true;
+      155 +      else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      156 +      continue;
+      157 +    }
+      158 +    if (insideAnchor) {
+      159 +      // Text inside existing anchor: count matches but don't map to plain text
+      160 +      const cre = new RegExp(re.source, re.flags);
+      161 +      let m;
+      162 +      while ((m = cre.exec(p)) !== null) {
+      163 +        console.log('[DEBUG] _injectSpansAcrossTags - SKIPPED match (insideAnchor):', { text: m[0], globalMatchIdx, targetIdx });
+      164 +        globalMatchIdx++;
+      165 +      }
+      166 +      continue;
+      167 +    }
+      168 +    // Text segment outside anchor: add to plainText and build mapping
+      169 +    for (let j = 0; j < p.length; j++) {
+      170 +      partMap.push({ partIdx: i, offsetInPart: j });
+      171 +      plainText += p[j];
+      172 +    }
+      173 +  }
+      174 +
+      175 +  console.log('[DEBUG] _injectSpansAcrossTags - plainText:', plainText.slice(0, 200));
+      176 +
+      177 +  // Find all matches in plainText
+      178 +  const matches = [];
+      179 +  const cre = new RegExp(re.source, re.flags);
+      180 +  let m;
+      181 +  while ((m = cre.exec(plainText)) !== null) {
+      182 +    matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], idx: globalMatchIdx++ });
+      183 +  }
+      184 +
+      185 +  console.log('[DEBUG] _injectSpansAcrossTags - matches:', matches);
+      186 +
+      187 +  if (targetIdx < 0 || matches.length === 0) {
+      188 +    // No specific target or no matches: fall back to original function
+      189 +    console.log('[DEBUG] _injectSpansAcrossTags - falling back to original _injectSpans');
+      190 +    return _injectSpans(html, re, insidePattern, buildSpan, targetIdx);
+      191 +  }
+      192 +
+      193 +  // Find the target match
+      194 +  const targetMatch = matches.find(m => m.idx === targetIdx);
+      195 +  if (!targetMatch) {
+      196 +    console.log('[DEBUG] _injectSpansAcrossTags - target match not found, falling back');
+      197 +    return _injectSpans(html, re, insidePattern, buildSpan, targetIdx);
+      198 +  }
+      199 +
+      200 +  console.log('[DEBUG] _injectSpansAcrossTags - target match:', targetMatch);
+      201 +
+      202 +  // Map match positions back to HTML parts
+      203 +  const startPart = partMap[targetMatch.start];
+      204 +  const endPart = partMap[targetMatch.end - 1];
+      205 +
+      206 +  console.log('[DEBUG] _injectSpansAcrossTags - match spans parts:', { startPart, endPart });
+      207 +
+      208 +  // Insert opening span at start position
+      209 +  const startPartText = parts[startPart.partIdx];
+      210 +  parts[startPart.partIdx] = startPartText.slice(0, startPart.offsetInPart) +
+      211 +                             buildSpan(targetMatch.idx).replace(/<\/span>$/, '') +
+      212 +                             startPartText.slice(startPart.offsetInPart);
+      213 +
+      214 +  // Insert closing span at end position (adjust offset due to inserted opening span)
+      215 +  const adjustment = (startPart.partIdx === endPart.partIdx) ? buildSpan(targetMatch.idx).replace(/<\/span>$/, '').length : 0;
+      216 +  const endPartText = parts[endPart.partIdx];
+      217 +  parts[endPart.partIdx] = endPartText.slice(0, endPart.offsetInPart + 1 + adjustment) +
+      218 +                           '</span>' +
+      219 +                           endPartText.slice(endPart.offsetInPart + 1 + adjustment);
+      220 +
+      221 +  return parts.join('');
+      222 +}
+      223 +
+      224  function _injectSpans(html, re, insidePattern, buildSpan, targetIdx = -1) {
+      225    const parts = html.split(/(<[^>]*>)/);
+      226    let insideAnchor = false;
+
+⏺ buildSpanの返り値を開始タグと終了タグに分割するロジックを修正します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 11 lines, removed 4 lines
+      205
+      206    console.log('[DEBUG] _injectSpansAcrossTags - match spans parts:', { startPart, endPart });
+      207
+      208 -  // Insert opening span at start position
+      208 +  // Build the span wrapper
+      209 +  const fullSpan = buildSpan(targetMatch.idx);
+      210 +  // Extract opening tag: from start to first '>'  after initial '<span'
+      211 +  const openMatch = fullSpan.match(/^<span[^>]*>/);
+      212 +  const openTag = openMatch ? openMatch[0] : '<span>';
+      213 +
+      214 +  // Insert opening tag at start position
+      215    const startPartText = parts[startPart.partIdx];
+      216    parts[startPart.partIdx] = startPartText.slice(0, startPart.offsetInPart) +
+      211 -                             buildSpan(targetMatch.idx).replace(/<\/span>$/, '') +
+      217 +                             openTag +
+      218                               startPartText.slice(startPart.offsetInPart);
+      219
+      214 -  // Insert closing span at end position (adjust offset due to inserted opening span)
+      215 -  const adjustment = (startPart.partIdx === endPart.partIdx) ? buildSpan(targetMatch.idx).replace(/<\/span>$/, '').length : 0;
+      220 +  // Insert closing tag at end position
+      221 +  // Adjust offset if start and end are in the same part
+      222 +  const adjustment = (startPart.partIdx === endPart.partIdx) ? openTag.length : 0;
+      223    const endPartText = parts[endPart.partIdx];
+      224    parts[endPart.partIdx] = endPartText.slice(0, endPart.offsetInPart + 1 + adjustment) +
+      225                             '</span>' +
+
+⏺ injectTailAnchorとinjectAnchorを、targetIdx >= 0の場合に新しい関数を使うように修正します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 6 lines, removed 1 line
+      401    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      402    const re = new RegExp(prefix + pat + suffix, 'g');
+      403    console.log('[DEBUG] injectTailAnchor - regex pattern:', re.source);
+      404 -  return _injectSpans(html, re,
+      404 +
+      405 +  // Use cross-tag injection when targetIdx is specified (handles highlight.js splitting text)
+      406 +  const injectFn = tailMatchIdx >= 0 ? _injectSpansAcrossTags : _injectSpans;
+      407 +  console.log('[DEBUG] injectTailAnchor - using:', tailMatchIdx >= 0 ? '_injectSpansAcrossTags' : '_injectSpans');
+      408 +
+      409 +  return injectFn(html, re,
+      410      /^<span[^>]+class="[^"]*\btail-anchor\b/,
+      411      () => `<span class="tail-anchor" data-taid="${taid}">${escapedText}</span>`,
+      412      tailMatchIdx,
+
+⏺ 同じくinjectAnchorも修正します：
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ injectAnchorでも同じ問題が起きる可能性があるので、_injectSpansAcrossTagsを改良して全てのマッチを処理できるようにします：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 42 lines, removed 31 lines
+      184
+      185    console.log('[DEBUG] _injectSpansAcrossTags - matches:', matches);
+      186
+      187 -  if (targetIdx < 0 || matches.length === 0) {
+      188 -    // No specific target or no matches: fall back to original function
+      189 -    console.log('[DEBUG] _injectSpansAcrossTags - falling back to original _injectSpans');
+      190 -    return _injectSpans(html, re, insidePattern, buildSpan, targetIdx);
+      187 +  if (matches.length === 0) {
+      188 +    // No matches: return unchanged
+      189 +    return html;
+      190    }
+      191
+      193 -  // Find the target match
+      194 -  const targetMatch = matches.find(m => m.idx === targetIdx);
+      195 -  if (!targetMatch) {
+      196 -    console.log('[DEBUG] _injectSpansAcrossTags - target match not found, falling back');
+      197 -    return _injectSpans(html, re, insidePattern, buildSpan, targetIdx);
+      192 +  // Determine which matches to wrap
+      193 +  const matchesToWrap = targetIdx < 0 ? matches : matches.filter(m => m.idx === targetIdx);
+      194 +
+      195 +  if (matchesToWrap.length === 0) {
+      196 +    console.log('[DEBUG] _injectSpansAcrossTags - target match not found');
+      197 +    return html;
+      198    }
+      199
+      200 -  console.log('[DEBUG] _injectSpansAcrossTags - target match:', targetMatch);
+      200 +  console.log('[DEBUG] _injectSpansAcrossTags - wrapping', matchesToWrap.length, 'match(es)');
+      201
+      202 -  // Map match positions back to HTML parts
+      203 -  const startPart = partMap[targetMatch.start];
+      204 -  const endPart = partMap[targetMatch.end - 1];
+      202 +  // Process matches in reverse order to avoid offset adjustments
+      203 +  for (let i = matchesToWrap.length - 1; i >= 0; i--) {
+      204 +    const match = matchesToWrap[i];
+      205 +    console.log('[DEBUG] _injectSpansAcrossTags - processing match:', match);
+      206
+      206 -  console.log('[DEBUG] _injectSpansAcrossTags - match spans parts:', { startPart, endPart });
+      207 +    // Map match positions back to HTML parts
+      208 +    const startMap = partMap[match.start];
+      209 +    const endMap = partMap[match.end - 1];
+      210
+      208 -  // Build the span wrapper
+      209 -  const fullSpan = buildSpan(targetMatch.idx);
+      210 -  // Extract opening tag: from start to first '>'  after initial '<span'
+      211 -  const openMatch = fullSpan.match(/^<span[^>]*>/);
+      212 -  const openTag = openMatch ? openMatch[0] : '<span>';
+      211 +    if (!startMap || !endMap) {
+      212 +      console.log('[DEBUG] _injectSpansAcrossTags - mapping failed for match:', match);
+      213 +      continue;
+      214 +    }
+      215
+      214 -  // Insert opening tag at start position
+      215 -  const startPartText = parts[startPart.partIdx];
+      216 -  parts[startPart.partIdx] = startPartText.slice(0, startPart.offsetInPart) +
+      217 -                             openTag +
+      218 -                             startPartText.slice(startPart.offsetInPart);
+      216 +    console.log('[DEBUG] _injectSpansAcrossTags - match spans parts:', { startMap, endMap });
+      217
+      220 -  // Insert closing tag at end position
+      221 -  // Adjust offset if start and end are in the same part
+      222 -  const adjustment = (startPart.partIdx === endPart.partIdx) ? openTag.length : 0;
+      223 -  const endPartText = parts[endPart.partIdx];
+      224 -  parts[endPart.partIdx] = endPartText.slice(0, endPart.offsetInPart + 1 + adjustment) +
+      225 -                           '</span>' +
+      226 -                           endPartText.slice(endPart.offsetInPart + 1 + adjustment);
+      218 +    // Build the span wrapper
+      219 +    const fullSpan = buildSpan(match.idx);
+      220 +    // Extract opening tag
+      221 +    const openMatch = fullSpan.match(/^<span[^>]*>/);
+      222 +    const openTag = openMatch ? openMatch[0] : '<span>';
+      223
+      224 +    // Insert opening tag at start position
+      225 +    const startPartText = parts[startMap.partIdx];
+      226 +    parts[startMap.partIdx] = startPartText.slice(0, startMap.offsetInPart) +
+      227 +                              openTag +
+      228 +                              startPartText.slice(startMap.offsetInPart);
+      229 +
+      230 +    // Insert closing tag at end position
+      231 +    // Adjust offset if start and end are in the same part
+      232 +    const adjustment = (startMap.partIdx === endMap.partIdx) ? openTag.length : 0;
+      233 +    const endPartText = parts[endMap.partIdx];
+      234 +    parts[endMap.partIdx] = endPartText.slice(0, endMap.offsetInPart + 1 + adjustment) +
+      235 +                            '</span>' +
+      236 +                            endPartText.slice(endMap.offsetInPart + 1 + adjustment);
+      237 +  }
+      238 +
+      239    return parts.join('');
+      240  }
+      241
+
+⏺ injectAnchorも_injectSpansAcrossTagsを使うように変更します：
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 4 lines, removed 1 line
+      371    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      372    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      373    const re = new RegExp(prefix + pat + suffix, 'g');
+      374 -  return _injectSpans(html, re,
+      374 +
+      375 +  // Always use cross-tag injection to handle highlight.js splitting text
+      376 +  return _injectSpansAcrossTags(html, re,
+      377      /^<span[^>]+class="[^"]*\blink-anchor\b/,
+      378      idx => {
+      379        const primary = anchorMatchIdx >= 0 && idx === anchorMatchIdx ? ' data-lid-primary="1"' : '';
+      380        return `<span class="link-anchor" data-lid="${linkId}"${primary}>${escapedText}</span>`;
+      381      },
+      382 +    -1, // Wrap all occurrences
+      383    );
+      384  }
+      385
+
+⏺ 修正が完了しました。ブラウザをリロードして、テストしてください：
+
+  1. ブラウザをリロード（F5）
+  2. デベロッパーツールのConsoleタブを開く
+  3. 6729行目の"n->poll"（work = n->poll(n, weight);）を選択
+  4. "📌 Attach tail"をクリック
+  5. Bubbleをクリック
+
+  今回は以下のようなログが出力されるはずです：
+
+  [DEBUG] injectTailAnchor - using: _injectSpansAcrossTags
+  [DEBUG] _injectSpansAcrossTags - plainText: ...
+  [DEBUG] _injectSpansAcrossTags - matches: [{ idx: 0, ... }, { idx: 1, ... }]
+  [DEBUG] _injectSpansAcrossTags - wrapping 1 match(es)
+  [DEBUG] _injectSpansAcrossTags - processing match: { idx: 0, start: ..., end: ..., text: "n-&gt;poll" }
+
+  新しい_injectSpansAcrossTags関数は、HTMLタグを除いたプレーンテキストビューを構築し、そこで正規表現マッチを行い、マッチ位置を元のHTML構造にマッピン
+  グし直してspanを挿入します。これにより、highlight.jsがn->pollを複数のspanに分割していても、正しくマッチできるようになります。
+
+  Bubbleの尻尾が6729行目に接続されることを確認してください。
+
+✻ Crunched for 3m 15s
+
+❯ 6729行目に接続されました、ありがとうございます。期待する動きになりました。
+  [DEBUG] injectTailAnchor - using: _injectSpansAcrossTags
+  [DEBUG] _injectSpansAcrossTags - plainText: static int __napi_poll(struct napi_struct *n, bool *repoll)
+  {
+      int work, weight;
+
+      weight = n-&gt;weight;
+
+      /* This NAPI_STATE_SCHED test is for avoiding a race
+       * with netpoll&#x27;s poll_napi().  O
+  [DEBUG] _injectSpansAcrossTags - matches: (2) [{…}, {…}]
+  [DEBUG] _injectSpansAcrossTags - wrapping 1 match(es)
+  [DEBUG] _injectSpansAcrossTags - processing match: {start: 456, end: 466, text: 'n-&gt;poll', idx: 0}
+  [DEBUG] _injectSpansAcrossTags - match spans parts: {startMap: {…}, endMap: {…}}
+
+⏺ 素晴らしい！問題が解決しました。6729行目に正しく接続されるようになりましたね。
+
+  それでは、デバッグログを削除してコードをクリーンアップします。
+
+⏺ Update(canvas-utils.js)
+  ⎿  Removed 12 lines
+      160        const cre = new RegExp(re.source, re.flags);
+      161        let m;
+      162        while ((m = cre.exec(p)) !== null) {
+      163 -        console.log('[DEBUG] _injectSpansAcrossTags - SKIPPED match (insideAnchor):', { text: m[0], globalMatchIdx, targetIdx });
+      163          globalMatchIdx++;
+      164        }
+      165        continue;
+     ...
+      171      }
+      172    }
+      173
+      175 -  console.log('[DEBUG] _injectSpansAcrossTags - plainText:', plainText.slice(0, 200));
+      176 -
+      174    // Find all matches in plainText
+      175    const matches = [];
+      176    const cre = new RegExp(re.source, re.flags);
+     ...
+      179      matches.push({ start: m.index, end: m.index + m[0].length, text: m[0], idx: globalMatchIdx++ });
+      180    }
+      181
+      185 -  console.log('[DEBUG] _injectSpansAcrossTags - matches:', matches);
+      186 -
+      182    if (matches.length === 0) {
+      183      // No matches: return unchanged
+      184      return html;
+     ...
+      188    const matchesToWrap = targetIdx < 0 ? matches : matches.filter(m => m.idx === targetIdx);
+      189
+      190    if (matchesToWrap.length === 0) {
+      196 -    console.log('[DEBUG] _injectSpansAcrossTags - target match not found');
+      191      return html;
+      192    }
+      193
+      200 -  console.log('[DEBUG] _injectSpansAcrossTags - wrapping', matchesToWrap.length, 'match(es)');
+      201 -
+      194    // Process matches in reverse order to avoid offset adjustments
+      195    for (let i = matchesToWrap.length - 1; i >= 0; i--) {
+      196      const match = matchesToWrap[i];
+      205 -    console.log('[DEBUG] _injectSpansAcrossTags - processing match:', match);
+      197
+      198      // Map match positions back to HTML parts
+      199      const startMap = partMap[match.start];
+      200      const endMap = partMap[match.end - 1];
+      201
+      202      if (!startMap || !endMap) {
+      212 -      console.log('[DEBUG] _injectSpansAcrossTags - mapping failed for match:', match);
+      203        continue;
+      204      }
+      205
+      216 -    console.log('[DEBUG] _injectSpansAcrossTags - match spans parts:', { startMap, endMap });
+      217 -
+      206      // Build the span wrapper
+      207      const fullSpan = buildSpan(match.idx);
+      208      // Extract opening tag
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 5 lines, removed 21 lines
+      236    // occurrence indices even for text inside already-anchored spans.
+      237    function countSegment(str) {
+      238      const cre = new RegExp(re.source, re.flags);
+      239 -    let m;
+      240 -    while ((m = cre.exec(str)) !== null) {
+      241 -      console.log('[DEBUG] _injectSpans - SKIPPED match (insideAnchor):', { text: m[0], globalMatchIdx, targetIdx });
+      242 -      globalMatchIdx++;
+      243 -    }
+      239 +    while (cre.exec(str) !== null) globalMatchIdx++;
+      240    }
+      241
+      242    function replaceSegment(str) {
+     ...
+      244      let out = '', last = 0, m;
+      245      while ((m = cre.exec(str)) !== null) {
+      246        out += str.slice(last, m.index);
+      251 -      const willReplace = targetIdx < 0 || globalMatchIdx === targetIdx;
+      252 -      console.log('[DEBUG] _injectSpans - match:', { text: m[0], globalMatchIdx, targetIdx, willReplace });
+      253 -      if (willReplace) {
+      247 +      if (targetIdx < 0 || globalMatchIdx === targetIdx) {
+      248          out += buildSpan(globalMatchIdx);
+      249        } else {
+      250          out += m[0]; // emit original text unchanged
+     ...
+      255      return out + str.slice(last);
+      256    }
+      257
+      264 -  const result = parts.map((p, i) => {
+      258 +  return parts.map((p, i) => {
+      259      if (i % 2 === 1) { // tag segment
+      266 -      const wasInside = insideAnchor;
+      260        if (insidePattern.test(p)) insideAnchor = true;
+      261        else if (p === '</span>' && insideAnchor) insideAnchor = false;
+      269 -      if (wasInside !== insideAnchor) {
+      270 -        console.log('[DEBUG] _injectSpans - anchor state changed:', { tag: p, wasInside, nowInside: insideAnchor });
+      271 -      }
+      262        return p;
+      263      }
+      274 -    if (insideAnchor) {
+      275 -      console.log('[DEBUG] _injectSpans - segment INSIDE anchor, will countOnly:', { segment: p.slice(0, 50) });
+      276 -      countSegment(p);
+      277 -      return p;
+      278 -    }
+      264 +    if (insideAnchor) { countSegment(p); return p; }
+      265      return replaceSegment(p);
+      280 -  });
+      281 -  console.log('[DEBUG] _injectSpans - final globalMatchIdx:', globalMatchIdx);
+      282 -  return result.join('');
+      266 +  }).join('');
+      267  }
+      268
+      269  // Converts a 0-based occurrence index of rawText in code to {line, col}.
+
+⏺ Update(canvas-utils.js)
+  ⎿  Added 3 lines, removed 20 lines
+      303    const prefix = /\w/.test(rawText[0])                   ? '\\b' : '';
+      304    const suffix = /\w/.test(rawText[rawText.length - 1])  ? '\\b' : '';
+      305    const re = new RegExp(prefix + pat + suffix, 'g');
+      306 -
+      307 -  // First, collect ALL matches to see the full picture
+      308 -  const allMatchesComplete = [];
+      309 -  let m;
+      306 +  let idx = 0, m;
+      307    while ((m = re.exec(code)) !== null) {
+      308      const { line, col } = charToLineCol(code, m.index);
+      312 -    const lineStart = code.lastIndexOf('\n', m.index) + 1;
+      313 -    const lineEnd = code.indexOf('\n', m.index);
+      314 -    const codeLine = code.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      315 -    allMatchesComplete.push({ idx: allMatchesComplete.length, line, col, charIndex: m.index, codeLine });
+      309 +    if (line === targetLine && col === targetCol) return idx;
+      310 +    idx++;
+      311    }
+      317 -
+      318 -  console.log('[DEBUG] _lineColToMatchIdx - ALL matches in code:', { rawText, totalMatches: allMatchesComplete.length, allMatchesC
+          -omplete });
+      319 -
+      320 -  // Now find the target match
+      321 -  for (const match of allMatchesComplete) {
+      322 -    if (match.line === targetLine && match.col === targetCol) {
+      323 -      console.log('[DEBUG] _lineColToMatchIdx - FOUND target match:', { rawText, targetLine, targetCol, returnIdx: match.idx });
+      324 -      return match.idx;
+      325 -    }
+      326 -  }
+      327 -
+      328 -  console.log('[DEBUG] _lineColToMatchIdx - NOT FOUND:', { rawText, targetLine, targetCol, allMatchesComplete });
+      312    return -1;
+      313  }
+      314
+
+⏺ Update(canvas-utils.js)
+  ⎿  Removed 20 lines
+      343  // When code=null or tailLine=-1, all occurrences are wrapped (backward compat).
+      344  // Uses class="tail-anchor" / data-taid.
+      345  export function injectTailAnchor(html, rawText, taid, code = null, tailLine = -1, tailCol = -1) {
+      346 -  console.log('[DEBUG] injectTailAnchor called:', { rawText, taid, tailLine, tailCol, hasCode: code != null });
+      346    const tailMatchIdx = (code != null && tailLine >= 0)
+      347      ? _lineColToMatchIdx(code, rawText, tailLine, tailCol)
+      348      : -1;
+      350 -  console.log('[DEBUG] injectTailAnchor - tailMatchIdx:', tailMatchIdx);
+      351 -
+      352 -  // Debug: Find all occurrences of the escaped text in HTML
+      349    const escapedText = esc(rawText);
+      354 -  const htmlLines = html.split('\n');
+      355 -  console.log('[DEBUG] injectTailAnchor - searching for escaped text:', escapedText);
+      356 -  console.log('[DEBUG] injectTailAnchor - HTML lines containing escaped text:');
+      357 -  htmlLines.forEach((line, idx) => {
+      358 -    if (line.includes(escapedText)) {
+      359 -      console.log(`  Line ${idx + 1}: ${line.slice(0, 200)}`);
+      360 -    }
+      361 -  });
+      362 -
+      363 -  // Also show the target line (tailLine) to see if it's fragmented
+      364 -  if (tailLine > 0 && tailLine <= htmlLines.length) {
+      365 -    console.log(`[DEBUG] injectTailAnchor - Target line ${tailLine}:`, htmlLines[tailLine - 1].slice(0, 300));
+      366 -  }
+      367 -
+      350    const pat = escapedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      351    const prefix = /\w/.test(rawText[0])                  ? '\\b' : '';
+      352    const suffix = /\w/.test(rawText[rawText.length - 1]) ? '\\b' : '';
+      353    const re = new RegExp(prefix + pat + suffix, 'g');
+      372 -  console.log('[DEBUG] injectTailAnchor - regex pattern:', re.source);
+      354
+      355    // Use cross-tag injection when targetIdx is specified (handles highlight.js splitting text)
+      356    const injectFn = tailMatchIdx >= 0 ? _injectSpansAcrossTags : _injectSpans;
+      376 -  console.log('[DEBUG] injectTailAnchor - using:', tailMatchIdx >= 0 ? '_injectSpansAcrossTags' : '_injectSpans');
+      357
+      358    return injectFn(html, re,
+      359      /^<span[^>]+class="[^"]*\btail-anchor\b/,
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 1 line, removed 5 lines
+      412          total += 1;
+      413        }
+      414        lastCodeLine = codeLine;
+      415 -      if (node === startNode) {
+      416 -        const result = total + startOffset;
+      417 -        console.log('[DEBUG] getCodeTextOffset result:', result);
+      418 -        return result;
+      419 -      }
+      415 +      if (node === startNode) return total + startOffset;
+      416        total += node.textContent.length;
+      417      }
+      418      return -1;
+
+⏺ Update(canvas-links.js)
+  ⎿  Added 2 lines, removed 13 lines
+      435        matches.push({ index: m.index, endIndex: m.index + text.length });
+      436      }
+      437
+      438 -    console.log('[DEBUG] getAnchorLineCol - text:', text, 'charOffset:', charOffset);
+      439 -    console.log('[DEBUG] getAnchorLineCol - all matches:', matches.map(m => ({
+      440 -      index: m.index,
+      441 -      endIndex: m.endIndex,
+      442 -      lineCol: charToLineCol(code, m.index)
+      443 -    })));
+      444 -
+      438      if (matches.length === 0) return { line: -1, col: -1 };
+      439
+      440      // Find the match that contains charOffset (within or at boundaries)
+      441      for (const match of matches) {
+      442        if (charOffset >= match.index && charOffset <= match.endIndex) {
+      450 -        const result = charToLineCol(code, match.index);
+      451 -        console.log('[DEBUG] getAnchorLineCol - matched by contains:', result);
+      452 -        return result;
+      443 +        return charToLineCol(code, match.index);
+      444        }
+      445      }
+      446
+     ...
+      458        }
+      459      }
+      460
+      470 -    const result = charToLineCol(code, closest.index);
+      471 -    console.log('[DEBUG] getAnchorLineCol - matched by closest:', result);
+      472 -    return result;
+      461 +    return charToLineCol(code, closest.index);
+      462    }
+      463
+      464    // Text selection → link tip popup
+      526
+      527      linkTipAttachTail.style.display = '';
+      528      linkTipAttachTail.onclick = () => {
+      529 -      console.log('[DEBUG] Attach tail clicked:', { fromId, text, anchorLine, anchorCol });
+      529        sel.removeAllRanges();
+      530        linkTip.style.display = 'none';
+      531        enterTailAttachMode(fromId, text, anchorLine, anchorCol);
+
+⏺ デバッグログの削除が完了しました。ブラウザをリロード（F5）して、以下を確認してください：
+
+  1. コンソールにデバッグログが出力されないこと
+  2. 6729行目の"n->poll"を選択して"📌 Attach tail"をクリックし、Bubbleをクリックすると、尻尾が6729行目に正しく接続されること
+
+  修正内容のまとめ
+
+  問題の原因:
+  - highlight.jsがシンタックスハイライトのために、15行目のn->poll(n, weight)を複数の<span>タグに分割（例:
+  <span>n</span><span>-></span><span>poll</span>）していた
+  - 従来の_injectSpans関数は、連続したテキストノード内でのみマッチを探していたため、タグを跨いだ"n->poll"を検出できなかった
+  - 21行目のn->pollは文字列リテラル内なので分割されず、そちらがマッチしていた
+
+  解決策:
+  - 新しい_injectSpansAcrossTags関数を実装
+    - HTMLタグを除いたプレーンテキストビューを構築
+    - プレーンテキスト内で正規表現マッチを実行
+    - マッチ位置を元のHTML構造にマッピングし直してspanを挿入
+  - injectTailAnchorとinjectAnchorで、特定位置を指定する場合（targetIdx >= 0）に新関数を使用
+
+  これにより、highlight.jsがテキストを分割している場合でも、正しい位置にBubbleの尻尾やリンクのアンカーを接続できるようになりました。
+
+✻ Crunched for 2m 4s
+
+❯ 今回の修正内容について、テストコードを追加しておいてください
+
+⏺ テストコードを追加します。まず既存のテストファイル構造を確認します。
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+⏺ 既存のテストファイルに、今回の修正に関するテストを追加します。
+
+⏺ Update(tests/canvas-utils.test.js)
+  ⎿  Added 85 lines
+      584      // The wrapped occurrence should be the one at the start of line 2
+      585      expect(result).toContain('\n<span class="tail-anchor" data-taid="2">foo</span> bar foo');
+      586    });
+      587 +
+      588 +  it('wraps text split across multiple HTML tags (highlight.js fragmentation)', () => {
+      589 +    // Simulates highlight.js splitting "n->poll" into multiple spans
+      590 +    const code = 'work = n->poll(n, weight);';
+      591 +    // highlight.js might produce: <var>n</var><op>-&gt;</op><fn>poll</fn>
+      592 +    const html = 'work = <span class="hljs-variable">n</span><span class="hljs-operator">-&gt;</span><span class="hljs-function">p
+          +oll</span>(n, weight);';
+      593 +    const result = injectTailAnchor(html, 'n->poll', 5, code, 1, 7);
+      594 +    // Should wrap the fragmented "n->poll" with a single tail-anchor span
+      595 +    expect(result).toContain('class="tail-anchor"');
+      596 +    expect(result).toContain('data-taid="5"');
+      597 +    // The anchor should wrap across the tags
+      598 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      599 +    expect(count).toBe(1);
+      600 +  });
+      601 +
+      602 +  it('handles text split into three parts across tags', () => {
+      603 +    // More complex fragmentation: "foo->bar->baz" split into 5 spans
+      604 +    const code = 'foo->bar->baz test';
+      605 +    const html = '<span class="a">foo</span><span class="b">-&gt;</span><span class="c">bar</span><span class="d">-&gt;</span><spa
+          +n class="e">baz</span> test';
+      606 +    const result = injectTailAnchor(html, 'foo->bar->baz', 1, code, 1, 0);
+      607 +    expect(result).toContain('class="tail-anchor"');
+      608 +    expect(result).toContain('data-taid="1"');
+      609 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      610 +    expect(count).toBe(1);
+      611 +  });
+      612 +
+      613 +  it('targets second occurrence when first is fragmented and second is not', () => {
+      614 +    // 'n->poll' appears twice: first is fragmented, second is in a string literal
+      615 +    const code = 'work = n->poll(n);\nprintf("n->poll");';
+      616 +    const html = 'work = <span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span>(n);\nprintf(&quot;n-&gt;p
+          +oll&quot;);';
+      617 +    // Target the second occurrence (line 2, col 8)
+      618 +    const result = injectTailAnchor(html, 'n->poll', 7, code, 2, 8);
+      619 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      620 +    expect(count).toBe(1);
+      621 +    // Should wrap the second occurrence (in the string literal)
+      622 +    expect(result).toContain('&quot;<span class="tail-anchor" data-taid="7">n-&gt;poll</span>&quot;');
+      623 +  });
+      624 +
+      625 +  it('correctly counts occurrences when some are inside existing anchors', () => {
+      626 +    // occurrence 0: already wrapped (inside link-anchor) — counted but not wrapped again
+      627 +    // occurrence 1: fragmented across tags — should be wrapped
+      628 +    const code = 'test foo test\ntest foo test';
+      629 +    const html = 'test <span class="link-anchor" data-lid="1">foo</span> test\ntest <span class="a">f</span><span class="b">oo</sp
+          +an> test';
+      630 +    const result = injectTailAnchor(html, 'foo', 10, code, 2, 5);
+      631 +    // Only the second occurrence should be wrapped (the fragmented one)
+      632 +    const count = (result.match(/class="tail-anchor"/g) || []).length;
+      633 +    expect(count).toBe(1);
+      634 +    // The link-anchor should remain unchanged
+      635 +    expect(result).toContain('class="link-anchor"');
+      636 +  });
+      637  });
+      638
+      639 +// ─── injectAnchor (cross-tag tests) ──────────────────────
+      640 +describe('injectAnchor - cross-tag matching', () => {
+      641 +  it('wraps all occurrences including fragmented ones', () => {
+      642 +    // Two occurrences: first is fragmented, second is plain
+      643 +    const code = 'n->poll and n->poll';
+      644 +    const html = '<span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span> and n-&gt;poll';
+      645 +    const result = injectAnchor(html, 'n->poll', 'L1');
+      646 +    const count = (result.match(/class="link-anchor"/g) || []).length;
+      647 +    expect(count).toBe(2);
+      648 +  });
+      649 +
+      650 +  it('marks the fragmented occurrence as primary when specified', () => {
+      651 +    // First occurrence is fragmented and should be marked primary
+      652 +    const code = 'n->poll and n->poll';
+      653 +    const html = '<span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span> and n-&gt;poll';
+      654 +    const result = injectAnchor(html, 'n->poll', 'L2', code, 1, 0);
+      655 +    // Both should be wrapped
+      656 +    const count = (result.match(/class="link-anchor"/g) || []).length;
+      657 +    expect(count).toBe(2);
+      658 +    // The first (fragmented) occurrence should be marked primary
+      659 +    const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+      660 +    expect(primaryCount).toBe(1);
+      661 +  });
+      662 +
+      663 +  it('handles operator fragmented as separate entity reference', () => {
+      664 +    // C++ operator-> might be: <var>obj</var><operator>-&gt;</operator><member>method</member>
+      665 +    const code = 'obj->method();';
+      666 +    const html = '<span class="hljs-variable">obj</span><span class="hljs-operator">-&gt;</span><span class="hljs-title">method</s
+          +pan>();';
+      667 +    const result = injectAnchor(html, 'obj->method', 'L3');
+      668 +    expect(result).toContain('class="link-anchor"');
+      669 +    const count = (result.match(/class="link-anchor"/g) || []).length;
+      670 +    expect(count).toBe(1);
+      671 +  });
+      672 +});
+      673 +
+      674  // ─── LINK_COLORS ─────────────────────────────────────────
+      675  describe('LINK_COLORS', () => {
+      676    it('is a non-empty array', () => {
+
+⏺ テストを実行して、追加したテストが正しく動作するか確認します。
+
+⏺ Bash(npm test -- canvas-utils.test.js 2>&1 | tail -100)
+  ⎿  > test
+     > vitest run canvas-utils.test.js
+     … +9 lines (ctrl+o to expand)
+
+⏺ 素晴らしい！全てのテストがパスしました。追加したテストケースを含む158個のテストが成功しています。
+
+  念のため、追加したテストが実際に実行されているか確認します。
+
+⏺ Bash(npm test -- canvas-utils.test.js --reporter=verbose 2>&1 | grep -A 2 "cross-tag\|fragmented\|split across")
+  ⎿   ✓ tests/canvas-utils.test.js > injectTailAnchor > wraps text split across multiple HTML tags (highlight.js fragmentation)
+      ✓ tests/canvas-utils.test.js > injectTailAnchor > handles text split into three parts across tags
+      ✓ tests/canvas-utils.test.js > injectTailAnchor > targets second occurrence when first is fragmented and second is not
+     … +6 lines (ctrl+o to expand)
+
+⏺ 完璧です！追加したテストが全てパスしています。以下の7つの新しいテストケースが追加されました：
+
+  追加したテストケース
+
+  injectTailAnchorのテスト（4件）
+
+  1. wraps text split across multiple HTML tags (highlight.js fragmentation)
+    - highlight.jsがn->pollを<span>n</span><span>-></span><span>poll</span>のように分割した場合でも、正しく1つのtail-anchorでラップできること
+  2. handles text split into three parts across tags
+    - より複雑な分割（foo->bar->bazが5つのspanに分割）でも正しく処理できること
+  3. targets second occurrence when first is fragmented and second is not
+    - 最初の出現箇所が分割され、2番目が分割されていない場合に、正しく2番目をターゲットできること
+  4. correctly counts occurrences when some are inside existing anchors
+    - 既にlink-anchorで囲まれた出現箇所を正しくスキップし、カウントは継続されること
+
+  injectAnchorのテスト（3件）
+
+  5. wraps all occurrences including fragmented ones
+    - 分割された出現箇所も含め、全ての出現箇所をラップできること
+  6. marks the fragmented occurrence as primary when specified
+    - 分割された出現箇所が指定された位置にある場合、data-lid-primaryでマークされること
+  7. handles operator fragmented as separate entity reference
+    - C++の->演算子のように、演算子が別のエンティティ参照として分割された場合でも処理できること
+
+  これらのテストは、今回実装した_injectSpansAcrossTags関数の機能を網羅的にカバーしており、highlight.jsによるシンタックスハイライトでテキストが複数の
+  spanに分割される実際のケースに対応しています。
+
+✻ Sautéed for 1m 24s
+```

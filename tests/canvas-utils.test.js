@@ -584,6 +584,91 @@ describe('injectTailAnchor', () => {
     // The wrapped occurrence should be the one at the start of line 2
     expect(result).toContain('\n<span class="tail-anchor" data-taid="2">foo</span> bar foo');
   });
+
+  it('wraps text split across multiple HTML tags (highlight.js fragmentation)', () => {
+    // Simulates highlight.js splitting "n->poll" into multiple spans
+    const code = 'work = n->poll(n, weight);';
+    // highlight.js might produce: <var>n</var><op>-&gt;</op><fn>poll</fn>
+    const html = 'work = <span class="hljs-variable">n</span><span class="hljs-operator">-&gt;</span><span class="hljs-function">poll</span>(n, weight);';
+    const result = injectTailAnchor(html, 'n->poll', 5, code, 1, 7);
+    // Should wrap the fragmented "n->poll" with a single tail-anchor span
+    expect(result).toContain('class="tail-anchor"');
+    expect(result).toContain('data-taid="5"');
+    // The anchor should wrap across the tags
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('handles text split into three parts across tags', () => {
+    // More complex fragmentation: "foo->bar->baz" split into 5 spans
+    const code = 'foo->bar->baz test';
+    const html = '<span class="a">foo</span><span class="b">-&gt;</span><span class="c">bar</span><span class="d">-&gt;</span><span class="e">baz</span> test';
+    const result = injectTailAnchor(html, 'foo->bar->baz', 1, code, 1, 0);
+    expect(result).toContain('class="tail-anchor"');
+    expect(result).toContain('data-taid="1"');
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('targets second occurrence when first is fragmented and second is not', () => {
+    // 'n->poll' appears twice: first is fragmented, second is in a string literal
+    const code = 'work = n->poll(n);\nprintf("n->poll");';
+    const html = 'work = <span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span>(n);\nprintf(&quot;n-&gt;poll&quot;);';
+    // Target the second occurrence (line 2, col 8)
+    const result = injectTailAnchor(html, 'n->poll', 7, code, 2, 8);
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+    // Should wrap the second occurrence (in the string literal)
+    expect(result).toContain('&quot;<span class="tail-anchor" data-taid="7">n-&gt;poll</span>&quot;');
+  });
+
+  it('correctly counts occurrences when some are inside existing anchors', () => {
+    // occurrence 0: already wrapped (inside link-anchor) — counted but not wrapped again
+    // occurrence 1: fragmented across tags — should be wrapped
+    const code = 'test foo test\ntest foo test';
+    const html = 'test <span class="link-anchor" data-lid="1">foo</span> test\ntest <span class="a">f</span><span class="b">oo</span> test';
+    const result = injectTailAnchor(html, 'foo', 10, code, 2, 5);
+    // Only the second occurrence should be wrapped (the fragmented one)
+    const count = (result.match(/class="tail-anchor"/g) || []).length;
+    expect(count).toBe(1);
+    // The link-anchor should remain unchanged
+    expect(result).toContain('class="link-anchor"');
+  });
+});
+
+// ─── injectAnchor (cross-tag tests) ──────────────────────
+describe('injectAnchor - cross-tag matching', () => {
+  it('wraps all occurrences including fragmented ones', () => {
+    // Two occurrences: first is fragmented, second is plain
+    const code = 'n->poll and n->poll';
+    const html = '<span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span> and n-&gt;poll';
+    const result = injectAnchor(html, 'n->poll', 'L1');
+    const count = (result.match(/class="link-anchor"/g) || []).length;
+    expect(count).toBe(2);
+  });
+
+  it('marks the fragmented occurrence as primary when specified', () => {
+    // First occurrence is fragmented and should be marked primary
+    const code = 'n->poll and n->poll';
+    const html = '<span class="v">n</span><span class="o">-&gt;</span><span class="f">poll</span> and n-&gt;poll';
+    const result = injectAnchor(html, 'n->poll', 'L2', code, 1, 0);
+    // Both should be wrapped
+    const count = (result.match(/class="link-anchor"/g) || []).length;
+    expect(count).toBe(2);
+    // The first (fragmented) occurrence should be marked primary
+    const primaryCount = (result.match(/data-lid-primary="1"/g) || []).length;
+    expect(primaryCount).toBe(1);
+  });
+
+  it('handles operator fragmented as separate entity reference', () => {
+    // C++ operator-> might be: <var>obj</var><operator>-&gt;</operator><member>method</member>
+    const code = 'obj->method();';
+    const html = '<span class="hljs-variable">obj</span><span class="hljs-operator">-&gt;</span><span class="hljs-title">method</span>();';
+    const result = injectAnchor(html, 'obj->method', 'L3');
+    expect(result).toContain('class="link-anchor"');
+    const count = (result.match(/class="link-anchor"/g) || []).length;
+    expect(count).toBe(1);
+  });
 });
 
 // ─── LINK_COLORS ─────────────────────────────────────────

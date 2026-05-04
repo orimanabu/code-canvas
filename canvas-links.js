@@ -419,22 +419,46 @@ export function initLinks(deps) {
   }
 
   // Returns {line, col} (1-based line, 0-based col) of the occurrence of text
-  // in code that contains charOffset, using the same word-boundary rules as
-  // injectAnchor. Tolerates charOffset landing just before the match (e.g.
-  // when leading whitespace was trimmed from the selection). Returns
-  // {line: -1, col: -1} if no match found.
+  // in code that contains or is nearest to charOffset, using the same word-boundary
+  // rules as injectAnchor. Returns the match that contains charOffset, or if none,
+  // the closest match. Returns {line: -1, col: -1} if no match found.
   function getAnchorLineCol(code, text, charOffset) {
     const pat = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const prefix = /\w/.test(text[0])               ? '\\b' : '';
     const suffix = /\w/.test(text[text.length - 1]) ? '\\b' : '';
     const re = new RegExp(prefix + pat + suffix, 'g');
-    let m, lastMatchIdx = -1;
+
+    // Collect all matches with their positions
+    const matches = [];
+    let m;
     while ((m = re.exec(code)) !== null) {
-      if (charOffset < m.index + text.length) return charToLineCol(code, m.index);
-      lastMatchIdx = m.index;
+      matches.push({ index: m.index, endIndex: m.index + text.length });
     }
-    if (lastMatchIdx >= 0) return charToLineCol(code, lastMatchIdx);
-    return { line: -1, col: -1 };
+
+    if (matches.length === 0) return { line: -1, col: -1 };
+
+    // Find the match that contains charOffset (within or at boundaries)
+    for (const match of matches) {
+      if (charOffset >= match.index && charOffset <= match.endIndex) {
+        return charToLineCol(code, match.index);
+      }
+    }
+
+    // If no match contains charOffset, find the closest one
+    let closest = matches[0];
+    let minDist = Math.abs(charOffset - matches[0].index);
+    for (const match of matches) {
+      const dist = Math.min(
+        Math.abs(charOffset - match.index),
+        Math.abs(charOffset - match.endIndex)
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        closest = match;
+      }
+    }
+
+    return charToLineCol(code, closest.index);
   }
 
   // Text selection → link tip popup
